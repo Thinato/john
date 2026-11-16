@@ -1,0 +1,148 @@
+// John: tin whistle tab toolkit. Shared core used by the MCP server and the GUI.
+#pragma once
+#include <filesystem>
+#include <optional>
+#include <string>
+#include <vector>
+#include <nlohmann/json.hpp>
+
+namespace john {
+
+using json = nlohmann::json;
+namespace fs = std::filesystem;
+
+constexpr int WHOLE = 192;  // ticks per whole note (divisible by triplet 32nds)
+
+enum class Kind { Note, Rest, Bar };
+
+struct Event {
+  Kind kind = Kind::Note;
+  int midi = 0;          // Note only; written pitch (whistle music is written an octave low, D whistle low D = D4 = 62)
+  int len = 0;           // Note/Rest: sounding length in ticks
+  bool tie = false;      // Note: tied to the next note
+  int tuplet = 0;        // Note/Rest inside a tuplet: p of (p:q
+  int tupletQ = 0;       // q of (p:q
+  bool tupletStart = false;
+  std::vector<std::string> techniques;  // technique ids from the catalog
+  std::string comment;   // why the techniques were chosen (shown in the GUI)
+  std::string bar;       // Bar only: "|", "||", "|]", "|:", ":|", "::"
+  std::string ending;    // Bar only: volta number that starts after this bar ("1", "2")
+};
+
+struct Key {
+  int fifths = 2;          // -7..7, number of sharps (positive) or flats (negative)
+  std::string mode = "maj";  // maj min dor mix lyd phr loc
+};
+
+struct Song {
+  std::string id;
+  std::string title;
+  std::string source;      // where it came from (thesession URL, photo, ...)
+  std::string notes;       // free text from the agent: overall advice for the tune
+  std::string meter = "4/4";
+  Key key;
+  int tempo = 0;           // quarter notes per minute, 0 = unknown
+  std::string whistle = "D";
+  std::vector<Event> events;
+};
+
+struct Technique {
+  std::string id;          // "roll"
+  std::string name;        // "Long roll"
+  std::string symbol;      // text drawn above the note, e.g. "~"
+  std::string description;
+};
+
+struct Fingering {
+  std::string holes;  // 6 chars top to bottom: X covered, O open, H half-covered
+  int octave = 0;     // 0 low, 1 second (blow harder), 2 third
+  bool ok = false;    // false when the note is outside the whistle's range
+};
+
+struct Spelled {
+  int letter = 0;      // 0=C .. 6=B
+  int alter = 0;       // -1 flat, 0 natural, +1 sharp
+  int octave = 4;      // scientific octave
+  int step() const { return octave * 7 + letter; }  // diatonic position, E4 = 30 is the bottom staff line
+};
+
+// ---- theory ----
+int meterTicks(const std::string& meter);          // ticks per bar
+bool compoundMeter(const std::string& meter);      // 6/8, 9/8, 12/8
+int keyAlter(const Key& k, int letter);            // key signature alteration for a letter
+Spelled spell(const Key& k, int midi);
+std::string noteName(const Spelled& s);            // "F#4"
+std::string keyName(const Key& k);                 // "D major", "E dorian"
+std::optional<Key> parseKey(const std::string& s); // "D", "Ador", "Bm", "G mixolydian"
+int whistleBase(const std::string& whistle);       // MIDI of the lowest written note, D -> 62; -1 if not a whistle key
+Fingering finger(const std::string& whistle, int midi);
+std::string fingeringText(const Fingering& f);     // "XXX XXO +"
+std::string durationName(const Event& e);          // "dotted quarter", "eighth (triplet)"
+void transpose(Song& s, int semitones);
+
+// Displayed accidental for each note (0 = none, else -1/0/+1 via `shown`), recomputed per bar.
+struct Accidental { bool shown = false; int alter = 0; };
+std::vector<Accidental> accidentals(const Song& s);
+
+// Bar number and tick-in-bar for every event, by elapsed time. A short first bar is a pickup (bar 0), two short
+// bars around a repeat sign count as one, and 2nd/3rd endings restart at the time the 1st ending started.
+struct Pos { int bar = 0, tick = 0; };
+std::vector<Pos> positions(const Song& s);
+
+// ---- sound: performance, synth, pitch detection ----
+std::vector<int> playOrder(const Song& s);   // note/rest event indices in performance order, repeats and endings unrolled
+
+struct Voice {                 // one note as played by the backing whistle
+  int ev = -1;                 // event index
+  int ord = -1;                // index into playOrder()
+  int midi = 0;                // written pitch (sounds an octave higher)
+  double start = 0, dur = 0;   // seconds
+  double gap = 0;              // silence at the end of the note (breath, staccato, next note tongued/repeated)
+  bool tongued = false, vibrato = false;
+  std::vector<std::pair<double, int>> graces;  // (seconds after start, semitones from the note) for cuts/taps/rolls
+};
+struct Performance {
+  std::vector<Voice> voices;                    // notes only (rests are gaps)
+  std::vector<std::pair<double, bool>> clicks;  // metronome: time, bar accent
+  double length = 0;                            // seconds
+  double countIn = 0;                           // seconds of clicks before the first note
+};
+// fromOrder: index into playOrder() to start at. bpm = quarter notes per minute.
+Performance perform(const Song& s, double bpm, int fromOrder = 0, bool countIn = true);
+double soundingFreq(int writtenMidi);         // whistles sound an octave above written pitch
+double writtenMidiFromFreq(double hz);        // fractional written MIDI
+
+struct Synth {                // simple tin whistle voice + metronome; render() is called from the audio thread
+  int sampleRate = 48000;
+  bool melody = true, metronome = true;
+  float volume = 0.6f;
+  void render(const Performance& p, long long& pos, float* out, int frames);
+ private:
+  double phase = 0, amp = 0, noise = 0;
+  size_t vi = 0, ci = 0;
+  unsigned rng = 12345;
+};
+
+float rms(const float* x, int n);
+// YIN pitch detector. Returns Hz, or 0 when no clear pitch in [fmin, fmax].
+float detectPitch(const float* x, int n, int sampleRate, float fmin = 400, float fmax = 3000);
+
+// ---- catalog & storage ----
+std::vector<Technique> defaultTechniques();
+fs::path dataDir();                         // $JOHN_HOME or ~/Documents/John
+std::vector<Technique> loadTechniques();    // defaults merged with dataDir()/techniques.json
+void saveCustomTechnique(const Technique& t);
+std::vector<std::string> listSongs();       // ids
+std::optional<Song> loadSong(const std::string& id);
+void saveSong(const Song& s);
+std::string slug(const std::string& title);
+json toJson(const Song& s);
+Song fromJson(const json& j);
+
+// ---- import / analysis ----
+struct ImportResult { Song song; std::vector<std::string> warnings; };
+ImportResult importAbc(const std::string& abc);
+std::string listing(const Song& s);          // compact text table of every event, for the agent
+std::string analyze(const Song& s);          // deterministic technique candidates + range report
+
+}  // namespace john
