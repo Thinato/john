@@ -79,6 +79,10 @@ Fingering finger(const std::string& whistle, int midi);
 std::string fingeringText(const Fingering& f);     // "XXX XXO +"
 std::string durationName(const Event& e);          // "dotted quarter", "eighth (triplet)"
 void transpose(Song& s, int semitones);
+// Remove bars first..last (numbers from positions(), as get_song shows them) and the bar lines that close them.
+// A closing repeat/end sign or volta mark moves onto the previous plain bar line. Returns notes/rests removed;
+// throws std::invalid_argument if the range matches nothing or would empty the song.
+int deleteBars(Song& s, int first, int last);
 
 // Displayed accidental for each note (0 = none, else -1/0/+1 via `shown`), recomputed per bar.
 struct Accidental { bool shown = false; int alter = 0; };

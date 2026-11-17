@@ -8,6 +8,7 @@
 #include <fstream>
 #include <map>
 #include <sstream>
+#include <stdexcept>
 #include <unistd.h>
 
 namespace john {
@@ -156,6 +157,39 @@ void transpose(Song& s, int semis) {
   int tonic = mod12(s.key.fifths * 7 + MODE_SEMIS[mi] + semis);
   int f = PC_FIFTHS[mod12(tonic - MODE_SEMIS[mi])];
   s.key.fifths = f;
+}
+
+int deleteBars(Song& s, int first, int last) {
+  if (first > last) throw std::invalid_argument("first bar is after last bar");
+  auto pos = positions(s);
+  std::vector<Event> out;
+  int removed = 0, kept = 0;
+  bool prevDeleted = false;  // was the last note/rest seen deleted? then the next bar line closed a deleted bar
+  for (size_t i = 0; i < s.events.size(); i++) {
+    const Event& e = s.events[i];
+    if (e.kind != Kind::Bar) {
+      bool del = pos[i].bar >= first && pos[i].bar <= last;
+      if (del && !prevDeleted)  // a tie can't lead into a deleted note
+        for (auto it = out.rbegin(); it != out.rend(); ++it)
+          if (it->kind != Kind::Bar) { it->tie = false; break; }
+      prevDeleted = del;
+      if (del) { removed++; continue; }
+      kept++;
+      out.push_back(e);
+      continue;
+    }
+    if (!prevDeleted) { out.push_back(e); continue; }
+    if (!out.empty() && out.back().kind == Kind::Bar) {  // keep repeat/end signs and volta marks
+      Event& b = out.back();
+      if (b.bar == "|") b.bar = e.bar;
+      if (b.ending.empty()) b.ending = e.ending;
+    }
+  }
+  if (!removed) throw std::invalid_argument("no bars numbered " + std::to_string(first) + ".." + std::to_string(last));
+  if (!kept) throw std::invalid_argument("that would delete every bar");
+  while (!out.empty() && out.front().kind == Kind::Bar && out.front().bar == "|" && out.front().ending.empty()) out.erase(out.begin());
+  s.events = std::move(out);
+  return removed;
 }
 
 std::vector<Accidental> accidentals(const Song& s) {

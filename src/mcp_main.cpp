@@ -21,7 +21,8 @@ Then:
 3. Decide techniques with musical judgment for the tune type: jigs/reels/hornpipes get rolls on long notes and cuts on repeated notes; slow airs get slides, vibrato and few cuts; don't ornament every candidate, and leave beginners room to breathe. Use set_techniques with a short comment on each ornamented note explaining why (the player is learning to read music).
 4. update_song notes = 2-4 sentences of overall advice (style, tempo, where to breathe).
 5. Tell the user the song id; it is visible in the John GUI.
-Missing a technique? define_technique adds it to the catalog (shown in the GUI legend).)";
+Missing a technique? define_technique adds it to the catalog (shown in the GUI legend).
+Only want part of a tune (e.g. just the chorus)? delete_bars removes bars by number; re-read get_song afterwards because event indexes shift.)";
 
 static json textResult(const std::string& t, bool err = false) {
   json r = {{"content", json::array({{{"type", "text"}, {"text", t}}})}};
@@ -69,6 +70,11 @@ static json toolList() {
            "Change song info: title, source, notes (overall advice shown in the GUI), tempo (quarter notes per minute), whistle key, or transpose by semitones.",
            {{"id", str}, {"title", str}, {"source", str}, {"notes", str}, {"tempo", {{"type", "integer"}}}, {"whistle", str}, {"transpose", {{"type", "integer"}}}},
            {"id"}),
+      tool("delete_bars",
+           "Delete bars first..last (inclusive, bar numbers as get_song shows them; a pickup is bar 0) with their notes, rests and techniques. "
+           "Repeat/end signs and volta marks closing the deleted bars move to the previous bar line. Event indexes change afterwards.",
+           {{"id", str}, {"first", {{"type", "integer"}}}, {"last", {{"type", "integer"}, {"description", "default: same as first"}}}},
+           {"id", "first"}),
       tool("list_techniques", "List the technique catalog: id, GUI symbol, name, how to play it on the whistle.", json::object()),
       tool("define_technique", "Add or replace a technique in the catalog (for techniques the user wants documented).",
            {{"id", {{"type", "string"}, {"description", "lowercase id like 'bounce'"}}}, {"name", str},
@@ -161,6 +167,13 @@ static std::string callTool(const std::string& name, const json& a) {
     }
     saveSong(s);
     return "Saved.\n" + listing(s);
+  }
+  if (name == "delete_bars") {
+    Song s = mustLoad(a);
+    int first = a.value("first", 0);
+    int n = deleteBars(s, first, a.value("last", first));
+    saveSong(s);
+    return "Deleted " + std::to_string(n) + " note(s)/rest(s).\n" + listing(s);
   }
   if (name == "list_techniques") {
     std::string r;

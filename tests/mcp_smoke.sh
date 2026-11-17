@@ -19,6 +19,7 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"update_song","arguments":{"id":"smoke-reel","transpose":-2000000000}}}' \
 '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"get_song","arguments":{"id":5}}}' \
 '{"jsonrpc":"2.0","id":13,"method":"ping"}' \
+'{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"delete_bars","arguments":{"id":"smoke-reel","first":2}}}' \
 | "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -32,5 +33,7 @@ check "unknown whistle key 'Dm'"
 check 'transpose must be within'
 check 'bad argument type'
 check '"id":13,"jsonrpc":"2.0","result":{}'
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 13 ] || { echo "expected 13 replies"; exit 1; }
+check 'Deleted 2 note'
+check '"name":"delete_bars"'
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 14 ] || { echo "expected 14 replies"; exit 1; }
 echo "mcp smoke passed"

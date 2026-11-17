@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <stdexcept>
 #include <unistd.h>
 
 using namespace john;
@@ -145,6 +146,27 @@ int main() {
   Song c = s;
   transpose(c, -2);
   assert(c.key.fifths == 0 && nth(c, 0).midi == 67);
+
+  // delete bars: pickup is bar 0, closing repeat moves back, ties into deleted notes are dropped
+  {
+    auto t = importAbc("X:1\nT:del\nM:4/4\nL:1/4\nK:D\nA | d e f g | a b c' d'- | d' c' b a :|\n").song;
+    Song u = t;
+    assert(deleteBars(u, 3, 3) == 4);
+    assert(u.events.back().kind == Kind::Bar && u.events.back().bar == ":|");
+    assert(!nth(u, 8).tie && nth(u, 8).midi == 86);
+    u = t;
+    assert(deleteBars(u, 0, 0) == 1 && u.events.front().kind == Kind::Note && u.events.front().midi == 74);
+    bool threw = false;
+    try { deleteBars(u, 9, 9); } catch (const std::invalid_argument&) { threw = true; }
+    assert(threw);
+    threw = false;
+    try { u = t; deleteBars(u, 0, 3); } catch (const std::invalid_argument&) { threw = true; }
+    assert(threw);
+    // the bar line opening a 1st ending keeps its volta mark when the bar before it goes
+    auto v = importAbc("X:1\nT:volta\nM:2/4\nL:1/4\nK:D\n|: d e | f g |1 a b :|2 c' d' |]\n").song;
+    assert(deleteBars(v, 2, 2) == 2);
+    assert(playOrder(v).size() == 8);  // d e a b d e c' d'
+  }
 
   // analysis hints
   std::string an = analyze(s);
