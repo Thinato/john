@@ -14,6 +14,10 @@ Status: steps 1-8 are done (`transcribe_audio` MCP tool, `src/transcribe.cpp`). 
   - The continuity filter dropped a real note at the start of a wide leap (a low D before a jump up a tenth). Don't drop notes at phrase starts, or ones that recur.
   - The detected tempo was wrong without a hint (125 instead of 70). Report the onset regularity so the agent can spot it.
   - Only octave shifts are tried for the range fit. Suggest a non-octave transposition when no octave fits (D minor needed +2 to E minor).
+- Learned from Concerning Hobbits (a whistle solo over an orchestra):
+  - The tracker kept jumping down to the orchestra's low notes (A3, F#3) under the whistle. Add an `instrument` option (e.g. "whistle") that limits the pitch search to that instrument's sounding range (D5-B6 for a D whistle), so accompaniment below it can't win.
+  - Rubato (the film stretches notes freely) defeats the fixed beat grid. Let the agent pass a section's tempo, or quantize phrase by phrase.
+  - Ornaments (cuts, turns, shakes) show up as tiny notes. Report them as candidate techniques instead of melody notes.
 
 Original plan:
 
