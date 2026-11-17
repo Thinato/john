@@ -149,4 +149,16 @@ ImportResult importAbc(const std::string& abc);
 std::string listing(const Song& s);          // compact text table of every event, for the agent
 std::string analyze(const Song& s);          // deterministic technique candidates + range report
 
+// ---- audio transcription (transcribe.cpp) ----
+std::vector<float> decodeAudio(const std::string& path, int sampleRate);  // mono; mp3/wav/flac; throws on failure
+struct TranscribeOptions {
+  double bpm = 0;             // quarter notes per minute; 0 = detect
+  std::string meter = "4/4";
+  std::string title = "Transcription";
+};
+struct Transcription { Song song; std::string report; };
+// Melody of a recording as a D whistle song (octave fitted to the whistle). Throws if no melody is found.
+Transcription transcribe(const std::vector<float>& audio, int sampleRate, const TranscribeOptions& o = {});
+std::string toAbc(const Song& s);            // ABC with L:1/16 (no tuplets), readable by importAbc
+
 }  // namespace john

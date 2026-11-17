@@ -168,6 +168,93 @@ int main() {
     assert(playOrder(v).size() == 8);  // d e a b d e c' d'
   }
 
+  // transcription: John's synth playing a tune over a louder piano-like accompaniment, then back to notes
+  {
+    auto tune = importAbc("X:1\nT:t\nM:4/4\nL:1/8\nK:G\nd2 B2 G2 B2|d2 g2 f2 e2|d2 B2 c2 A2|G4 z4|"
+                          "g2 f2 e2 d2|e2 c2 A2 c2|B2 d2 A2 F2|G8|]\n").song;
+    const int sr = 22050;
+    Performance perf = perform(tune, 100, 0, false);
+    std::vector<float> mix((size_t)((perf.length + 1) * sr), 0.f);
+    Synth syn;
+    syn.sampleRate = sr;
+    syn.metronome = false;
+    long long pos = 0;
+    syn.render(perf, pos, mix.data(), (int)mix.size());
+    float melodyRms = rms(mix.data(), (int)mix.size());
+    // accompaniment: a decaying chord + bass per bar (G G C G | C C D G), 6 harmonics each
+    const int chords[8][4] = {{43, 55, 59, 62}, {43, 55, 59, 62}, {48, 55, 60, 64}, {43, 55, 59, 62},
+                              {48, 55, 60, 64}, {48, 55, 60, 64}, {50, 57, 62, 66}, {43, 55, 59, 62}};
+    std::vector<float> acc(mix.size(), 0.f);
+    const double barSec = 2.4;  // 4 beats at 100 bpm
+    for (int b = 0; b < 8; b++)
+      for (int beat = 0; beat < 4; beat++)
+        for (int m : chords[b]) {
+          double f0 = 440 * std::pow(2, (m - 69) / 12.0), t0 = b * barSec + beat * 0.6;
+          for (size_t i = (size_t)(t0 * sr); i < (size_t)((t0 + 0.6) * sr) && i < acc.size(); i++) {
+            double t = (double)i / sr - t0, v = 0;
+            for (int h = 1; h <= 6; h++) v += std::sin(2 * M_PI * f0 * h * t) / h;
+            acc[i] += (float)(v * std::exp(-3 * t));
+          }
+        }
+    float accRms = rms(acc.data(), (int)acc.size());
+    for (size_t i = 0; i < mix.size(); i++) mix[i] += acc[i] * 0.5f * melodyRms / accRms;  // 6 dB under the melody, like a lead over a band
+    auto melodyOf = [](const Song& s) {
+      std::vector<int> out;  // played pitches; tied continuations merged
+      bool tied = false;
+      for (auto& e : s.events) {
+        if (e.kind == Kind::Bar) continue;
+        if (e.kind == Kind::Note && !tied) out.push_back(e.midi);
+        tied = e.kind == Kind::Note && e.tie;
+      }
+      return out;
+    };
+    auto want = melodyOf(tune);
+    for (double bpm : {100.0, 0.0}) {
+      TranscribeOptions o;
+      o.bpm = bpm;
+      Transcription tr = transcribe(mix, sr, o);
+      auto got = melodyOf(tr.song);
+      // longest common subsequence: how many of the tune's notes came back, in order
+      std::vector<std::vector<int>> L(want.size() + 1, std::vector<int>(got.size() + 1, 0));
+      for (size_t i = 1; i <= want.size(); i++)
+        for (size_t j = 1; j <= got.size(); j++)
+          L[i][j] = want[i - 1] == got[j - 1] ? L[i - 1][j - 1] + 1 : std::max(L[i - 1][j], L[i][j - 1]);
+      int hit = L[want.size()][got.size()];
+      printf("transcribe (bpm %s): %d/%zu notes found, %zu extra, tempo %d, key %s\n", bpm > 0 ? "given" : "auto", hit,
+             want.size(), got.size() - hit, tr.song.tempo, keyName(tr.song.key).c_str());
+      assert(hit >= (int)want.size() * 9 / 10 && got.size() - hit <= want.size() / 10);
+      assert(std::abs(tr.song.tempo - 100) <= 4);
+      assert(tr.song.key.fifths == 1);
+      // the ABC we hand the agent reads back to the same song
+      Song back = importAbc(toAbc(tr.song)).song;
+      assert(back.events.size() == tr.song.events.size());
+      for (size_t i = 0; i < back.events.size(); i++)
+        assert(back.events[i].midi == tr.song.events[i].midi && back.events[i].len == tr.song.events[i].len &&
+               back.events[i].tie == tr.song.events[i].tie);
+    }
+  }
+
+  // decoding: a 16-bit WAV of A5 written by hand, read back resampled to 22050 Hz mono
+  {
+    fs::create_directories(home);
+    fs::path wav = home / "a5.wav";
+    const int rate = 44100, n = rate / 2;
+    FILE* f = fopen(wav.c_str(), "wb");
+    auto u32 = [&](unsigned v) { fwrite(&v, 4, 1, f); };
+    auto u16 = [&](unsigned short v) { fwrite(&v, 2, 1, f); };
+    fwrite("RIFF", 1, 4, f); u32(36 + n * 2); fwrite("WAVEfmt ", 1, 8, f);
+    u32(16); u16(1); u16(1); u32(rate); u32(rate * 2); u16(2); u16(16);
+    fwrite("data", 1, 4, f); u32(n * 2);
+    for (int i = 0; i < n; i++) u16((unsigned short)(short)(12000 * std::sin(2 * M_PI * 880 * i / rate)));
+    fclose(f);
+    auto x = decodeAudio(wav.string(), 22050);
+    assert(std::abs((int)x.size() - 22050 / 2) < 100);
+    assert(std::abs(detectPitch(x.data() + 2000, 2048, 22050) - 880) < 5);
+    bool threw = false;
+    try { decodeAudio((home / "missing.mp3").string(), 22050); } catch (const std::runtime_error&) { threw = true; }
+    assert(threw);
+  }
+
   // analysis hints
   std::string an = analyze(s);
   assert(an.find("long roll") != std::string::npos);

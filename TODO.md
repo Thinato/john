@@ -2,6 +2,21 @@
 
 ## Transcribe songs from MP3/audio files
 
+Status: steps 1-8 are done (`transcribe_audio` MCP tool, `src/transcribe.cpp`). Still open:
+- Tune it by ear on more real songs in `tmp/`.
+- Detect the meter (it's 4/4 unless given).
+- Triplets and swing: the grid is straight sixteenths.
+- Split notes at beat boundaries so syncopation reads more easily.
+- The GUI import button (step 9).
+- Optional source separation for dense mixes.
+- Learned from fuze (solo piano intro):
+  - Piano and guitar notes fade before the next note, so the draft fills with rests. Sustain through short unvoiced gaps.
+  - The continuity filter dropped a real note at the start of a wide leap (a low D before a jump up a tenth). Don't drop notes at phrase starts, or ones that recur.
+  - The detected tempo was wrong without a hint (125 instead of 70). Report the onset regularity so the agent can spot it.
+  - Only octave shifts are tried for the range fit. Suggest a non-octave transposition when no octave fits (D minor needed +2 to E minor).
+
+Original plan:
+
 Goal: turn a recording into a first-draft ABC that the agent refines and imports, the same way photos are handled now.
 
 Plan (all logic in `john_core`, tested offline like the pitch tests):

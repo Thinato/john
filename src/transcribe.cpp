@@ -1,0 +1,541 @@
+// Audio -> melody: predominant pitch (harmonic summation + Viterbi), beat tracking (Ellis DP), quantization to
+// a sixteenth grid, key detection (Krumhansl), whistle octave fit. Works on solo lines and on mixes where the
+// melody is the strongest pitched voice.
+#include "john.hpp"
+#include "miniaudio.h"
+#include <algorithm>
+#include <cmath>
+#include <complex>
+#include <map>
+#include <numeric>
+#include <stdexcept>
+
+namespace john {
+
+std::vector<float> decodeAudio(const std::string& path, int sampleRate) {
+  ma_decoder_config cfg = ma_decoder_config_init(ma_format_f32, 1, (ma_uint32)sampleRate);
+  ma_decoder dec;
+  if (ma_decoder_init_file(path.c_str(), &cfg, &dec) != MA_SUCCESS)
+    throw std::runtime_error("can't open or decode '" + path + "' (mp3, wav or flac)");
+  std::vector<float> out;
+  float buf[8192];
+  for (;;) {
+    ma_uint64 got = 0;
+    ma_result r = ma_decoder_read_pcm_frames(&dec, buf, 8192, &got);
+    out.insert(out.end(), buf, buf + got);
+    if (r != MA_SUCCESS || got == 0) break;
+  }
+  ma_decoder_uninit(&dec);
+  return out;
+}
+
+static void fft(std::vector<std::complex<float>>& a) {
+  const size_t n = a.size();
+  for (size_t i = 1, j = 0; i < n; i++) {
+    size_t bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) std::swap(a[i], a[j]);
+  }
+  for (size_t len = 2; len <= n; len <<= 1) {
+    const double ang = -2 * M_PI / (double)len;
+    for (size_t k = 0; k < len / 2; k++) {
+      const std::complex<float> w((float)std::cos(ang * k), (float)std::sin(ang * k));
+      for (size_t i = 0; i < n; i += len) {
+        auto u = a[i + k], v = a[i + k + len / 2] * w;
+        a[i + k] = u + v;
+        a[i + k + len / 2] = u - v;
+      }
+    }
+  }
+}
+
+namespace {
+constexpr int LO = 48, HI = 96;  // melody search range, sounding MIDI (C3..C7)
+constexpr int M = HI - LO + 1;   // semitone states
+constexpr int CENTS = 10;        // fine salience resolution
+constexpr int NB = (HI - LO) * 100 / CENTS + 1;
+constexpr int HARMONICS = 8;
+
+struct RawNote { int a, b, m; double conf; };  // frames [a, b), sounding MIDI, mean salience
+struct QNote { int q0, q1, m; double conf; };  // grid units [q0, q1)
+
+const int PC_FIFTHS[12] = {0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5};
+
+Key detectKey(const std::vector<QNote>& notes, double* corrOut) {
+  static const double MAJ[12] = {6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88};
+  static const double MIN[12] = {6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17};
+  double h[12] = {};
+  for (auto& n : notes) h[n.m % 12] += n.q1 - n.q0;
+  auto corr = [&](const double* prof, int tonic) {
+    double mx = 0, my = 0;
+    for (int i = 0; i < 12; i++) { mx += h[i] / 12; my += prof[i] / 12; }
+    double sxy = 0, sxx = 0, syy = 0;
+    for (int i = 0; i < 12; i++) {
+      double dx = h[(i + tonic) % 12] - mx, dy = prof[i] - my;
+      sxy += dx * dy; sxx += dx * dx; syy += dy * dy;
+    }
+    return sxx > 0 ? sxy / std::sqrt(sxx * syy) : 0;
+  };
+  Key best{0, "maj"};
+  double bc = -2;
+  for (int t = 0; t < 12; t++) {
+    if (double c = corr(MAJ, t); c > bc) { bc = c; best = {PC_FIFTHS[t], "maj"}; }
+    if (double c = corr(MIN, t); c > bc) { bc = c; best = {PC_FIFTHS[(t + 3) % 12], "min"}; }
+  }
+  *corrOut = bc;
+  return best;
+}
+
+// Split a length in sixteenths into note values a learner can read (whole .. sixteenth, dotted allowed).
+std::vector<int> pieces(int n) {
+  static const int V[] = {16, 12, 8, 6, 4, 3, 2, 1};
+  std::vector<int> out;
+  while (n > 0)
+    for (int v : V) if (v <= n) { out.push_back(v); n -= v; break; }
+  return out;
+}
+}  // namespace
+
+Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOptions& o) {
+  int N = 1;
+  while (N < sr * 0.09) N <<= 1;  // ~93 ms window: resolves semitones down to C3
+  const int HOP = N / 8;
+  const double hopSec = (double)HOP / sr;
+  if ((long long)x.size() < (long long)N * 4) throw std::runtime_error("audio is too short to transcribe");
+  const int T = 1 + (int)((x.size() - N) / HOP);
+  const int bpb = meterTicks(o.meter);
+  if (bpb <= 0 || bpb % 12) throw std::runtime_error("unsupported meter '" + o.meter + "'");
+
+  // ---- spectrum: onset envelope + fine harmonic salience ----
+  std::vector<float> win(N), flux(T, 0.f), prevLog(N / 2 + 1, 0.f);
+  for (int n = 0; n < N; n++) win[n] = 0.5f - 0.5f * (float)std::cos(2 * M_PI * n / N);
+  std::vector<float> fine((size_t)T * NB, 0.f);
+  std::vector<std::complex<float>> buf(N);
+  std::vector<float> mag(N / 2 + 1);
+  const int kmax = std::min(N / 2 - 1, (int)(5000.0 * N / sr));
+  for (int t = 0; t < T; t++) {
+    for (int n = 0; n < N; n++) buf[n] = x[(size_t)t * HOP + n] * win[n];
+    fft(buf);
+    float top = 0;
+    for (int k = 0; k <= N / 2; k++) {
+      mag[k] = std::abs(buf[k]);
+      top = std::max(top, mag[k]);
+      float l = std::log1p(100.f * mag[k]);
+      if (t > 0) flux[t] += std::max(0.f, l - prevLog[k]);
+      prevLog[k] = l;
+    }
+    if (top <= 1e-6f) continue;
+    // spectral peaks within 40 dB of the loudest, strongest 40
+    std::vector<std::pair<float, float>> peaks;  // (magnitude, Hz)
+    for (int k = 2; k < kmax; k++) {
+      if (mag[k] <= mag[k - 1] || mag[k] < mag[k + 1] || mag[k] < top * 0.01f) continue;
+      double a = std::log(mag[k - 1] + 1e-9), b = std::log(mag[k] + 1e-9), c = std::log(mag[k + 1] + 1e-9);
+      double d = a - 2 * b + c != 0 ? 0.5 * (a - c) / (a - 2 * b + c) : 0;
+      peaks.push_back({mag[k], (float)((k + d) * sr / N)});
+    }
+    if (peaks.size() > 40) {
+      std::partial_sort(peaks.begin(), peaks.begin() + 40, peaks.end(), std::greater<>());
+      peaks.resize(40);
+    }
+    float* f = &fine[(size_t)t * NB];
+    for (auto [a, hz] : peaks) {
+      double w = 1;
+      for (int h = 1; h <= HARMONICS; h++, w *= 0.8) {
+        double cents = 1200 * std::log2(hz / h / 440.0) + 6900 - LO * 100;
+        double bin = cents / CENTS;
+        if (bin < -10) break;
+        if (bin > NB + 10) continue;
+        for (int b = (int)std::ceil(bin - 10); b <= (int)std::floor(bin + 10); b++) {
+          if (b < 0 || b >= NB) continue;
+          double cw = std::cos(M_PI / 2 * (b - bin) / 10);
+          f[b] += (float)(a * w * cw * cw);
+        }
+      }
+    }
+  }
+
+  // ---- tuning offset (recordings aren't always A440) ----
+  double sx = 0, sy = 0;
+  for (int t = 0; t < T; t++) {
+    const float* f = &fine[(size_t)t * NB];
+    int b = (int)(std::max_element(f, f + NB) - f);
+    double ang = 2 * M_PI * ((b * CENTS) % 100) / 100.0;
+    sx += f[b] * std::cos(ang);
+    sy += f[b] * std::sin(ang);
+  }
+  double tune = std::atan2(sy, sx) / (2 * M_PI) * 100;  // -50..50 cents
+
+  // ---- semitone salience ----
+  std::vector<float> S((size_t)T * M, 0.f), frameMax(T, 0.f);
+  for (int t = 0; t < T; t++)
+    for (int m = 0; m < M; m++) {
+      int c = (int)std::lround((m * 100 + tune) / CENTS);
+      float v = 0;
+      for (int b = c - 4; b <= c + 4; b++) if (b >= 0 && b < NB) v = std::max(v, fine[(size_t)t * NB + b]);
+      S[(size_t)t * M + m] = v;
+      frameMax[t] = std::max(frameMax[t], v);
+    }
+  fine.clear();
+  fine.shrink_to_fit();
+  // A note's lower octave collects ~0.8 of its salience through the even harmonics; subtract part of the octave
+  // above so accompaniment can't tip the melody down an octave.
+  for (int t = 0; t < T; t++) {
+    float* row = &S[(size_t)t * M];
+    frameMax[t] = 0;
+    for (int m = 0; m < M; m++) {
+      if (m + 12 < M) row[m] = std::max(0.f, row[m] - 0.5f * row[m + 12]);
+      frameMax[t] = std::max(frameMax[t], row[m]);
+    }
+  }
+  std::vector<float> sorted = frameMax;
+  std::nth_element(sorted.begin(), sorted.begin() + T * 9 / 10, sorted.end());
+  const float norm = sorted[T * 9 / 10];
+  if (norm <= 0) throw std::runtime_error("no pitched sound found");
+
+  // ---- melody line: Viterbi over semitones + an unvoiced state ----
+  // ponytail: fixed weights tuned by ear on a few songs; a learned voicing model would do better on dense mixes
+  const float VOICE = 0.25f, CHANGE = 0.15f, STEP = 0.01f, ONOFF = 0.3f;
+  std::vector<float> score(M + 1, 0.f), next(M + 1);
+  std::vector<unsigned char> back((size_t)T * (M + 1));
+  auto emit = [&](int t, int s) { return s == M ? VOICE : std::min(2.f, S[(size_t)t * M + s] / norm); };
+  for (int s = 0; s <= M; s++) score[s] = emit(0, s);
+  for (int t = 1; t < T; t++) {
+    for (int j = 0; j <= M; j++) {
+      float best = -1e30f;
+      int arg = 0;
+      for (int i = 0; i <= M; i++) {
+        float c = score[i];
+        if (i != j) c -= (i == M || j == M) ? ONOFF : CHANGE + STEP * std::abs(i - j);
+        if (c > best) { best = c; arg = i; }
+      }
+      next[j] = best + emit(t, j);
+      back[(size_t)t * (M + 1) + j] = (unsigned char)arg;
+    }
+    float mx = *std::max_element(next.begin(), next.end());
+    for (int j = 0; j <= M; j++) score[j] = next[j] - mx;  // keep numbers small
+  }
+  std::vector<int> path(T);
+  path[T - 1] = (int)(std::max_element(score.begin(), score.end()) - score.begin());
+  for (int t = T - 1; t > 0; t--) path[t - 1] = back[(size_t)t * (M + 1) + path[t]];
+
+  if (const char* dbg = getenv("JOHN_TRANSCRIBE_DEBUG")) {  // per-frame pitch track for tuning the tracker
+    if (FILE* f = fopen(dbg, "w")) {
+      for (int t = 0; t < T; t++) {
+        std::vector<std::pair<float, int>> top;
+        for (int m = 0; m < M; m++) top.push_back({S[(size_t)t * M + m] / norm, m + LO});
+        std::partial_sort(top.begin(), top.begin() + 3, top.end(), std::greater<>());
+        fprintf(f, "%.3f %d %.2f %d:%.2f %d:%.2f %d:%.2f %.2f\n", (t * HOP + N / 2.0) / sr, path[t] == M ? 0 : path[t] + LO,
+                path[t] == M ? 0 : S[(size_t)t * M + path[t]] / norm, top[0].second, top[0].first, top[1].second, top[1].first,
+                top[2].second, top[2].first, flux[t]);
+      }
+      fclose(f);
+    }
+  }
+
+  // ---- notes: runs of one pitch, drop blips, split re-articulated repeats at salience dips ----
+  const int minF = std::max(2, (int)std::ceil(0.06 / hopSec));
+  std::vector<RawNote> raw;
+  for (int t = 0; t < T;) {
+    int u = t;
+    while (u < T && path[u] == path[t]) u++;
+    if (path[t] != M) raw.push_back({t, u, path[t], 0});
+    t = u;
+  }
+  std::vector<RawNote> notes;
+  for (auto& n : raw) {
+    if (n.b - n.a >= minF) {
+      if (!notes.empty() && notes.back().b == n.a && notes.back().m == n.m) notes.back().b = n.b;  // blip removed between
+      else notes.push_back(n);
+    } else if (!notes.empty() && notes.back().b == n.a) notes.back().b = n.b;  // short glide: part of the previous note
+  }
+  std::vector<RawNote> split;
+  for (auto& n : notes) {
+    auto v = [&](int t) { return S[(size_t)t * M + n.m]; };
+    int start = n.a;
+    float before = 0;
+    for (int t = n.a; t < n.b; t++) {
+      before = std::max(before, v(t));
+      if (t - start < minF || n.b - t < minF || v(t) > v(t - 1) || v(t) > v(t + 1)) continue;
+      float after = 0;
+      for (int u = t + 1; u < std::min(n.b, t + 3 * minF); u++) after = std::max(after, v(u));
+      if (v(t) < 0.5f * before && v(t) < 0.5f * after) {
+        split.push_back({start, t, n.m, 0});
+        start = t;
+        before = 0;
+      }
+    }
+    split.push_back({start, n.b, n.m, 0});
+  }
+  // Melody continuity: compare each note with the duration-weighted median pitch of the notes around it (±2 s).
+  // An octave away with energy in the other octave = octave error, move it. Short and well below = accompaniment
+  // poking through (a chord attack, a bass note in a melody rest), drop it and give its time to the next note.
+  {
+    const int win = (int)(2.0 / hopSec), shortF = (int)(0.3 / hopSec);
+    std::vector<RawNote> kept;
+    std::vector<int> pitch;
+    for (auto& n : split) pitch.push_back(n.m);
+    for (size_t i = 0; i < split.size(); i++) {
+      RawNote n = split[i];
+      std::vector<std::pair<int, int>> around;  // (pitch, frames)
+      for (size_t j = 0; j < split.size(); j++)
+        if (split[j].b > n.a - win && split[j].a < n.b + win) around.push_back({pitch[j], split[j].b - split[j].a});
+      std::sort(around.begin(), around.end());
+      int total = 0, acc = 0, ref = n.m;
+      for (auto& [m, f] : around) total += f;
+      for (auto& [m, f] : around) if ((acc += f) * 2 >= total) { ref = m; break; }
+      auto energy = [&](int m) {
+        double e = 0;
+        if (m < 0 || m >= M) return 0.0;
+        for (int t = n.a; t < n.b; t++) e += S[(size_t)t * M + m];
+        return e;
+      };
+      int d = n.m - ref;
+      // after the octave-ghost suppression: a real note keeps ~0.85x its salience an octave up (its 2nd harmonic),
+      // and ~0.3x an octave down; an octave error reverses those ratios
+      if (d > 9 && energy(n.m - 12) >= 0.7 * energy(n.m)) n.m -= 12;
+      else if (d < -7) {
+        if (energy(n.m + 12) >= 1.5 * energy(n.m)) n.m += 12;
+        else if (n.b - n.a < shortF) {
+          if (i + 1 < split.size() && split[i + 1].a == n.b) split[i + 1].a = n.a;
+          continue;
+        }
+      }
+      kept.push_back(n);
+    }
+    split = std::move(kept);
+  }
+  if (split.empty()) throw std::runtime_error("no melody found (try a recording where one instrument or voice leads)");
+  for (auto& n : split) {
+    double c = 0;
+    for (int t = n.a; t < n.b; t++) c += S[(size_t)t * M + n.m] / norm;
+    n.conf = c / (n.b - n.a);
+  }
+
+  // ---- beats: onset envelope, tempo by autocorrelation, beat times by dynamic programming ----
+  const bool compound = compoundMeter(o.meter);
+  const int den = std::atoi(o.meter.c_str() + o.meter.find('/') + 1);
+  const int beatTicks = compound ? 3 * WHOLE / den : WHOLE / den;
+  const int g = beatTicks / 12;  // grid cells (sixteenths) per beat
+  const double quarterPerBeat = beatTicks / 48.0;
+  std::vector<double> env(T, 0);
+  {
+    int w = std::max(1, (int)(0.2 / hopSec));
+    std::vector<double> pre(T + 1, 0);
+    for (int t = 0; t < T; t++) pre[t + 1] = pre[t] + flux[t];
+    double sum = 0, sq = 0;
+    for (int t = 0; t < T; t++) {
+      int a = std::max(0, t - w), b = std::min(T, t + w + 1);
+      env[t] = std::max(0.0, flux[t] - (pre[b] - pre[a]) / (b - a));
+      sum += env[t];
+      sq += env[t] * env[t];
+    }
+    double sd = std::sqrt(std::max(1e-12, sq / T - (sum / T) * (sum / T)));
+    for (auto& e : env) e /= sd;
+  }
+  double period;  // frames per beat
+  double tempoConf = 0;
+  if (o.bpm > 0) period = 60.0 / (o.bpm / quarterPerBeat) / hopSec;
+  else {
+    int lo = (int)(60.0 / 220 / hopSec), hi = std::min(T / 2, (int)(60.0 / 40 / hopSec));
+    std::vector<double> r(hi + 2, 0);
+    for (int L = lo; L <= hi + 1; L++)
+      for (int t = 0; t + L < T; t++) r[L] += env[t] * env[t + L];
+    double best = -1, r0 = 0;
+    int arg = lo;
+    for (int t = 0; t < T; t++) r0 += env[t] * env[t];
+    double center = compound ? 80 : 110;  // typical beats per minute
+    for (int L = lo + 1; L <= hi; L++) {
+      double bpm = 60.0 / (L * hopSec);
+      double w = std::exp(-0.5 * std::pow(std::log2(bpm / center), 2));
+      if (r[L] * w > best) { best = r[L] * w; arg = L; }
+    }
+    double a = r[arg - 1], b = r[arg], c = r[arg + 1];
+    period = arg + (a - 2 * b + c != 0 ? 0.5 * (a - c) / (a - 2 * b + c) : 0);
+    tempoConf = r0 > 0 ? b / r0 : 0;
+  }
+  std::vector<double> beats;
+  {
+    std::vector<double> sc(T);
+    std::vector<int> prev(T, -1);
+    const double TIGHT = 100;
+    for (int t = 0; t < T; t++) {
+      sc[t] = env[t];
+      double best = -1e30;
+      for (int tau = t - (int)std::round(2 * period); tau <= t - (int)std::round(period / 2); tau++) {
+        if (tau < 0) continue;
+        double l = std::log((t - tau) / period);
+        double c = sc[tau] - TIGHT * l * l;
+        if (c > best) { best = c; prev[t] = tau; }
+      }
+      if (prev[t] >= 0) sc[t] += best;
+    }
+    int t = T - 1;
+    for (int u = std::max(0, T - (int)period); u < T; u++) if (sc[u] > sc[t]) t = u;
+    for (; t >= 0; t = prev[t]) beats.push_back(t);
+    std::reverse(beats.begin(), beats.end());
+  }
+  if (beats.size() < 2) beats = {0, period};
+  auto beatPos = [&](double f) {
+    size_t k = std::upper_bound(beats.begin(), beats.end(), f) - beats.begin();
+    if (k == 0) return (f - beats[0]) / (beats[1] - beats[0]);
+    if (k >= beats.size()) { size_t n = beats.size(); return n - 1 + (f - beats[n - 1]) / (beats[n - 1] - beats[n - 2]); }
+    return k - 1 + (f - beats[k - 1]) / (beats[k] - beats[k - 1]);
+  };
+  double beatFrames = (beats.back() - beats.front()) / (beats.size() - 1);
+  int bpm = (int)std::lround(60.0 / (beatFrames * hopSec) * quarterPerBeat);
+
+  // ---- quantize to the grid ----
+  std::vector<QNote> q;
+  for (auto& n : split) {
+    int q0 = (int)std::lround(beatPos(n.a) * g), q1 = (int)std::lround(beatPos(n.b) * g);
+    q.push_back({q0, std::max(q0 + 1, q1), n.m + LO, n.conf});
+  }
+  std::vector<QNote> clean;
+  for (auto& n : q) {
+    if (!clean.empty()) {
+      QNote& p = clean.back();
+      if (n.q0 <= p.q0) {  // two notes on one grid point: keep the longer
+        if (n.q1 - n.q0 > p.q1 - p.q0) p = n;
+        continue;
+      }
+      if (p.q1 > n.q0 || n.q0 - p.q1 <= 1) p.q1 = n.q0;  // overlaps cut, sixteenth gaps closed (legato reads better)
+    }
+    clean.push_back(n);
+  }
+
+  // ---- bars: downbeat phase where the most note time starts ----
+  const int bar = bpb / 12;  // grid cells per bar
+  int phase = 0;
+  {
+    std::vector<double> sc(bar, 0);
+    for (auto& n : clean) sc[((n.q0 % bar) + bar) % bar] += n.q1 - n.q0;
+    for (int p = 0; p < bar; p += g) if (sc[p] > sc[phase]) phase = p;
+  }
+
+  // ---- key, octave fit, events ----
+  double keyCorr = 0;
+  Key key = detectKey(clean, &keyCorr);
+  const int base = whistleBase("D");
+  int shift = 0, bestIn = -1;
+  for (int k = -4; k <= 3; k++) {  // whistle music is written an octave below sounding; pick the octave that fits
+    int in = 0;
+    for (auto& n : clean) in += (n.m - 12 + 12 * k >= base && n.m - 12 + 12 * k <= base + 23) * (n.q1 - n.q0);
+    if (in > bestIn) { bestIn = in; shift = k; }
+  }
+  int folded = 0;
+  for (auto& n : clean) {  // octave errors and low/high notes the whistle can't play: fold into its range
+    int w = n.m - 12 + 12 * shift, f = w;
+    while (f < base) f += 12;
+    while (f > base + 23) f -= 12;
+    folded += f != w;
+    n.m = f + 12 - 12 * shift;
+  }
+  Song s;
+  s.title = o.title;
+  s.meter = o.meter;
+  s.key = key;
+  s.tempo = bpm;
+  auto isBarStart = [&](int c) { return (((c - phase) % bar) + bar) % bar == 0; };
+  auto emitSpan = [&](int from, int to, int midi, bool note) {
+    for (int c = from; c < to;) {
+      if (c != clean.front().q0 && isBarStart(c)) { Event b; b.kind = Kind::Bar; b.bar = "|"; s.events.push_back(b); }
+      int end = c + 1;
+      while (end < to && !isBarStart(end)) end++;
+      for (int len : pieces(end - c)) {
+        Event e;
+        e.kind = note ? Kind::Note : Kind::Rest;
+        e.midi = note ? midi : 0;
+        e.len = len * 12;
+        e.tie = note;
+        s.events.push_back(e);
+      }
+      c = end;
+    }
+    if (note) s.events.back().tie = false;
+  };
+  int cursor = clean.front().q0;
+  for (auto& n : clean) {
+    if (n.q0 > cursor) emitSpan(cursor, n.q0, 0, false);
+    emitSpan(n.q0, n.q1, n.m - 12 + 12 * shift, true);
+    cursor = n.q1;
+  }
+  int endBar = cursor;
+  while (!isBarStart(endBar)) endBar++;
+  if (endBar > cursor) emitSpan(cursor, endBar, 0, false);
+  Event fin;
+  fin.kind = Kind::Bar;
+  fin.bar = "|]";
+  s.events.push_back(fin);
+
+  // ---- report ----
+  int voiced = 0;
+  for (int p : path) voiced += p != M;
+  int firstBar = (int)std::floor((double)(clean.front().q0 - phase) / bar);
+  bool pickup = !isBarStart(clean.front().q0);
+  std::map<int, std::pair<double, double>> perBar;  // bar -> (confidence * length, length)
+  for (auto& n : clean) {
+    int b = (int)std::floor((double)(n.q0 - phase) / bar) - firstBar + (pickup ? 0 : 1);
+    perBar[b].first += n.conf * (n.q1 - n.q0);
+    perBar[b].second += n.q1 - n.q0;
+  }
+  std::string weak;
+  for (auto& [b, v] : perBar) if (v.first / v.second < 0.35) weak += (weak.empty() ? "" : ", ") + std::to_string(b);
+  char line[256];
+  std::string r;
+  snprintf(line, sizeof line, "tempo: %d bpm (quarter notes)%s\n", bpm,
+           o.bpm > 0 ? ", as given" : tempoConf < 0.15 ? ", weak beat: pass bpm if note lengths look doubled or halved" : "");
+  r += line;
+  snprintf(line, sizeof line, "key: %s (fit %.2f)\ntuning: %+.0f cents from A440\n", keyName(key).c_str(), keyCorr, tune);
+  r += line;
+  snprintf(line, sizeof line, "melody heard in %d%% of the audio; %zu notes\n", voiced * 100 / T, clean.size());
+  r += line;
+  if (shift == 0) r += "octave: the whistle plays at the recording's pitch\n";
+  else {
+    snprintf(line, sizeof line, "octave: the whistle plays %d octave(s) %s the recording, to fit its range\n", std::abs(shift),
+             shift > 0 ? "above" : "below");
+    r += line;
+  }
+  if (folded) {
+    snprintf(line, sizeof line, "%d note(s) moved an octave to fit the whistle (or octave errors)\n", folded);
+    r += line;
+  }
+  if (!weak.empty()) r += "unclear bars (check by ear): " + weak + "\n";
+  return {s, r};
+}
+
+std::string toAbc(const Song& s) {
+  std::string out = "X:1\nT:" + s.title + "\nM:" + s.meter + "\nL:1/16\n";
+  if (s.tempo > 0) out += "Q:1/4=" + std::to_string(s.tempo) + "\n";
+  out += "K:" + keyName(s.key) + "\n";
+  auto acc = accidentals(s);
+  int bars = 0;
+  for (size_t i = 0; i < s.events.size(); i++) {
+    const Event& e = s.events[i];
+    if (e.kind == Kind::Bar) {
+      out += " " + e.bar;
+      if (!e.ending.empty()) out += "[" + e.ending;
+      out += ++bars % 4 == 0 && i + 1 < s.events.size() ? "\n" : " ";
+      continue;
+    }
+    for (auto& t : e.techniques) out += "!" + t + "!";
+    if (e.kind == Kind::Rest) out += "z";
+    else {
+      if (acc[i].shown) out += acc[i].alter < 0 ? "_" : acc[i].alter > 0 ? "^" : "=";
+      Spelled sp = spell(s.key, e.midi);
+      char letter = "CDEFGAB"[sp.letter];
+      if (sp.octave >= 5) out += (char)tolower(letter), out += std::string(sp.octave - 5, '\'');
+      else out += letter, out += std::string(std::max(0, 4 - sp.octave), ',');
+    }
+    int num = e.len, dn = 12;  // L:1/16 = 12 ticks
+    int gcd = std::gcd(num, dn);
+    num /= gcd, dn /= gcd;
+    if (num != 1) out += std::to_string(num);
+    if (dn != 1) out += "/" + std::to_string(dn);
+    if (e.tie) out += "-";
+    out += " ";
+  }
+  return out + "\n";
+}
+
+}  // namespace john

@@ -12,6 +12,13 @@ static const char* GUIDE = R"(John turns tunes into tin whistle tab sheets with 
 Getting a tune into John (always via ABC -> import_abc):
 - Photo/PDF of sheet music: read the image and transcribe it to ABC carefully (K: key signature, M: meter, L: unit, every bar). After importing, compare get_song bar by bar against the image.
 - thesession.org: curl -s 'https://thesession.org/tunes/search?q=NAME&format=json', then curl -s 'https://thesession.org/tunes/ID?format=json'. Each settings[] item has an "abc" body (a lone "!" is a line break) and "key" like "Dmajor". Add headers yourself: X:1, T:name, M: from the tune type (reel/hornpipe/barndance/strathspey 4/4, jig 6/8, slip jig 9/8, slide 12/8, polka 2/4, waltz/mazurka 3/4, three-two 3/2), L:1/8, K:key. Pass source = the setting URL.
+- Audio file (mp3/wav/flac): transcribe_audio gives a draft ABC plus a report. The draft is a machine guess (4/4, straight sixteenths, the loudest pitched line); you are the musician who turns it into a sheet. Review it before importing:
+  * Meter: do the repeating motifs line up with the bar lines, with long or accented notes on beat 1? Motifs grouped in 3 beats or in threes of eighths mean 3/4 or 6/8 (waltz, jig, slip jig 9/8): re-run with meter and compare which version makes the phrases fit the bars.
+  * Tempo: if nearly every note is a sixteenth, the real tempo is probably double the detected one; if it is all half and whole notes, it's probably half. Re-run with bpm. If you know the song, use its usual tempo and feel.
+  * Pickup and key: does the tune start on a pickup? Do the accidentals point to another key or mode (e.g. a steady C natural in D major = D mixolydian, minor vs dorian)? Fix K: in the ABC.
+  * Structure: write repeated sections once with |: :| and 1st/2nd endings so the sheet is short and readable. Trim intros, outros and accompaniment-only passages with start/end (or delete_bars after import).
+  * Notes: fix obvious slips (a single note an octave off, one-sixteenth blips, a lone out-of-key note in a clear phrase). Never invent melody that the draft doesn't support; mark doubtful spots instead.
+  Then import_abc (source = the file name). In update_song notes, say it is an automatic transcription, which bars are uncertain, and the feel (tempo, swing, where to breathe). Comment on notes you changed or doubt (set_techniques comment, e.g. "unclear in the recording, check by ear"). Finally ask the user to play it in John next to the recording and tell you what sounds wrong: they are the ears, you are the eyes.
 - Tin whistle tabs (letters or hole diagrams): convert to ABC pitches for the given whistle (D whistle: XXXXXX=D, XXXXXO=E, XXXXOO=F#, XXXOOO=G, XXOOOO=A, XOOOOO=B, OXXOOO=c natural, OOOOOO=c#, + or 'blow harder' = next octave, lowercase in ABC). If the tab has no rhythm, ask the user or infer from the tune type and say so.
 - ABC can already carry techniques: ~ or !roll! = roll, {g}A = cut, {F}G = tap, !tap! !cran! !slide! !tongue! !breath! (any technique id works as !id!).
 
@@ -75,6 +82,20 @@ static json toolList() {
            "Repeat/end signs and volta marks closing the deleted bars move to the previous bar line. Event indexes change afterwards.",
            {{"id", str}, {"first", {{"type", "integer"}}}, {"last", {{"type", "integer"}, {"description", "default: same as first"}}}},
            {"id", "first"}),
+      tool("transcribe_audio",
+           "Transcribe the melody of an audio file (mp3, wav, flac) into ABC for a D whistle: pitch tracking, beat tracking, "
+           "sixteenth-note grid, key detection, octave fitted to the whistle. Works best on solo instruments/voice; on full mixes it "
+           "follows the strongest pitched line. Returns a report and a draft ABC that always assumes 4/4 and straight sixteenths. "
+           "Don't import it blindly: check the meter (do motifs fit the bars?), tempo (doubled/halved note lengths?), pickup, key/mode "
+           "and repeats, re-run with meter/bpm/start/end as needed, tidy the ABC, then import_abc, write song notes about what's "
+           "uncertain, and ask the user to compare it by ear (see the server instructions).",
+           {{"path", {{"type", "string"}, {"description", "absolute path (or ~/...) to the audio file"}}},
+            {"bpm", {{"type", "number"}, {"description", "quarter notes per minute; default: detect"}}},
+            {"meter", {{"type", "string"}, {"description", "default 4/4"}}},
+            {"start", {{"type", "number"}, {"description", "seconds into the file to start at (default 0)"}}},
+            {"end", {{"type", "number"}, {"description", "seconds into the file to stop at (default: end)"}}},
+            {"title", str}},
+           {"path"}),
       tool("list_techniques", "List the technique catalog: id, GUI symbol, name, how to play it on the whistle.", json::object()),
       tool("define_technique", "Add or replace a technique in the catalog (for techniques the user wants documented).",
            {{"id", {{"type", "string"}, {"description", "lowercase id like 'bounce'"}}}, {"name", str},
@@ -174,6 +195,23 @@ static std::string callTool(const std::string& name, const json& a) {
     int n = deleteBars(s, first, a.value("last", first));
     saveSong(s);
     return "Deleted " + std::to_string(n) + " note(s)/rest(s).\n" + listing(s);
+  }
+  if (name == "transcribe_audio") {
+    std::string path = a.value("path", "");
+    if (path.rfind("~/", 0) == 0 && getenv("HOME")) path = std::string(getenv("HOME")) + path.substr(1);
+    constexpr int SR = 22050;
+    std::vector<float> x = decodeAudio(path, SR);
+    double start = a.value("start", 0.0), end = a.value("end", 0.0);
+    size_t from = (size_t)std::clamp(start * SR, 0.0, (double)x.size());
+    size_t to = end > 0 ? (size_t)std::clamp(end * SR, (double)from, (double)x.size()) : x.size();
+    x = std::vector<float>(x.begin() + from, x.begin() + to);
+    TranscribeOptions o;
+    o.bpm = a.value("bpm", 0.0);
+    o.meter = a.value("meter", o.meter);
+    if (meterTicks(o.meter) <= 0) throw std::runtime_error("meter must look like 4/4, 3/4 or 6/8");
+    o.title = a.value("title", fs::path(path).stem().string());
+    Transcription t = transcribe(x, SR, o);
+    return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name):\n" + toAbc(t.song);
   }
   if (name == "list_techniques") {
     std::string r;

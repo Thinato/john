@@ -1,11 +1,4 @@
-#define MINIAUDIO_IMPLEMENTATION
-#define MA_NO_ENCODING
-#define MA_NO_DECODING
-#define MA_NO_RESOURCE_MANAGER
-#define MA_NO_NODE_GRAPH
-#define MA_NO_ENGINE
-#define MA_NO_GENERATION
-#include "miniaudio.h"
+#include "miniaudio.h"  // implementation lives in core (miniaudio.cpp)
 #include "audio.hpp"
 
 constexpr int RING = 1 << 15;  // ~0.7 s of mic audio at 48 kHz

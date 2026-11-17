@@ -2,3 +2,5 @@ build/
 .omc/
 # machine-specific (absolute paths)
 .mcp.json
+# local test audio (copyrighted recordings)
+tmp/
