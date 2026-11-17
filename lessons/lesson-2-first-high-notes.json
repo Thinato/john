@@ -1,0 +1,234 @@
+{
+ "events": [
+  {
+   "comment": "Low G first, steady and relaxed.",
+   "len": 96,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "comment": "Same fingering, faster air: tongue a crisp 'too' and blow a little faster (not harder) to jump up an octave. Still getting low G? A bit more air. Squealing? A bit less.",
+   "len": 96,
+   "midi": 79,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Back down: relax the air again for the low G.",
+   "len": 96,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 79,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "A and high A, the same idea. The top-hand notes are the easiest high notes, which is why we start here.",
+   "len": 96,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 81,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 81,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "B and high B: only one finger down, so this is the easiest jump of all.",
+   "len": 96,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 83,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 83,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Now stay up high: keep the faster air steady across G, A and B without dropping down.",
+   "len": 48,
+   "midi": 79,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Long high notes: keep the air steady for the full two beats.",
+   "len": 96,
+   "midi": 79,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Hold the high G to the end, then rest.",
+   "len": 144,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "id": "lesson-2-first-high-notes",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "4/4",
+ "notes": "Your first second-octave notes, on G, A and B, where they come easiest. Same fingering as the low note, just faster air and a crisp tongue. Think 'faster', not 'harder': blowing too hard makes it shrill. Repeat each pair until the high note pops out every time, then try the last four bars without the low notes.",
+ "source": "John lessons (original exercise)",
+ "tempo": 70,
+ "title": "Lesson 2: First high notes - G, A and B",
+ "whistle": "D"
+}

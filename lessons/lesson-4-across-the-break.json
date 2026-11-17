@@ -1,0 +1,360 @@
+{
+ "events": [
+  {
+   "comment": "The full two-octave D scale. Tongue only the first note and slur the rest.",
+   "len": 48,
+   "midi": 62,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "comment": "C# (all open) to high D (all closed) is 'the break', the trickiest move on the whistle. All six fingers come down at once while the air gets faster.",
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "comment": "High D: put all the fingers down together, not one by one, and blow faster.",
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Coming back down: relax the air as you cross from D to C#.",
+   "len": 48,
+   "midi": 83,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Break drill: C# D C# D. Move all your fingers as one unit. Go slowly until the D speaks every time.",
+   "len": 48,
+   "midi": 73,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Slower now: hold each note for two beats.",
+   "len": 96,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "A little melody that crosses the break several times.",
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "id": "lesson-4-across-the-break",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "4/4",
+ "notes": "Two octaves of the D scale, plus a drill for 'the break': C# (all holes open) to high D (all closed). All six fingers must land together while the air speeds up. Practise the drill slowly; once C#–D is solid, most tunes open up.",
+ "source": "John lessons (original exercise)",
+ "tempo": 80,
+ "title": "Lesson 4: Across the break - C# to high D",
+ "whistle": "D"
+}

@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
 #include <stdexcept>
 #include <unistd.h>
 
@@ -271,6 +272,28 @@ int main() {
   assert(listing(s).find("XXO OOO") != std::string::npos);
   assert(!loadSong("../etc"));
   assert(listSongs() == std::vector<std::string>{"test-jig"});
+
+  // lessons: installed once, a deleted lesson stays deleted, and every bundled lesson loads
+  {
+    fs::path src = home / "lesson-src";
+    fs::create_directories(src);
+    Song l = s;
+    l.id = "lesson-test";
+    { std::ofstream f(src / "lesson-test.json"); f << toJson(l).dump(); }
+    assert(installLessons(src) == 1 && loadSong("lesson-test"));
+    assert(installLessons(src) == 0);
+    fs::remove(dataDir() / "songs" / "lesson-test.json");
+    assert(installLessons(src) == 0 && !loadSong("lesson-test"));
+    int bundled = 0;
+    for (auto& e : fs::directory_iterator(lessonsDir())) {
+      std::ifstream f(e.path());
+      Song b = fromJson(json::parse(f));
+      assert(!b.events.empty() && !b.notes.empty());
+      for (auto& ev : b.events) assert(ev.kind != Kind::Note || finger(b.whistle, ev.midi).ok);  // all playable
+      bundled++;
+    }
+    assert(bundled >= 8);
+  }
 
   saveCustomTechnique({"bounce", "Bounce", "b", "test"});
   bool found = false;

@@ -37,6 +37,21 @@ ctest --test-dir build        # core checks + MCP smoke test
 
 Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`). Custom techniques are in `~/Documents/John/techniques.json`.
 
+## Lessons
+
+`lessons/` holds a beginner course for the D whistle. John installs it into your song list the first time it runs (delete a lesson and it stays deleted). Each lesson has comments on the notes explaining what to practise:
+
+1. **Breath and tongue**: long tones, tonguing, slurring (low octave)
+2. **First high notes**: octave jumps on G, A and B, the easiest second-octave notes
+3. **High F#, E and D**: the harder bottom-hand high notes
+4. **Across the break**: the two-octave scale and the C# to high D move
+5. **Ode to Joy**: Beethoven, almost entirely in the high octave
+6. **Cuts**: the core Irish ornament, in both octaves
+7. **Amazing Grace**: slides, vibrato and breathing in a slow air
+8. **John's Air**: an original piece that combines all of the above
+
+Lessons 5 and 7 are public-domain tunes; the rest are original exercises.
+
 ## How it works
 
 | Piece | File |

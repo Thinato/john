@@ -1,0 +1,401 @@
+{
+ "events": [
+  {
+   "comment": "John's Air uses everything: both octaves, the break, a slide, cuts, vibrato and breathing. Play it slowly at first.",
+   "len": 48,
+   "midi": 62,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "comment": "Up over the break to high D: fingers down together, faster air.",
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "A cut as an accent on the first beat: flick your top finger up and back (for an instant it sounds C#).",
+   "len": 48,
+   "midi": 71,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Long E: hold it steady first, then add a little vibrato.",
+   "len": 144,
+   "midi": 64,
+   "techniques": [
+    "vibrato"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "comment": "Breathe here, before the second line.",
+   "len": 24,
+   "midi": 64,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "comment": "Slide from A up into B: roll the 2nd finger off slowly.",
+   "len": 48,
+   "midi": 71,
+   "techniques": [
+    "slide"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the first half: a long high D with vibrato, then rest.",
+   "len": 144,
+   "midi": 74,
+   "techniques": [
+    "vibrato"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "The second half sits mostly in the high octave: tongue the high F# and keep the air fast.",
+   "len": 48,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Long high F#: steady, then vibrato.",
+   "len": 144,
+   "midi": 78,
+   "techniques": [
+    "vibrato"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "comment": "High A, the top note of the piece.",
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Final high D: steady air, gentle vibrato, then stop cleanly.",
+   "len": 144,
+   "midi": 74,
+   "techniques": [
+    "vibrato"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "id": "lesson-8-johns-air",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "4/4",
+ "notes": "A short original air written for these lessons, named after this app's namesake. It brings everything together: both octaves, crossing the break, a slide, cuts as accents, vibrato and planned breaths. The first half climbs from low D; the second half lives in the high octave.",
+ "source": "John lessons (original piece)",
+ "tempo": 84,
+ "title": "Lesson 8: John's Air",
+ "whistle": "D"
+}

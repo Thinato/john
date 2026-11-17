@@ -1,0 +1,304 @@
+{
+ "events": [
+  {
+   "comment": "Amazing Grace, slow and singing. It's in G major on the D whistle and has no C at all.",
+   "len": 48,
+   "midi": 62,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Slide into B: start with the A fingering (2nd finger down) and slowly roll that finger off, so the pitch glides up into B.",
+   "len": 96,
+   "midi": 71,
+   "techniques": [
+    "slide"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the phrase: breathe here.",
+   "len": 96,
+   "midi": 62,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 62,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "techniques": [
+    "slide"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "High D held for five beats: blow fast and steady, then add a gentle breath vibrato (pulse the air like a soft 'ha-ha-ha').",
+   "len": 144,
+   "midi": 74,
+   "techniques": [
+    "vibrato"
+   ],
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Breathe after the long D.",
+   "len": 96,
+   "midi": 74,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "comment": "A quick B D pair: up to the high D again.",
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "techniques": [
+    "slide"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the phrase: breathe.",
+   "len": 96,
+   "midi": 62,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 62,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "techniques": [
+    "slide"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "The last note: hold it with vibrato and let it fade.",
+   "len": 144,
+   "midi": 67,
+   "techniques": [
+    "vibrato"
+   ],
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "id": "lesson-7-amazing-grace",
+ "key": {
+  "fifths": 1,
+  "mode": "maj"
+ },
+ "meter": "3/4",
+ "notes": "Amazing Grace in 3/4, a slow air for expressive techniques. It practises slides (gliding up into B), breath vibrato on the long high D and the last note, and breathing at phrase ends. Play it like singing: smooth and unhurried.",
+ "source": "Amazing Grace (New Britain, 1829), public domain",
+ "tempo": 80,
+ "title": "Lesson 7: Slides and vibrato - Amazing Grace",
+ "whistle": "D"
+}

@@ -234,6 +234,7 @@ static void send(const json& j) {
 
 int main() {
   std::ios::sync_with_stdio(false);
+  try { installLessons(lessonsDir()); } catch (...) {}  // nothing may reach stdout but JSON-RPC
   static const std::set<std::string> versions = {"2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"};
   for (std::string line; std::getline(std::cin, line);) {
     if (line.empty()) continue;

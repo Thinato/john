@@ -28,6 +28,7 @@ target_compile_definitions(john_core PUBLIC MA_NO_ENCODING MA_NO_RESOURCE_MANAGE
 # transcription crunches minutes of audio; keep it fast in Debug builds too
 set_source_files_properties(src/transcribe.cpp src/miniaudio.cpp PROPERTIES COMPILE_OPTIONS -O2)
 target_link_libraries(john_core PUBLIC nlohmann_json::nlohmann_json)
+target_compile_definitions(john_core PRIVATE JOHN_LESSONS="${CMAKE_SOURCE_DIR}/lessons")
 
 add_executable(john-mcp src/mcp_main.cpp)
 target_link_libraries(john-mcp PRIVATE john_core)

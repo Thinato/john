@@ -1,0 +1,448 @@
+{
+ "events": [
+  {
+   "comment": "Ode to Joy, all in the high octave except one note. It only uses F#, G, A, E and D, which you practised in lessons 2 and 3. Keep the air fast and steady the whole way.",
+   "len": 48,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "comment": "Repeated notes: tongue each one ('too-too') so they stay separate.",
+   "len": 48,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Dotted rhythm: hold the F# a little longer, then a quick E.",
+   "len": 72,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "comment": "End of the phrase: breathe after this E.",
+   "len": 96,
+   "midi": 76,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "comment": "End of the second phrase: breathe.",
+   "len": 96,
+   "midi": 74,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "comment": "F# G is a quick pair of eighths.",
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "comment": "The one low note: drop to low A (relax the air), then breathe and jump back up for the last line.",
+   "len": 96,
+   "midi": 69,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Back in the high octave: tongue firmly and blow faster again.",
+   "len": 48,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "id": "lesson-5-ode-to-joy",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "4/4",
+ "notes": "Beethoven's Ode to Joy, played almost entirely in the second octave: a real tune to build high-note stamina. Keep the air fast and steady, tongue the repeated notes, and breathe at the marked phrase ends. Use the tempo slider to start slower (around 60) and work up.",
+ "source": "Beethoven, Symphony No. 9 (1824), public domain; arranged for the high octave",
+ "tempo": 90,
+ "title": "Lesson 5: Ode to Joy (high octave)",
+ "whistle": "D"
+}

@@ -140,6 +140,8 @@ std::vector<std::string> listSongs();       // ids
 std::optional<Song> loadSong(const std::string& id);
 void saveSong(const Song& s);
 std::string slug(const std::string& title);
+fs::path lessonsDir();                      // the repo's lessons/ folder (build-time path)
+int installLessons(const fs::path& from);   // copy lessons not installed before into dataDir(); returns count
 json toJson(const Song& s);
 Song fromJson(const json& j);
 

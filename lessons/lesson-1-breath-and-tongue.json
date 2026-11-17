@@ -1,0 +1,300 @@
+{
+ "events": [
+  {
+   "comment": "Long tone: breathe in, then blow a steady, gentle stream for 3 beats. Aim for a clean sound with no wobble. The rest is your time to breathe.",
+   "len": 144,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Same with F#: steady air, the same volume from start to end.",
+   "len": 144,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "E has five holes covered. Use the flat pads of your fingers, not the tips.",
+   "len": 144,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Bottom D, all six holes: the hardest low note to seal. If it squeaks or warbles, check every hole and blow even more gently.",
+   "len": 144,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Tonguing: start each note with 'too' (the tip of the tongue touches behind your top teeth). The air keeps flowing; only the tongue interrupts it.",
+   "len": 48,
+   "midi": 67,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Now slur: no tongue, just move your fingers while the air keeps flowing.",
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "A slurred scale up and back down. Only tongue the first note.",
+   "len": 48,
+   "midi": 62,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "comment": "C#: every hole open. It's the top of the low octave; the next lessons go higher.",
+   "len": 96,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Tongue the repeated C# so you hear two notes.",
+   "len": 48,
+   "midi": 73,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "id": "lesson-1-breath-and-tongue",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "4/4",
+ "notes": "Warm-up for every practice session. Long tones teach steady air (most whistle problems are air problems), then tonguing and slurring. Play it slowly and listen for a clean, even tone. If a note squeaks, the cause is almost always a leaky hole or too much air.",
+ "source": "John lessons (original exercise)",
+ "tempo": 80,
+ "title": "Lesson 1: Breath and tongue",
+ "whistle": "D"
+}

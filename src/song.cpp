@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <map>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <unistd.h>
@@ -383,6 +384,33 @@ std::optional<Song> loadSong(const std::string& id) {
 }
 
 void saveSong(const Song& s) { writeJson(dataDir() / "songs" / (s.id + ".json"), toJson(s)); }
+
+fs::path lessonsDir() {
+#ifdef JOHN_LESSONS
+  return JOHN_LESSONS;
+#else
+  return {};
+#endif
+}
+
+// ponytail: a lesson is copied once; later edits to the repo's copy don't reach existing installs.
+int installLessons(const fs::path& from) {
+  std::error_code ec;
+  if (from.empty() || !fs::is_directory(from, ec)) return 0;
+  fs::path marker = dataDir() / "lessons-installed.txt";  // so a lesson the user deletes stays deleted
+  std::set<std::string> done;
+  { std::ifstream f(marker); for (std::string l; std::getline(f, l);) if (!l.empty()) done.insert(l); }
+  std::ofstream out(marker, std::ios::app);
+  int n = 0;
+  for (auto& e : fs::directory_iterator(from, ec)) {
+    std::string id = e.path().stem().string();
+    if (e.path().extension() != ".json" || done.count(id)) continue;
+    fs::path to = dataDir() / "songs" / (id + ".json");
+    if (!fs::exists(to) && fs::copy_file(e.path(), to, ec)) n++;
+    out << id << "\n";
+  }
+  return n;
+}
 
 // ---------------- listing ----------------
 

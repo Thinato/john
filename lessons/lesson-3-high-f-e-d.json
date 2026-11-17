@@ -1,0 +1,253 @@
+{
+ "events": [
+  {
+   "comment": "F# and high F#: one more finger down than G, so seal the holes carefully.",
+   "len": 96,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "comment": "Tongue and blow faster, as in lesson 2. Leaks show most in the high octave: if it squeaks, check that the bottom-hand fingers cover their holes fully.",
+   "len": 96,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 78,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "E has five fingers down. High E needs a good seal and a firm, fast airstream.",
+   "len": 96,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 76,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 76,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "D is the hardest high note (all six holes). Take it slowly. If it won't speak, try lifting your top finger a crack (OXX XXX): many whistles sound high D more easily that way.",
+   "len": 96,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Approach the hard notes from above: start on high G (easy) and step down, keeping the air fast as you add fingers.",
+   "len": 48,
+   "midi": 79,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "comment": "End on a long high D: steady air, and don't let it drop to low D.",
+   "len": 96,
+   "midi": 74,
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "id": "lesson-3-high-f-e-d",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "4/4",
+ "notes": "The bottom-hand high notes, F#, E and D, are harder because more fingers have to seal perfectly. Go slowly; if a note won't speak, check your holes before blowing harder. The second half reaches high D by stepping down from the easy high G. On many whistles, high D sounds more easily with the top hole lifted a crack (OXX XXX).",
+ "source": "John lessons (original exercise)",
+ "tempo": 70,
+ "title": "Lesson 3: High F#, E and D",
+ "whistle": "D"
+}

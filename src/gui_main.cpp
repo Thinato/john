@@ -753,6 +753,7 @@ static void detailsPanel(App& a) {
 }
 
 int main() {
+  try { installLessons(lessonsDir()); } catch (...) {}
   if (!glfwInit()) return 1;
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
