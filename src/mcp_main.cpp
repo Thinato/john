@@ -17,7 +17,7 @@ Getting a tune into John (always via ABC -> import_abc):
 - thesession.org: curl -s 'https://thesession.org/tunes/search?q=NAME&format=json', then curl -s 'https://thesession.org/tunes/ID?format=json'. Each settings[] item has an "abc" body (a lone "!" is a line break) and "key" like "Dmajor". Add headers yourself: X:1, T:name, M: from the tune type (reel/hornpipe/barndance/strathspey 4/4, jig 6/8, slip jig 9/8, slide 12/8, polka 2/4, waltz/mazurka 3/4, three-two 3/2), L:1/8, K:key. Pass source = the setting URL.
 - Audio file (mp3/wav/flac): transcribe_audio gives a draft ABC plus a report. The draft is a machine guess (4/4, straight sixteenths, the loudest pitched line); you are the musician who turns it into a sheet. Review it before importing:
   * Meter: do the repeating motifs line up with the bar lines, with long or accented notes on beat 1? Motifs grouped in 3 beats or in threes of eighths mean 3/4 or 6/8 (waltz, jig, slip jig 9/8): re-run with meter and compare which version makes the phrases fit the bars.
-  * Tempo: if nearly every note is a sixteenth, the real tempo is probably double the detected one; if it is all half and whole notes, it's probably half. Re-run with bpm. If you know the song, use its usual tempo and feel.
+  * Tempo: read the report's tempo line. Confidence low means the detected tempo may well be wrong: re-run with the 'also plausible' bpm (often half, double or 3:2; not always right either) or the song's usual tempo, and keep the version whose note lengths read naturally. If nearly every note is a sixteenth, the real tempo is probably double the detected one; if it is all half and whole notes, it's probably half. Re-run with bpm. If you know the song, use its usual tempo and feel.
   * Pickup and key: does the tune start on a pickup? Do the accidentals point to another key or mode (e.g. a steady C natural in D major = D mixolydian, minor vs dorian)? Fix K: in the ABC.
   * Structure: write repeated sections once with |: :| and 1st/2nd endings so the sheet is short and readable. Trim intros, outros and accompaniment-only passages with start/end (or delete_bars after import).
   * Notes: fix obvious slips (a single note an octave off, one-sixteenth blips, a lone out-of-key note in a clear phrase). Never invent melody that the draft doesn't support; mark doubtful spots instead.
@@ -93,7 +93,7 @@ static json toolList() {
            "Transcribe the melody of an audio file (mp3, wav, flac) into ABC for an instrument (default D whistle): pitch tracking, beat tracking, "
            "sixteenth-note grid, key detection, octave fitted to the instrument's range. Works best on solo instruments/voice; on full mixes it "
            "follows the strongest pitched line. Returns a report and a draft ABC that always assumes 4/4 and straight sixteenths. "
-           "Don't import it blindly: check the meter (do motifs fit the bars?), tempo (doubled/halved note lengths?), pickup, key/mode "
+           "Don't import it blindly: check the meter (do motifs fit the bars?), tempo (the report's tempo confidence; doubled/halved note lengths?), pickup, key/mode "
            "and repeats, re-run with meter/bpm/start/end as needed, tidy the ABC, then import_abc, write song notes about what's "
            "uncertain, and ask the user to compare it by ear (see the server instructions).",
            {{"path", {{"type", "string"}, {"description", "absolute path (or ~/...) to the audio file"}}},
