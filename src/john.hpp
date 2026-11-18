@@ -283,7 +283,7 @@ double trackTick(const PitchTrack& t, double seconds);  // song tick at a time o
 // the viewer's Import audio. o.meter must be "" or normalized by parseMeter. Throws on unreadable audio or no melody.
 Transcription transcribeFile(std::string path, double start, double end, TranscribeOptions o);
 // Import audio (desktop viewer): transcribeFile(), then save the draft as a new song (Unsorted, source = the file
-// name, notes = the report's tempo/meter/key lines, notes the recording is unclear about commented) and its pitch
+// name, notes = the report's separation/tempo/meter/key/transposed lines, notes the recording is unclear about commented) and its pitch
 // track as dataDir()/tracks/<id>.json. Returns the saved song. Safe on a worker thread while the GUI keeps drawing,
 // as long as the language isn't changed meanwhile (tr() reads it).
 Song importAudio(const std::string& path, double start, double end, const TranscribeOptions& o);
