@@ -21,9 +21,9 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
 - **Desktop app** (adds the AI agent / MCP server, audio transcription and songs on disk): download from [Releases](https://github.com/Thinato/john/releases).
   - **macOS** (11 or later, Apple silicon or Intel): download `john-macos.zip` and unzip it. The app isn't signed, so in Terminal run `xattr -dr com.apple.quarantine john-macos` once, then `cd john-macos && ./john`.
   - **Linux** (x86-64, X11 or XWayland): `tar xzf john-linux.tar.gz && cd john-linux && ./john`.
-  - **Windows**: not yet ([#50](https://github.com/Thinato/john/issues/50)).
+  - **Windows** (10 version 1903 or later, 64-bit): download `john-windows.zip`, right-click it, *Extract All*, then double-click `john.exe` in the `john-windows` folder. The app isn't signed, so Windows may say it protected your PC: click *More info*, then *Run anyway*.
 
-  Keep `lessons/` and `fonts/` next to `john` and `john-mcp`. To connect the agent, run `claude mcp add --scope user john -- "$PWD/john-mcp"` in that folder (see [Use](#use)).
+  Keep `lessons/` and `fonts/` next to `john` and `john-mcp`. To connect the agent, run `claude mcp add --scope user john -- "$PWD/john-mcp"` in that folder (see [Use](#use)); on Windows, in PowerShell: `claude mcp add --scope user john -- "$PWD\john-mcp.exe"`.
 
 ## Build
 
@@ -63,11 +63,11 @@ Each song is for an instrument: tin whistle (the default unless another is picke
 
 Songs are grouped into folders (Lessons, Beginner, Intermediate, Advanced, or any name). The agent files new songs by difficulty, and you can move a song with the Folder picker in the GUI.
 
-Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`); songs made with Import audio keep their pitch track in `tracks/<id>.json` next to `songs/`. Custom techniques are in `~/Documents/John/techniques.json`, settings in `~/Documents/John/settings.json`.
+Songs live in `~/Documents/John/songs/*.json` (on Windows `%USERPROFILE%\Documents\John`; override with `JOHN_HOME`); songs made with Import audio keep their pitch track in `tracks/<id>.json` next to `songs/`. Custom techniques are in `~/Documents/John/techniques.json`, settings in `~/Documents/John/settings.json`.
 
 ## Languages
 
-The viewer speaks English and Brazilian Portuguese. By default it follows the system language (`LANG`/`LC_ALL`; on macOS, when those are empty as for an app started from Finder, the first language in System Settings > Language & Region; the browser's language on the web); pick one in Settings. The MCP server and the agent's tools always answer in English. Translations are in `i18n/<language>.json`, one file per language, mapping each English text to its translation; to add a language, add a file (see `kb/notes/i18n-translate-viewer-text.md`).
+The viewer speaks English and Brazilian Portuguese. By default it follows the system language (`LANG`/`LC_ALL`; on macOS, when those are empty as for an app started from Finder, the first language in System Settings > Language & Region; on Windows, when those are empty, the Windows display language; the browser's language on the web); pick one in Settings. The MCP server and the agent's tools always answer in English. Translations are in `i18n/<language>.json`, one file per language, mapping each English text to its translation; to add a language, add a file (see `kb/notes/i18n-translate-viewer-text.md`).
 
 The lessons and the starter songs carry their own Portuguese title, notes and comments (an `"i18n"` map inside each song file), shown when the viewer is in Portuguese. Lessons installed before this was added are your own copies and stay in English; new installs and new browsers get the translations. Your own songs, and anything the agent writes, stay in the language they were written in.
 

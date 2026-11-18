@@ -16,6 +16,9 @@
 #else
 #include <future>
 #endif
+#ifndef GL_BGRA  // Windows' gl.h stops at OpenGL 1.1
+#define GL_BGRA 0x80E1
+#endif
 
 using namespace john;
 
