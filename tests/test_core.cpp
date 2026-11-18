@@ -430,6 +430,36 @@ int main() {
         assert(melodyOf(transcribe(x, sr, o).song) == melodyOf(hi));
       }
     }
+    {  // piano notes fade under the voicing threshold before the next one: sustain them, no note + rest pairs (#6);
+       // a melody with real rests keeps them
+      auto played = [](const Song& s) {
+        std::vector<std::tuple<Kind, int, int>> out;  // notes and rests (kind, pitch, length); ties and rests merged
+        bool tied = false;
+        for (auto& e : s.events) {
+          if (e.kind == Kind::Bar) continue;
+          if (!out.empty() && (tied || (e.kind == Kind::Rest && std::get<0>(out.back()) == Kind::Rest))) std::get<2>(out.back()) += e.len;
+          else out.push_back({e.kind, e.midi, e.len});
+          tied = e.kind == Kind::Note && e.tie;
+        }
+        if (std::get<0>(out.back()) == Kind::Rest) out.pop_back();  // the draft fills its last bar with a rest
+        return out;
+      };
+      const std::pair<const char*, double> tunes[] = {{"X:1\nT:p\nM:4/4\nL:1/4\nK:G\nd2 B2|G4|A2 B c|d4|]\n", 40},
+                                                      {"X:1\nT:r\nM:4/4\nL:1/8\nK:G\nd2 z2 B2 z2|G2 B2 d2 z2|g4 z4|e2 z2 c2 z2|]\n", 80}};
+      for (auto [abc, bpm] : tunes) {
+        Song t = importAbc(abc).song;
+        Performance pp = perform(t, bpm, 0, false, "piano");
+        std::vector<float> x((size_t)((pp.length + 1) * sr), 0.f);
+        Synth sp;
+        sp.sampleRate = sr;
+        sp.metronome = false;
+        long long at = 0;
+        sp.render(pp, at, x.data(), (int)x.size());
+        TranscribeOptions o;
+        o.bpm = bpm;
+        assert(played(transcribe(x, sr, o).song) == played(t));
+      }
+    }
     {  // the same whistle tune over a louder low accompaniment: only a search limited to the whistle's range keeps it (#10)
       std::vector<float> loud(mix.size());
       for (size_t i = 0; i < mix.size(); i++) loud[i] = mix[i] + acc[i] * 2 * melodyRms / accRms;  // 8 dB over the melody

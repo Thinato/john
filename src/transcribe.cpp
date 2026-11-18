@@ -57,8 +57,9 @@ constexpr int CENTS = 10;        // fine salience resolution
 constexpr int NB = (HI - LO) * 100 / CENTS + 1;
 constexpr int HARMONICS = 8;
 
-struct RawNote { int a, b, m; double conf; };  // frames [a, b), sounding MIDI, mean salience
-struct QNote { int q0, q1, m; double conf; };  // grid units [q0, q1)
+struct RawNote { int a, b, m; double conf; bool ring = false; };  // frames [a, b), sounding MIDI, mean salience;
+                                                                   // ring: sustained through its decay tail (#6)
+struct QNote { int q0, q1, m; double conf; bool ring = false; };  // grid units [q0, q1)
 
 const int PC_FIFTHS[12] = {0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5};
 
@@ -326,6 +327,17 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     for (int t = n.a; t < n.b; t++) c += S[(size_t)t * M + n.m] / norm;
     n.conf = c / (n.b - n.a);
   }
+  // Struck and plucked notes (piano, guitar) fade under the voicing threshold long before the next note while their
+  // pitch is still the strongest one: sustain each note through that tail instead of leaving a rest (#6). A note
+  // released into a real rest stops at once (its tail is a few frames of release, left as it is); one that rings on
+  // for at least minF was held, so the quantizer also closes what is left of its gap when that is a beat or less.
+  for (size_t i = 0; i < split.size(); i++) {
+    RawNote& n = split[i];
+    const int end = i + 1 < split.size() ? split[i + 1].a : T;
+    int b = n.b;
+    while (b < end && frameMax[b] > 0 && S[(size_t)b * M + n.m] == frameMax[b]) b++;
+    if (b - n.b >= minF) n.b = b, n.ring = true;
+  }
 
   // ---- beats: onset envelope, tempo by autocorrelation, beat times by dynamic programming ----
   std::vector<double> env(T, 0);
@@ -426,7 +438,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     std::vector<QNote> q;
     for (auto& n : split) {
       int q0 = (int)std::lround(beatPos(n.a) * g), q1 = (int)std::lround(beatPos(n.b) * g);
-      q.push_back({q0, std::max(q0 + 1, q1), n.m + LO, n.conf});
+      q.push_back({q0, std::max(q0 + 1, q1), n.m + LO, n.conf, n.ring});
     }
     std::vector<QNote>& clean = F.clean;
     for (auto& n : q) {
@@ -436,7 +448,8 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
           if (n.q1 - n.q0 > p.q1 - p.q0) p = n;
           continue;
         }
-        if (p.q1 > n.q0 || n.q0 - p.q1 <= 1) p.q1 = n.q0;  // overlaps cut, sixteenth gaps closed (legato reads better)
+        // overlaps cut, sixteenth gaps closed (legato reads better), gaps up to a beat after a ringing note closed
+        if (p.q1 > n.q0 || n.q0 - p.q1 <= (p.ring ? g : 1)) p.q1 = n.q0;
       }
       clean.push_back(n);
     }
