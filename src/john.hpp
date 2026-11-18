@@ -195,7 +195,7 @@ std::string analyze(const Song& s);          // deterministic technique candidat
 std::vector<float> decodeAudio(const std::string& path, int sampleRate);  // mono; mp3/wav/flac; throws on failure
 struct TranscribeOptions {
   double bpm = 0;             // quarter notes per minute; 0 = detect
-  std::string meter = "4/4";
+  std::string meter;          // "" = detect (4/4, 3/4, 6/8 or 9/8)
   std::string title = "Transcription";
   std::string instrument = "whistle";  // the song is written for this instrument (D whistle) and fitted to its range
   std::string recordingInstrument;     // plays the melody in the recording (D whistle); limits the pitch search to its
