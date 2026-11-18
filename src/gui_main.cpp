@@ -47,11 +47,18 @@ static std::string utf8(unsigned cp) {
 // Translated widget label: "###" + the English text keeps the ImGui ID the same in every language ("##" would not).
 static std::string L(const char* english) { return std::string(tr(english)) + "###" + english; }
 
-// Instrument name in the viewer's language; a whistle's key is spelled like key names ("Flauta irlandesa em Ré").
+// A whistle or harmonica key ("Bb") spelled like key names ("Sib" with Do Re Mi keys).
+static std::string keyLabel(const std::string& k) {
+  auto key = parseKey(k);
+  return key ? tonicName(*key) : k;
+}
+
+// Instrument name in the viewer's language; a whistle's or harp's key is spelled like key names ("Flauta irlandesa em Ré").
 static std::string instName(const Instrument& in) {
-  if (in.id != "whistle") return tr(in.name);
-  auto key = parseKey(in.name.substr(0, in.name.find(' ')));  // "Bb whistle" -> Bb
-  return trf("%s whistle", key ? tonicName(*key).c_str() : in.name.c_str());
+  std::string key = keyLabel(in.name.substr(0, in.name.find(' ')));  // "Bb whistle" -> Bb
+  if (in.id == "whistle") return trf("%s whistle", key.c_str());
+  if (in.id == "harmonica" && in.name != "Harmonica") return trf("%s harmonica", key.c_str());  // "A harmonica"; C = "Harmonica"
+  return tr(in.name);
 }
 
 // Displayed note value: base length (192 whole .. 6 32nd) and dots. Tuplet notes show their written value.
@@ -861,8 +868,12 @@ static void detailsPanel(App& a) {
   if (ImGui::BeginCombo(L("Instrument").c_str(), instName(inst).c_str())) {
     for (auto& id : INSTRUMENTS) {
       std::string pick = id;
-      if (ImGui::Selectable(instName(findInstrument(id, s.whistle).value_or(*findInstrument(id))).c_str(), id == inst.id)) {
-        editSong(a, [&](Song& x) { x.instrument = pick; });
+      std::string harp = id == "harmonica" && inst.id != "harmonica" ? a.set.harp : s.harp;  // a new harmonica song: Settings' harp
+      if (ImGui::Selectable(instName(findInstrument(id, s.whistle, harp).value_or(*findInstrument(id))).c_str(), id == inst.id)) {
+        editSong(a, [&](Song& x) {
+          if (pick == "harmonica" && x.instrument != "harmonica") x.harp = harp;
+          x.instrument = pick;
+        });
         edited = true;
         break;
       }
@@ -870,6 +881,46 @@ static void detailsPanel(App& a) {
     ImGui::EndCombo();
   }
   if (edited) return;
+  if (inst.id == "harmonica") {
+    ImGui::SetNextItemWidth(200);
+    if (ImGui::BeginCombo(L("Harmonica key").c_str(), keyLabel(s.harp).c_str())) {
+      for (auto& k : HARP_KEYS)
+        if (ImGui::Selectable((keyLabel(k) + "###" + k).c_str(), k == s.harp)) {
+          std::string pick = k;
+          editSong(a, [&](Song& x) { x.harp = pick; });
+          edited = true;
+          break;
+        }
+      ImGui::EndCombo();
+    }
+    if (edited) return;
+  }
+  // Play in key: the 12 tonics in the song's mode; the octave follows the instrument (transposeToKey)
+  const int cur = tonicPc(s.key), orig = ((cur - s.transposed) % 12 + 12) % 12;
+  ImGui::SetNextItemWidth(200);
+  if (ImGui::BeginCombo(L("Play in key").c_str(), keyName(s.key).c_str())) {
+    for (int pc = 0; pc < 12; pc++) {
+      Song k;
+      k.key = s.key;
+      transpose(k, pc - cur);  // no notes: only the key
+      std::string name = pc == orig ? trf("%s (original)", keyName(k.key).c_str()) : keyName(k.key);
+      if (ImGui::Selectable((name + "###key" + std::to_string(pc)).c_str(), pc == cur)) {
+        const int tonic = pc;
+        if (tonic != cur) editSong(a, [&](Song& x) { transposeToKey(x, tonic, instrumentOf(x)); });
+        edited = true;
+        break;
+      }
+    }
+    ImGui::EndCombo();
+  }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Transposes the song and saves it. Pick the original key to get it back."));
+  if (edited) return;
+  if (inst.id == "harmonica") {  // the usual keys for this harp
+    Key harp = parseKey(s.harp).value_or(Key{0, "maj"}), second{harp.fifths + 1, "maj"};
+    ImGui::TextDisabled(tr("1st position: %s  |  2nd position: %s"), tonicName(harp).c_str(), tonicName(second).c_str());
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("%s", tr("1st position plays in the harmonica's key. 2nd position (cross harp), a fifth above, is the usual choice for blues and folk."));
+  }
   if (!s.notes.empty()) { ImGui::Separator(); ImGui::TextWrapped("%s", songText(s, s.notes).c_str()); }
   ImGui::Separator();
 
@@ -944,6 +995,11 @@ static void settingsWindow(App& a) {
   if (!a.english) ImGui::Checkbox(L("Keys as Do Re Mi").c_str(), &s.solfegeKeys);  // English keys are always letters
   ImGui::SeparatorText(tr("Sheet"));
   ImGui::Checkbox(L("Instrument hints (whistle fingerings)").c_str(), &s.hints);
+  if (ImGui::BeginCombo(L("Harmonica key").c_str(), keyLabel(s.harp).c_str())) {
+    for (auto& k : HARP_KEYS) if (ImGui::Selectable((keyLabel(k) + "###" + k).c_str(), k == s.harp)) s.harp = k;
+    ImGui::EndCombo();
+  }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Your harmonica's key, used when a song is switched to harmonica or imported for it"));
   ImGui::SliderFloat(L("Zoom").c_str(), &s.zoom, 6, 16, "%.0f");
   ImGui::Checkbox(L("Light theme").c_str(), &s.light);
   ImGui::SeparatorText(tr("Playback"));
