@@ -872,9 +872,11 @@ static void settingsWindow(App& a) {
   ImGui::SliderFloat("Tolerance (cents)", &s.tolerance, 10, 100, "%.0f");
   ImGui::SliderFloat("Noise gate", &s.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
   ImGui::SliderFloat("Latency (ms)", &s.latencyMs, 0, 300, "%.0f");
+#ifndef __EMSCRIPTEN__  // only the agent (john-mcp, desktop) imports songs
   ImGui::SeparatorText("New songs");
   instrumentCombo("Instrument", s.instrument, nullptr);
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("Used when the agent imports a song without saying which instrument it is for");
+#endif
   ImGui::PopItemWidth();
   ImGui::End();
 }
@@ -966,11 +968,20 @@ int main() {
       }
       ImGui::TreePop();
     }
+#ifdef __EMSCRIPTEN__  // no agent on the web: point to the desktop app instead
+    if (a.ids.empty()) ImGui::TextWrapped("No songs yet. Songs are imported in the desktop app.");
+#else
     if (a.ids.empty()) ImGui::TextWrapped("No songs yet. Ask the agent to import one via the john MCP server.");
+#endif
     else if (byFolder.empty()) ImGui::TextDisabled("No songs for this instrument.");
     ImGui::Separator();
+#ifdef __EMSCRIPTEN__
+    if (ImGui::TextLink("Get the desktop app")) emscripten_run_script("window.open('https://github.com/Thinato/john/releases', '_blank')");
+    ImGui::TextWrapped("Adds the AI agent (MCP), audio transcription and songs on disk.");
+#else
     ImGui::Checkbox("Follow agent", &a.follow);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Switch to a song as soon as the agent changes it");
+#endif
     const bool noHints = a.song && instrumentOf(*a.song).id != "whistle";  // only the whistle has hints so far
     ImGui::BeginDisabled(noHints);
     bool shown = a.set.hints && !noHints;  // unticked while disabled; a.set.hints keeps the choice for whistle songs
@@ -982,8 +993,10 @@ int main() {
     }
     ImGui::SliderFloat("Zoom", &a.set.zoom, 6, 16, "%.0f");
     if (ImGui::Button("Settings")) a.showSettings = !a.showSettings;
+#ifndef __EMSCRIPTEN__  // the web keeps songs in the browser (IndexedDB)
     ImGui::TextDisabled("Data folder:");
     ImGui::TextWrapped("%s", dataDir().c_str());
+#endif
     ImGui::EndChild();
     ImGui::SameLine();
 
