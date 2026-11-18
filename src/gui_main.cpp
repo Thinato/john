@@ -16,6 +16,9 @@
 #else
 #include <future>
 #endif
+#ifndef GL_BGRA  // Windows' gl.h stops at OpenGL 1.1
+#define GL_BGRA 0x80E1
+#endif
 
 using namespace john;
 
@@ -1180,7 +1183,7 @@ int main() {
       else openImport(a);
     }
     ImGui::TextDisabled("%s", tr("Data folder:"));
-    ImGui::TextWrapped("%s", dataDir().c_str());
+    ImGui::TextWrapped("%s", dataDir().string().c_str());
 #endif
     ImGui::EndChild();
     ImGui::SameLine();

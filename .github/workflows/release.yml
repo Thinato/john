@@ -24,8 +24,13 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             cmake: -DGLFW_BUILD_WAYLAND=OFF
+          - os: windows-latest
+            platform: windows  # MSVC, x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash  # Git Bash on Windows
     steps:
       - uses: actions/checkout@v7
 
@@ -39,21 +44,26 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake }}
 
       - name: Build
-        run: cmake --build build --parallel
+        run: cmake --build build --config Release --parallel
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build -C Release --output-on-failure
 
       - name: Package
         run: |
           d=john-${{ matrix.platform }}
           mkdir -p $d/fonts
-          cp build/john build/john-mcp $d/
+          if [ "$RUNNER_OS" = Windows ]; then cp build/Release/john.exe build/Release/john-mcp.exe $d/  # Visual Studio: one folder per config
+          else cp build/john build/john-mcp $d/; fi
           cp -R lessons i18n $d/
           cp build/Bravura.otf build/NotoSans-Regular.ttf $d/fonts/
           curl -fsSL -o $d/fonts/Bravura-LICENSE.txt https://raw.githubusercontent.com/steinbergmedia/bravura/master/LICENSE.txt
           curl -fsSL -o $d/fonts/NotoSans-LICENSE.txt https://raw.githubusercontent.com/notofonts/latin-greek-cyrillic/main/OFL.txt
-          if [ "$RUNNER_OS" = macOS ]; then zip -qry $d.zip $d; else tar czf $d.tar.gz $d; fi
+          case $RUNNER_OS in
+            macOS) zip -qry $d.zip $d ;;
+            Windows) 7z a -bso0 $d.zip $d ;;
+            *) tar czf $d.tar.gz $d ;;
+          esac
 
       - uses: actions/upload-artifact@v7
         with:
@@ -75,4 +85,4 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" john-macos.zip john-linux.tar.gz --repo "$GITHUB_REPOSITORY" --title "John $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" john-macos.zip john-linux.tar.gz john-windows.zip --repo "$GITHUB_REPOSITORY" --title "John $GITHUB_REF_NAME" --generate-notes

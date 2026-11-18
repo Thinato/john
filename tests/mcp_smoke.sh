@@ -58,5 +58,7 @@ reply 20 | grep -q 'fiddle - Fiddle' || { echo "violin filter lost fiddle"; exit
 reply 21 | grep -q "unknown instrument 'kazoo'" || { echo "kazoo filter not rejected"; exit 1; }
 ! reply 22 | grep -q 'meter must' && ! reply 23 | grep -q 'meter must' || { echo "C or C| rejected as meter"; exit 1; }
 reply 24 | grep -q 'meter must be N/D' || { echo "bad meter not rejected"; exit 1; }
+CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
+case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
 [ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 24 ] || { echo "expected 24 replies"; exit 1; }
 echo "mcp smoke passed"
