@@ -22,6 +22,7 @@ A PR is ready for review when:
 - [ ] `ctest --test-dir build --output-on-failure` passes locally, and new logic has a test in `tests/`.
 - [ ] GUI changes were checked with a snapshot (`JOHN_SNAPSHOT`, see CLAUDE.md): say what it shows, and attach the image if you can.
 - [ ] README / CLAUDE.md / the MCP agent instructions are updated if behaviour changed.
+- [ ] Anything non-obvious you learned about the codebase is written down as a note in `kb/notes/` (see `kb/README.md`).
 - [ ] No copyrighted recordings or sheets, no personal paths, names or emails, no secrets.
 - [ ] Anything someone has to hear, play or see to judge (sounds, mic, layout) is labelled `needs-human-check`.
 
