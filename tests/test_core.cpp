@@ -349,6 +349,30 @@ int main() {
       printf("transcribe (irregular): %s", r.substr(0, r.find('\n') + 1).c_str());
       assert(r.find("confidence high") == std::string::npos && r.find("also plausible: ~") != std::string::npos);
     }
+    {  // the meter is detected: a jig is 6/8 (a beat of three eighths), a waltz 3/4 (#1); the 4/4 mix stays 4/4 (below)
+      const std::pair<const char*, const char*> tunes[] = {
+          {"X:1\nT:j\nM:6/8\nL:1/8\nK:D\nd2f a2f|g2e c2A|dfa afd|e3 e2A|d2f a2f|g2e c2e|dcB AFA|d3 d3|]\n", "6/8"},
+          {"X:1\nT:w\nM:3/4\nL:1/8\nK:D\nd4 f2|a4 f2|g4 e2|c6|d4 f2|a3 g f2|e2 d2 c2|d6|]\n", "3/4"}};
+      for (auto [abc, meter] : tunes) {
+        Song t = importAbc(abc).song;
+        Performance pt = perform(t, 150, 0, false);
+        std::vector<float> x((size_t)((pt.length + 1) * sr), 0.f);
+        Synth st;
+        st.sampleRate = sr;
+        st.metronome = false;
+        long long at = 0;
+        st.render(pt, at, x.data(), (int)x.size());
+        Transcription tr = transcribe(x, sr, {});
+        std::string r = tr.report.substr(tr.report.find("meter: "));
+        printf("transcribe (%s tune): %s", meter, r.substr(0, r.find('\n') + 1).c_str());
+        assert(tr.song.meter == meter && r.rfind("meter: " + std::string(meter) + " (detected; " + meter + " ", 0) == 0);
+        assert(common(melodyOf(t), melodyOf(tr.song)) >= (int)melodyOf(t).size() * 9 / 10);
+        TranscribeOptions o;
+        o.meter = "4/4";
+        tr = transcribe(x, sr, o);
+        assert(tr.song.meter == "4/4" && tr.report.find("\nmeter: 4/4, as given\n") != std::string::npos);
+      }
+    }
     {  // a short low note that starts a wide leap (D up a tenth) is melody, not accompaniment: keep it (#7)
       Song leap = importAbc("X:1\nT:l\nM:4/4\nL:1/8\nK:D\nD f a f b a f a|D f g a b2 a2|D f a f g f e f|D f a g f4|]\n").song;
       Performance pl = perform(leap, 120, 0, false);
@@ -396,6 +420,7 @@ int main() {
       assert(std::abs(tr.song.tempo - 100) <= 4);
       assert(tr.report.find(bpm > 0 ? "bpm (quarter notes), as given\n" : "bpm (quarter notes), confidence high\n") != std::string::npos);
       assert(tr.song.key.fifths == 1);
+      assert(tr.song.meter == "4/4" && tr.report.find("\nmeter: 4/4 (detected; 4/4 ") != std::string::npos);
       // the ABC we hand the agent reads back to the same song
       Song back = importAbc(toAbc(tr.song)).song;
       assert(back.events.size() == tr.song.events.size());
