@@ -43,7 +43,8 @@ struct Song {
   std::string meter = "4/4";
   Key key;
   int tempo = 0;           // quarter notes per minute, 0 = unknown
-  std::string whistle = "D";
+  std::string instrument = "whistle";  // one of INSTRUMENTS
+  std::string whistle = "D";           // whistle key (used when instrument is "whistle")
   std::vector<Event> events;
 };
 
@@ -66,6 +67,18 @@ struct Spelled {
   int octave = 4;      // scientific octave
   int step() const { return octave * 7 + letter; }  // diatonic position, E4 = 30 is the bottom staff line
 };
+
+// ---- instruments ----
+inline const std::vector<std::string> INSTRUMENTS = {"whistle", "violin", "piano", "guitar", "electric-guitar", "harmonica"};
+struct Instrument {
+  std::string id, name;    // "violin", "Violin"; the whistle's name includes its key ("D whistle")
+  int low = 0, high = 0;   // playable range, written pitch (MIDI)
+  int octave = 0;          // sounding pitch = written + 12 * octave (whistle +1, guitar -1, others 0)
+  bool plays(int midi) const { return midi >= low && midi <= high; }
+};
+// whistleKey is only used for "whistle". Returns nullopt for an unknown id or whistle key.
+std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey = "D");
+Instrument instrumentOf(const Song& s);           // the song's instrument; a D whistle if the song's values are unknown
 
 // ---- theory ----
 int meterTicks(const std::string& meter);          // ticks per bar
@@ -111,11 +124,12 @@ struct Performance {
   std::vector<std::pair<double, bool>> clicks;  // metronome: time, bar accent
   double length = 0;                            // seconds
   double countIn = 0;                           // seconds of clicks before the first note
+  int octave = 1;                               // sounding = written + 12 * octave (the song's instrument)
 };
 // fromOrder: index into playOrder() to start at. bpm = quarter notes per minute.
 Performance perform(const Song& s, double bpm, int fromOrder = 0, bool countIn = true);
-double soundingFreq(int writtenMidi);         // whistles sound an octave above written pitch
-double writtenMidiFromFreq(double hz);        // fractional written MIDI
+double soundingFreq(int writtenMidi, int octave);   // octave: Instrument::octave (whistle music sounds an octave up)
+double writtenMidiFromFreq(double hz, int octave);  // fractional written MIDI
 
 struct Synth {                // simple tin whistle voice + metronome; render() is called from the audio thread
   int sampleRate = 48000;
@@ -160,9 +174,10 @@ struct TranscribeOptions {
   double bpm = 0;             // quarter notes per minute; 0 = detect
   std::string meter = "4/4";
   std::string title = "Transcription";
+  std::string instrument = "whistle";  // the song is written for this instrument (D whistle) and fitted to its range
 };
 struct Transcription { Song song; std::string report; };
-// Melody of a recording as a D whistle song (octave fitted to the whistle). Throws if no melody is found.
+// Melody of a recording as a song for o.instrument (octave fitted to its range). Throws if no melody is found.
 Transcription transcribe(const std::vector<float>& audio, int sampleRate, const TranscribeOptions& o = {});
 std::string toAbc(const Song& s);            // ABC with L:1/16 (no tuplets), readable by importAbc
 

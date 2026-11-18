@@ -117,6 +117,30 @@ int whistleBase(const std::string& w) {
   return 60 + mod12(k->fifths * 7);  // C whistle = C4 (60) ... B whistle = B4 (71); D = 62
 }
 
+std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey) {
+  if (id == "whistle") {
+    int b = whistleBase(whistleKey);
+    if (b < 0) return std::nullopt;
+    return Instrument{id, whistleKey + " whistle", b, b + 23, 1};
+  }
+  // ponytail: ranges only. Harmonica = 10-hole diatonic in C without bends (it can't play every note in range);
+  // add holes/bends or other harmonica keys when harmonica hints are needed.
+  static const Instrument FIXED[] = {
+      {"violin", "Violin", 55, 100, 0},                      // G3..E7
+      {"piano", "Piano", 21, 108, 0},                        // A0..C8
+      {"guitar", "Guitar", 52, 96, -1},                      // written E3..C7, sounds an octave lower (20 frets)
+      {"electric-guitar", "Electric guitar", 52, 100, -1},   // 24 frets
+      {"harmonica", "Harmonica", 60, 96, 0},                 // C4..C7
+  };
+  for (auto& i : FIXED) if (i.id == id) return i;
+  return std::nullopt;
+}
+
+Instrument instrumentOf(const Song& s) {
+  if (auto i = findInstrument(s.instrument, s.whistle)) return *i;
+  return *findInstrument("whistle", "D");
+}
+
 Fingering finger(const std::string& whistle, int midi) {
   // Offsets from the whistle's bottom note. Same pattern both octaves; C natural uses the OXX OOO cross fingering.
   static const char* F[12] = {"XXXXXX", "XXXXXH", "XXXXXO", "XXXXHO", "XXXXOO", "XXXOOO",
@@ -330,7 +354,7 @@ json toJson(const Song& s) {
   }
   json j = {{"id", s.id}, {"title", s.title}, {"source", s.source}, {"notes", s.notes},
           {"meter", s.meter}, {"key", {{"fifths", s.key.fifths}, {"mode", s.key.mode}}},
-          {"tempo", s.tempo}, {"whistle", s.whistle}, {"events", ev}};
+          {"tempo", s.tempo}, {"instrument", s.instrument}, {"whistle", s.whistle}, {"events", ev}};
   if (!s.folder.empty()) j["folder"] = s.folder;
   return j;
 }
@@ -353,6 +377,7 @@ Song fromJson(const json& j) {
   s.meter = j.value("meter", "4/4");
   if (j.contains("key")) s.key = {std::clamp(j["key"].value("fifths", 2), -7, 7), j["key"].value("mode", "maj")};
   s.tempo = j.value("tempo", 0);
+  s.instrument = j.value("instrument", "whistle");
   s.whistle = j.value("whistle", "D");
   for (auto& x : j.value("events", json::array())) {
     Event e;
@@ -435,11 +460,13 @@ static std::string beatLabel(const Song& s, int tickInBar) {
 
 std::string listing(const Song& s) {
   std::ostringstream o;
+  const Instrument in = instrumentOf(s);
+  const bool whistle = in.id == "whistle";
   o << "id: " << s.id << "\ntitle: " << s.title << "\nkey: " << keyName(s.key) << "  meter: " << s.meter
-    << "  whistle: " << s.whistle << "  tempo: " << (s.tempo ? std::to_string(s.tempo) : "?") << "\n";
+    << "  instrument: " << in.name << "  tempo: " << (s.tempo ? std::to_string(s.tempo) : "?") << "\n";
   if (!s.source.empty()) o << "source: " << s.source << "\n";
   if (!s.notes.empty()) o << "notes: " << s.notes << "\n";
-  o << "\n#idx  bar beat  note  length                   fingering     techniques  // comment\n";
+  o << "\n#idx  bar beat  note  length                   " << (whistle ? "fingering    " : "range        ") << " techniques  // comment\n";
   auto pos = positions(s);
   for (size_t i = 0; i < s.events.size(); i++) {
     const Event& e = s.events[i];
@@ -450,7 +477,7 @@ std::string listing(const Song& s) {
       continue;
     }
     std::string name = e.kind == Kind::Note ? noteName(spell(s.key, e.midi)) : "rest";
-    std::string fing = e.kind == Kind::Note ? fingeringText(finger(s.whistle, e.midi)) : "";
+    std::string fing = e.kind != Kind::Note ? "" : whistle ? fingeringText(finger(s.whistle, e.midi)) : in.plays(e.midi) ? "" : "out-of-range";
     std::string tech;
     for (auto& t : e.techniques) tech += (tech.empty() ? "" : ",") + t;
     snprintf(buf, sizeof buf, "#%-4zu %-3d %-5s %-5s %-24s %-13s %s", i, pos[i].bar, beatLabel(s, pos[i].tick).c_str(), name.c_str(),

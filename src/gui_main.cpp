@@ -211,7 +211,9 @@ static void drawScore(App& a, Song& s) {
   auto acc = accidentals(s);
   const float headW = sp * 1.18f, accW = sp * 1.3f;
   const float margin = sp * 2;
-  const float sysH = sp * 26;
+  const Instrument inst = instrumentOf(s);
+  const bool whistle = inst.id == "whistle";  // fingering charts are whistle-only
+  const float sysH = sp * (whistle ? 26 : 19);
   auto slotW = [&](const Event& e, int i) -> float {
     if (e.kind == Kind::Bar) return sp * (e.bar == "|" ? 1.4f : 2.4f);
     return sp * (1.7f + 1.7f * std::sqrt(e.len / 24.0f)) + (acc[i].shown ? accW : 0);
@@ -412,7 +414,7 @@ static void drawScore(App& a, Song& s) {
       continue;
     }
     // note
-    Fingering f = finger(s.whistle, e.midi);
+    Fingering f = whistle ? finger(s.whistle, e.midi) : Fingering{"", 0, inst.plays(e.midi)};
     App::Grade g = sl.ev < (int)a.grades.size() ? a.grades[sl.ev] : App::None;
     ImU32 col = !f.ok ? red
                 : g == App::Good ? IM_COL32(30, 150, 60, 255)
@@ -461,7 +463,7 @@ static void drawScore(App& a, Song& s) {
     }
     // fingering chart: six holes, top hand first
     float chartTop = bottom + sp * 3.5f, r = sp * 0.42f;
-    if (f.ok) {
+    if (whistle && f.ok) {
       for (int h = 0; h < 6; h++) {
         ImVec2 c{sl.cx, chartTop + sp * (0.5f + h * 1.05f + (h >= 3 ? 0.5f : 0))};
         if (f.holes[h] == 'X') sc.dl->AddCircleFilled(c, r, ink);
@@ -472,10 +474,10 @@ static void drawScore(App& a, Song& s) {
         sc.dl->AddCircle(c, r, ink, 0, std::max(1.0f, sp * 0.1f));
       }
       if (f.octave) sc.text(std::string(f.octave, '+'), sl.cx, chartTop + sp * 6.9f, sp * 1.6f, ink);
-    } else sc.text("?", sl.cx, chartTop + sp * 2, sp * 2, red);
+    } else if (whistle) sc.text("?", sl.cx, chartTop + sp * 2, sp * 2, red);
     std::string nm = noteName(spell(s.key, e.midi));
     nm.pop_back();
-    sc.text(nm, sl.cx, chartTop + sp * 8.4f, sp * 1.4f, IM_COL32(110, 110, 110, 255));
+    sc.text(nm, sl.cx, chartTop + sp * (whistle ? 8.4f : 1.0f), sp * 1.4f, IM_COL32(110, 110, 110, 255));
   }
 
   // ---- beams ----
@@ -505,7 +507,8 @@ static void drawScore(App& a, Song& s) {
     const Event& e = s.events[hovered];
     ImGui::BeginTooltip();
     ImGui::Text("%s  %s", noteName(spell(s.key, e.midi)).c_str(), durationName(e).c_str());
-    ImGui::Text("fingering: %s", fingeringText(finger(s.whistle, e.midi)).c_str());
+    if (whistle) ImGui::Text("fingering: %s", fingeringText(finger(s.whistle, e.midi)).c_str());
+    else if (!inst.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, "out of range for the %s", inst.name.c_str());
     for (auto& t : e.techniques) {
       auto it = std::find_if(a.techs.begin(), a.techs.end(), [&](auto& x) { return x.id == t; });
       ImGui::BulletText("%s", it != a.techs.end() ? it->name.c_str() : t.c_str());
@@ -530,7 +533,7 @@ static bool tiedFromPrev(const App& a, int k) {  // note k only continues a tie,
 static int firstNoteFrom(const App& a, int k) {  // next note the player must actually play
   while (k < (int)a.order.size()) {
     const Event& e = a.song->events[a.order[k]];
-    if (e.kind == Kind::Note && !tiedFromPrev(a, k) && finger(a.song->whistle, e.midi).ok) break;
+    if (e.kind == Kind::Note && !tiedFromPrev(a, k) && instrumentOf(*a.song).plays(e.midi)) break;
     k++;
   }
   return k;
@@ -585,10 +588,10 @@ static void practiceUpdate(App& a, float dt) {
     float level = n ? rms(buf.data(), n) : 0;
     recent = n ? rms(buf.data() + n - 512, 512) : 0;
     a.silentFor = level > 1e-5f ? 0 : a.silentFor + dt;
-    int base = whistleBase(a.song->whistle);
-    float fmin = (float)soundingFreq(base) * 0.8f, fmax = (float)soundingFreq(base + 23) * 1.15f;
+    Instrument in = instrumentOf(*a.song);
+    float fmin = (float)soundingFreq(in.low, in.octave) * 0.8f, fmax = (float)soundingFreq(in.high, in.octave) * 1.15f;
     if (level > a.gate)
-      if (float hz = detectPitch(buf.data(), n, a.audio.micRate(), fmin, fmax)) a.heard = (float)writtenMidiFromFreq(hz);
+      if (float hz = detectPitch(buf.data(), n, a.audio.micRate(), fmin, fmax)) a.heard = (float)writtenMidiFromFreq(hz, in.octave);
   }
   auto cents = [&](int midi) { return (a.heard - midi) * 100; };
 
@@ -701,12 +704,13 @@ static void transportBar(App& a) {
       int m = (int)std::lround(a.heard);
       float c = (a.heard - m) * 100;
       ImVec4 col = std::abs(c) <= a.tolerance ? ImVec4(0.3f, 0.9f, 0.4f, 1) : ImVec4(1, 0.7f, 0.2f, 1);
+      bool whistle = instrumentOf(*a.song).id == "whistle";
       ImGui::TextColored(col, "hearing %s %+.0fc  %s", noteName(spell(a.song->key, m)).c_str(), c,
-                         fingeringText(finger(a.song->whistle, m)).c_str());
+                         whistle ? fingeringText(finger(a.song->whistle, m)).c_str() : "");
       if (a.cursor >= 0 && a.cursor < (int)a.song->events.size()) {
         int want = a.song->events[a.cursor].midi;
-        if (m == want + 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, "(octave too high: blow softer)"); }
-        if (m == want - 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, "(octave too low: blow harder)"); }
+        if (m == want + 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, whistle ? "(octave too high: blow softer)" : "(octave too high)"); }
+        if (m == want - 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, whistle ? "(octave too low: blow harder)" : "(octave too low)"); }
       }
     } else if (a.silentFor > 2) ImGui::TextColored({1, 0.5f, 0.4f, 1}, "no sound from the mic: allow microphone access for this app/terminal in System Settings > Privacy & Security");
     else ImGui::TextDisabled("listening...");
@@ -724,7 +728,9 @@ static void detailsPanel(App& a) {
   ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.4f);
   ImGui::TextWrapped("%s", s.title.c_str());
   ImGui::PopFont();
-  ImGui::TextDisabled("%s  |  %s  |  %s whistle%s", keyName(s.key).c_str(), s.meter.c_str(), s.whistle.c_str(),
+  const Instrument inst = instrumentOf(s);
+  const bool whistle = inst.id == "whistle";
+  ImGui::TextDisabled("%s  |  %s  |  %s%s", keyName(s.key).c_str(), s.meter.c_str(), inst.name.c_str(),
                       s.tempo ? ("  |  " + std::to_string(s.tempo) + " bpm").c_str() : "");
   if (!s.source.empty()) ImGui::TextWrapped("Source: %s", s.source.c_str());
   std::vector<std::string> choices = FOLDERS;
@@ -739,13 +745,25 @@ static void detailsPanel(App& a) {
       }
     ImGui::EndCombo();
   }
+  ImGui::SetNextItemWidth(200);
+  if (ImGui::BeginCombo("Instrument", inst.name.c_str())) {
+    for (auto& id : INSTRUMENTS) {
+      std::string pick = id;
+      if (ImGui::Selectable(findInstrument(id, s.whistle).value_or(*findInstrument(id)).name.c_str(), id == inst.id)) {
+        editSong(a, [&](Song& x) { x.instrument = pick; });
+        break;  // the song may have been reloaded
+      }
+    }
+    ImGui::EndCombo();
+  }
   if (!s.notes.empty()) { ImGui::Separator(); ImGui::TextWrapped("%s", s.notes.c_str()); }
   ImGui::Separator();
 
   if (a.sel >= 0 && a.sel < (int)s.events.size() && s.events[a.sel].kind == Kind::Note) {
     Event& e = s.events[a.sel];
     ImGui::Text("Note #%d: %s, %s", a.sel, noteName(spell(s.key, e.midi)).c_str(), durationName(e).c_str());
-    ImGui::Text("Fingering: %s", fingeringText(finger(s.whistle, e.midi)).c_str());
+    if (whistle) ImGui::Text("Fingering: %s", fingeringText(finger(s.whistle, e.midi)).c_str());
+    else if (!inst.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, "Out of range for the %s", inst.name.c_str());
     for (auto& t : a.techs) {
       bool on = std::find(e.techniques.begin(), e.techniques.end(), t.id) != e.techniques.end();
       if (ImGui::Checkbox((t.symbol + "  " + t.name + "##" + t.id).c_str(), &on)) {
@@ -763,7 +781,7 @@ static void detailsPanel(App& a) {
 
   ImGui::Separator();
   if (ImGui::CollapsingHeader("Legend", ImGuiTreeNodeFlags_DefaultOpen)) {
-    ImGui::TextWrapped("Fingering chart: top three holes = left hand, bottom three = right hand. "
+    if (whistle) ImGui::TextWrapped("Fingering chart: top three holes = left hand, bottom three = right hand. "
                        "Filled = covered, empty = open, half = half-covered. + = blow harder (second octave).");
     for (auto& t : a.techs) {
       ImGui::TextColored({0.95f, 0.55f, 0.15f, 1}, "%-4s", t.symbol.c_str());

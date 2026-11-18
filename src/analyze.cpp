@@ -15,10 +15,11 @@ struct N {
 
 struct RangeCost { int out = 0, half = 0, cross = 0; };
 
-RangeCost rangeCost(const Song& s, int semis) {
+RangeCost rangeCost(const Song& s, const Instrument& in, int semis) {
   RangeCost c;
   for (auto& e : s.events) {
     if (e.kind != Kind::Note) continue;
+    if (in.id != "whistle") { c.out += !in.plays(e.midi + semis); continue; }
     Fingering f = finger(s.whistle, e.midi + semis);
     if (!f.ok) c.out++;
     else if (f.holes.find('H') != std::string::npos) c.half++;
@@ -33,7 +34,9 @@ std::string analyze(const Song& s) {
   std::ostringstream o;
   const bool compound = compoundMeter(s.meter);
   const int beat = compound ? WHOLE * 3 / 8 : WHOLE / 4;
-  const int base = whistleBase(s.whistle);
+  const Instrument in = instrumentOf(s);
+  const bool whistle = in.id == "whistle";
+  const int base = whistle ? in.low : whistleBase("D");  // technique candidates follow tin whistle fingering
 
   // ---- collect notes with positions; merge tie chains ----
   std::vector<N> notes;
@@ -57,27 +60,30 @@ std::string analyze(const Song& s) {
   int lastBar = notes.back().bar;
 
   // ---- range / fingering ----
-  o << "== Range on the " << s.whistle << " whistle (playable " << noteName(spell(s.key, base)) << " .. "
-    << noteName(spell(s.key, base + 23)) << ") ==\n";
-  RangeCost now = rangeCost(s, 0);
-  o << "current: " << now.out << " out of range, " << now.half << " half-holed, " << now.cross << " C-natural cross-fingered\n";
+  o << "== Range on the " << in.name << " (playable " << noteName(spell(s.key, in.low)) << " .. "
+    << noteName(spell(s.key, in.high)) << ") ==\n";
+  RangeCost now = rangeCost(s, in, 0);
+  o << "current: " << now.out << " out of range";
+  if (whistle) o << ", " << now.half << " half-holed, " << now.cross << " C-natural cross-fingered";
+  o << "\n";
   std::vector<std::pair<int, int>> ranked;  // score, semis
   for (int t = -12; t <= 12; t++) {
-    RangeCost c = rangeCost(s, t);
+    RangeCost c = rangeCost(s, in, t);
     ranked.push_back({c.out * 1000 + c.half * 10 + c.cross * 2 + std::abs(t), t});
   }
   std::sort(ranked.begin(), ranked.end());
   o << "best transpositions:";
   for (int i = 0; i < 3; i++) {
-    RangeCost c = rangeCost(s, ranked[i].second);
+    RangeCost c = rangeCost(s, in, ranked[i].second);
     Song tmp = s;
     transpose(tmp, ranked[i].second);
-    o << "  [" << (ranked[i].second > 0 ? "+" : "") << ranked[i].second << " -> " << keyName(tmp.key) << ": " << c.out
-      << " out, " << c.half << " half, " << c.cross << " cross]";
+    o << "  [" << (ranked[i].second > 0 ? "+" : "") << ranked[i].second << " -> " << keyName(tmp.key) << ": " << c.out << " out";
+    if (whistle) o << ", " << c.half << " half, " << c.cross << " cross";
+    o << "]";
   }
   o << "\n";
   for (auto& n : notes) {
-    Fingering f = finger(s.whistle, n.midi);
+    Fingering f = whistle ? finger(s.whistle, n.midi) : Fingering{"", 0, in.plays(n.midi)};
     std::string nm = noteName(spell(s.key, n.midi));
     if (!f.ok) o << "#" << n.idx << " bar " << n.bar << " " << nm << ": OUT OF RANGE\n";
     else if (f.holes.find('H') != std::string::npos)
@@ -87,6 +93,7 @@ std::string analyze(const Song& s) {
   // ---- technique candidates ----
   o << "\n== Technique candidates (hints, not rules; " << (compound ? "compound" : "simple") << " meter, beat = "
     << (compound ? "dotted quarter" : "quarter") << ") ==\n";
+  if (!whistle) o << "(the candidates follow D tin whistle fingering; on the " << in.name << " read them as phrasing hints)\n";
   auto line = [&](const N& n, const std::string& what) {
     o << "#" << n.idx << " bar " << n.bar << " beat " << (1 + (double)n.tick / beat) << " "
       << noteName(spell(s.key, n.midi)) << ": " << what << "\n";

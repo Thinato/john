@@ -20,6 +20,9 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"get_song","arguments":{"id":5}}}' \
 '{"jsonrpc":"2.0","id":13,"method":"ping"}' \
 '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"delete_bars","arguments":{"id":"smoke-reel","first":2}}}' \
+'{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Fiddle\nM:4/4\nL:1/4\nK:G\nG,A,B,C|","instrument":"violin"}}}' \
+'{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"update_song","arguments":{"id":"fiddle","instrument":"kazoo"}}}' \
+'{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"analyze_song","arguments":{"id":"fiddle"}}}' \
 | "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -35,5 +38,9 @@ check 'bad argument type'
 check '"id":13,"jsonrpc":"2.0","result":{}'
 check 'Deleted 2 note'
 check '"name":"delete_bars"'
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 14 ] || { echo "expected 14 replies"; exit 1; }
+check 'instrument: Violin'
+check "unknown instrument 'kazoo'"
+check 'Range on the Violin'
+check '"enum":\["whistle","violin"'
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 17 ] || { echo "expected 17 replies"; exit 1; }
 echo "mcp smoke passed"

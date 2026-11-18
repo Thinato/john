@@ -10,6 +10,8 @@ using namespace john;
 
 static const char* GUIDE = R"(John turns tunes into tin whistle tab sheets with technique markings. Songs are saved to the John data folder and appear live in the John GUI (staff + fingering charts + technique symbols).
 
+Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica). Pass it to import_abc / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts and the technique candidates are for the tin whistle. Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch.
+
 Getting a tune into John (always via ABC -> import_abc):
 - Photo/PDF of sheet music: read the image and transcribe it to ABC carefully (K: key signature, M: meter, L: unit, every bar). After importing, compare get_song bar by bar against the image.
 - thesession.org: curl -s 'https://thesession.org/tunes/search?q=NAME&format=json', then curl -s 'https://thesession.org/tunes/ID?format=json'. Each settings[] item has an "abc" body (a lone "!" is a line break) and "key" like "Dmajor". Add headers yourself: X:1, T:name, M: from the tune type (reel/hornpipe/barndance/strathspey 4/4, jig 6/8, slip jig 9/8, slide 12/8, polka 2/4, waltz/mazurka 3/4, three-two 3/2), L:1/8, K:key. Pass source = the setting URL.
@@ -19,7 +21,7 @@ Getting a tune into John (always via ABC -> import_abc):
   * Pickup and key: does the tune start on a pickup? Do the accidentals point to another key or mode (e.g. a steady C natural in D major = D mixolydian, minor vs dorian)? Fix K: in the ABC.
   * Structure: write repeated sections once with |: :| and 1st/2nd endings so the sheet is short and readable. Trim intros, outros and accompaniment-only passages with start/end (or delete_bars after import).
   * Notes: fix obvious slips (a single note an octave off, one-sixteenth blips, a lone out-of-key note in a clear phrase). Never invent melody that the draft doesn't support; mark doubtful spots instead.
-  Then import_abc (source = the file name). In update_song notes, say it is an automatic transcription, which bars are uncertain, and the feel (tempo, swing, where to breathe). Comment on notes you changed or doubt (set_techniques comment, e.g. "unclear in the recording, check by ear"). Finally ask the user to play it in John next to the recording and tell you what sounds wrong: they are the ears, you are the eyes.
+  Then import_abc (source = the file name, and the same instrument you transcribed for). In update_song notes, say it is an automatic transcription, which bars are uncertain, and the feel (tempo, swing, where to breathe). Comment on notes you changed or doubt (set_techniques comment, e.g. "unclear in the recording, check by ear"). Finally ask the user to play it in John next to the recording and tell you what sounds wrong: they are the ears, you are the eyes.
 - Tin whistle tabs (letters or hole diagrams): convert to ABC pitches for the given whistle (D whistle: XXXXXX=D, XXXXXO=E, XXXXOO=F#, XXXOOO=G, XXOOOO=A, XOOOOO=B, OXXOOO=c natural, OOOOOO=c#, + or 'blow harder' = next octave, lowercase in ABC). If the tab has no rhythm, ask the user or infer from the tune type and say so.
 - ABC can already carry techniques: ~ or !roll! = roll, {g}A = cut, {F}G = tap, !tap! !cran! !slide! !tongue! !breath! (any technique id works as !id!).
 
@@ -48,6 +50,7 @@ static json tool(const char* name, const char* desc, json props, std::vector<std
 static json toolList() {
   json str = {{"type", "string"}};
   json strArr = {{"type", "array"}, {"items", str}};
+  json instrumentSchema = {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "instrument the song is for, default whistle"}};
   return json::array({
       tool("list_songs", "List saved songs by folder (id, title, key, meter).", json::object()),
       tool("import_abc",
@@ -56,15 +59,16 @@ static json toolList() {
            {{"abc", str},
             {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
             {"source", {{"type", "string"}, {"description", "where the tune came from (URL, 'photo of ...')"}}},
+            {"instrument", instrumentSchema},
             {"whistle", {{"type", "string"}, {"description", "whistle key, default D"}}},
             {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
             {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}},
            {"abc"}),
       tool("get_song",
-           "Show a song as a table: event index, bar, beat, note, length, whistle fingering (X covered, O open, H half, + upper octave), techniques, comment.",
+           "Show a song as a table: event index, bar, beat, note, length, whistle fingering (X covered, O open, H half, + upper octave; other instruments: out-of-range marks), techniques, comment.",
            {{"id", str}}, {"id"}),
       tool("analyze_song",
-           "Deterministic hints: whistle range check, best transpositions, and candidate notes for cuts, rolls, crans, slides, tonguing and breaths.",
+           "Deterministic hints: range check on the song's instrument, best transpositions, and candidate notes for cuts, rolls, crans, slides, tonguing and breaths.",
            {{"id", str}}, {"id"}),
       tool("set_techniques",
            "Edit techniques on notes, by event index from get_song. Each edit may replace the list ('techniques'), or 'add'/'remove' ids, and set a 'comment' explaining the choice. All edits are validated before any is applied.",
@@ -77,8 +81,8 @@ static json toolList() {
                 {"required", {"index"}}}}}}},
            {"id", "edits"}),
       tool("update_song",
-           "Change song info: title, source, notes (overall advice shown in the GUI), folder (song list group), tempo (quarter notes per minute), whistle key, or transpose by semitones.",
-           {{"id", str}, {"title", str}, {"source", str}, {"notes", str}, {"folder", str}, {"tempo", {{"type", "integer"}}}, {"whistle", str}, {"transpose", {{"type", "integer"}}}},
+           "Change song info: title, source, notes (overall advice shown in the GUI), folder (song list group), tempo (quarter notes per minute), instrument, whistle key, or transpose by semitones.",
+           {{"id", str}, {"title", str}, {"source", str}, {"notes", str}, {"folder", str}, {"tempo", {{"type", "integer"}}}, {"instrument", instrumentSchema}, {"whistle", str}, {"transpose", {{"type", "integer"}}}},
            {"id"}),
       tool("delete_bars",
            "Delete bars first..last (inclusive, bar numbers as get_song shows them; a pickup is bar 0) with their notes, rests and techniques. "
@@ -86,8 +90,8 @@ static json toolList() {
            {{"id", str}, {"first", {{"type", "integer"}}}, {"last", {{"type", "integer"}, {"description", "default: same as first"}}}},
            {"id", "first"}),
       tool("transcribe_audio",
-           "Transcribe the melody of an audio file (mp3, wav, flac) into ABC for a D whistle: pitch tracking, beat tracking, "
-           "sixteenth-note grid, key detection, octave fitted to the whistle. Works best on solo instruments/voice; on full mixes it "
+           "Transcribe the melody of an audio file (mp3, wav, flac) into ABC for an instrument (default D whistle): pitch tracking, beat tracking, "
+           "sixteenth-note grid, key detection, octave fitted to the instrument's range. Works best on solo instruments/voice; on full mixes it "
            "follows the strongest pitched line. Returns a report and a draft ABC that always assumes 4/4 and straight sixteenths. "
            "Don't import it blindly: check the meter (do motifs fit the bars?), tempo (doubled/halved note lengths?), pickup, key/mode "
            "and repeats, re-run with meter/bpm/start/end as needed, tidy the ABC, then import_abc, write song notes about what's "
@@ -97,7 +101,8 @@ static json toolList() {
             {"meter", {{"type", "string"}, {"description", "default 4/4"}}},
             {"start", {{"type", "number"}, {"description", "seconds into the file to start at (default 0)"}}},
             {"end", {{"type", "number"}, {"description", "seconds into the file to stop at (default: end)"}}},
-            {"title", str}},
+            {"title", str},
+            {"instrument", instrumentSchema}},
            {"path"}),
       tool("list_techniques", "List the technique catalog: id, GUI symbol, name, how to play it on the whistle.", json::object()),
       tool("define_technique", "Add or replace a technique in the catalog (for techniques the user wants documented).",
@@ -106,6 +111,15 @@ static json toolList() {
             {"description", str}},
            {"id", "name", "symbol", "description"}),
   });
+}
+
+static void checkInstrument(const Song& s) {
+  if (whistleBase(s.whistle) < 0) throw std::runtime_error("unknown whistle key '" + s.whistle + "' (use a note name like D, C, Bb)");
+  if (!findInstrument(s.instrument, s.whistle)) {
+    std::string ids;
+    for (auto& i : INSTRUMENTS) ids += (ids.empty() ? "" : ", ") + i;
+    throw std::runtime_error("unknown instrument '" + s.instrument + "' (use one of: " + ids + ")");
+  }
 }
 
 static Song mustLoad(const json& a) {
@@ -128,9 +142,10 @@ static std::string callTool(const std::string& name, const json& a) {
     Song& s = ir.song;
     if (s.events.empty()) throw std::runtime_error("no notes found in the ABC");
     s.source = a.value("source", s.source);
+    s.instrument = a.value("instrument", "whistle");
     s.whistle = a.value("whistle", "D");
     s.folder = a.value("folder", "");
-    if (whistleBase(s.whistle) < 0) throw std::runtime_error("unknown whistle key '" + s.whistle + "' (use a note name like D, C, Bb)");
+    checkInstrument(s);
     std::string base = slug(a.value("id", s.title));
     s.id = base;
     if (!a.value("overwrite", false))
@@ -183,9 +198,10 @@ static std::string callTool(const std::string& name, const json& a) {
     s.notes = a.value("notes", s.notes);
     s.folder = a.value("folder", s.folder);
     s.tempo = a.value("tempo", s.tempo);
-    if (a.contains("whistle")) {
-      if (whistleBase(a["whistle"].get<std::string>()) < 0) throw std::runtime_error("unknown whistle key (use a note name like D, C, Bb)");
-      s.whistle = a["whistle"];
+    if (a.contains("instrument") || a.contains("whistle")) {  // a song with a bad stored value can still be edited
+      s.instrument = a.value("instrument", s.instrument);
+      s.whistle = a.value("whistle", s.whistle);
+      checkInstrument(s);
     }
     if (int t = a.value("transpose", 0)) {
       if (t < -24 || t > 24) throw std::runtime_error("transpose must be within -24..24 semitones");
@@ -205,6 +221,7 @@ static std::string callTool(const std::string& name, const json& a) {
   }
   if (name == "transcribe_audio") {
     std::string path = a.value("path", "");
+    if (!findInstrument(a.value("instrument", "whistle"))) throw std::runtime_error("unknown instrument '" + a.value("instrument", "") + "'");
     if (path.rfind("~/", 0) == 0 && getenv("HOME")) path = std::string(getenv("HOME")) + path.substr(1);
     constexpr int SR = 22050;
     std::vector<float> x = decodeAudio(path, SR);
@@ -217,8 +234,10 @@ static std::string callTool(const std::string& name, const json& a) {
     o.meter = a.value("meter", o.meter);
     if (meterTicks(o.meter) <= 0) throw std::runtime_error("meter must look like 4/4, 3/4 or 6/8");
     o.title = a.value("title", fs::path(path).stem().string());
+    o.instrument = a.value("instrument", o.instrument);
     Transcription t = transcribe(x, SR, o);
-    return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name):\n" + toAbc(t.song);
+    return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name and instrument = " + o.instrument +
+           "):\n" + toAbc(t.song);
   }
   if (name == "list_techniques") {
     std::string r;

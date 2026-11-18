@@ -1,5 +1,5 @@
 // Audio -> melody: predominant pitch (harmonic summation + Viterbi), beat tracking (Ellis DP), quantization to
-// a sixteenth grid, key detection (Krumhansl), whistle octave fit. Works on solo lines and on mixes where the
+// a sixteenth grid, key detection (Krumhansl), octave fit to the instrument. Works on solo lines and on mixes where the
 // melody is the strongest pitched voice.
 #include "john.hpp"
 #include "miniaudio.h"
@@ -416,23 +416,29 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   // ---- key, octave fit, events ----
   double keyCorr = 0;
   Key key = detectKey(clean, &keyCorr);
-  const int base = whistleBase("D");
+  auto inst = findInstrument(o.instrument, "D");
+  if (!inst) throw std::runtime_error("unknown instrument '" + o.instrument + "'");
+  const int lo = inst->low, hi = inst->high, wr = -12 * inst->octave;  // written = sounding + wr + 12 * shift
   int shift = 0, bestIn = -1;
-  for (int k = -4; k <= 3; k++) {  // whistle music is written an octave below sounding; pick the octave that fits
+  // pick the octave that fits the range best. On a tie the whistle takes the lowest (easier to blow); other
+  // instruments take the one nearest the recording (the piano's huge range fits almost any octave).
+  const bool lowest = inst->id == "whistle";
+  for (int k = -4; k <= 4; k++) {
     int in = 0;
-    for (auto& n : clean) in += (n.m - 12 + 12 * k >= base && n.m - 12 + 12 * k <= base + 23) * (n.q1 - n.q0);
-    if (in > bestIn) { bestIn = in; shift = k; }
+    for (auto& n : clean) in += inst->plays(n.m + wr + 12 * k) * (n.q1 - n.q0);
+    if (in > bestIn || (in == bestIn && !lowest && std::abs(k) < std::abs(shift))) { bestIn = in; shift = k; }
   }
   int folded = 0;
-  for (auto& n : clean) {  // octave errors and low/high notes the whistle can't play: fold into its range
-    int w = n.m - 12 + 12 * shift, f = w;
-    while (f < base) f += 12;
-    while (f > base + 23) f -= 12;
+  for (auto& n : clean) {  // octave errors and low/high notes the instrument can't play: fold into its range
+    int w = n.m + wr + 12 * shift, f = w;
+    while (f < lo) f += 12;
+    while (f > hi) f -= 12;
     folded += f != w;
-    n.m = f + 12 - 12 * shift;
+    n.m = f - wr - 12 * shift;
   }
   Song s;
   s.title = o.title;
+  s.instrument = inst->id;
   s.meter = o.meter;
   s.key = key;
   s.tempo = bpm;
@@ -457,7 +463,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   int cursor = clean.front().q0;
   for (auto& n : clean) {
     if (n.q0 > cursor) emitSpan(cursor, n.q0, 0, false);
-    emitSpan(n.q0, n.q1, n.m - 12 + 12 * shift, true);
+    emitSpan(n.q0, n.q1, n.m + wr + 12 * shift, true);
     cursor = n.q1;
   }
   int endBar = cursor;
@@ -490,14 +496,14 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   r += line;
   snprintf(line, sizeof line, "melody heard in %d%% of the audio; %zu notes\n", voiced * 100 / T, clean.size());
   r += line;
-  if (shift == 0) r += "octave: the whistle plays at the recording's pitch\n";
+  if (shift == 0) r += "octave: the " + inst->name + " plays at the recording's pitch\n";
   else {
-    snprintf(line, sizeof line, "octave: the whistle plays %d octave(s) %s the recording, to fit its range\n", std::abs(shift),
-             shift > 0 ? "above" : "below");
+    snprintf(line, sizeof line, "octave: the %s plays %d octave(s) %s the recording, to fit its range\n", inst->name.c_str(),
+             std::abs(shift), shift > 0 ? "above" : "below");
     r += line;
   }
   if (folded) {
-    snprintf(line, sizeof line, "%d note(s) moved an octave to fit the whistle (or octave errors)\n", folded);
+    snprintf(line, sizeof line, "%d note(s) moved an octave to fit the %s (or octave errors)\n", folded, inst->name.c_str());
     r += line;
   }
   if (!weak.empty()) r += "unclear bars (check by ear): " + weak + "\n";

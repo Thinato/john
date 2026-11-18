@@ -50,13 +50,14 @@ std::vector<int> playOrder(const Song& s) {
   return order;
 }
 
-double soundingFreq(int midi) { return 440.0 * std::pow(2.0, (midi + 12 - 69) / 12.0); }
-double writtenMidiFromFreq(double hz) { return 69 + 12 * std::log2(hz / 440.0) - 12; }
+double soundingFreq(int midi, int octave) { return 440.0 * std::pow(2.0, (midi + 12 * octave - 69) / 12.0); }
+double writtenMidiFromFreq(double hz, int octave) { return 69 + 12 * std::log2(hz / 440.0) - 12 * octave; }
 
 static bool has(const Event& e, const char* t) { return std::find(e.techniques.begin(), e.techniques.end(), t) != e.techniques.end(); }
 
 Performance perform(const Song& s, double bpm, int fromOrder, bool countIn) {
   Performance p;
+  p.octave = instrumentOf(s).octave;
   bpm = std::clamp(bpm, 20.0, 400.0);
   const double secPerTick = 60.0 / bpm / (WHOLE / 4);
   const int bar = meterTicks(s.meter);
@@ -141,7 +142,7 @@ void Synth::render(const Performance& p, long long& pos, float* out, int frames)
           else if (at >= 0 && into >= at && into < at + 0.035) semis = g;
         }
         if (v.vibrato && into > 0.2) semis += 0.25 * std::sin(TAU * 5.5 * into);
-        freq = soundingFreq(v.midi) * std::pow(2.0, semis / 12);
+        freq = soundingFreq(v.midi, p.octave) * std::pow(2.0, semis / 12);
         if (v.tongued && into < 0.012) breathNoise = 0.5;
       }
     }

@@ -1,4 +1,5 @@
 // Core self-checks: key parsing, spelling, fingerings, ABC import, transpose, analysis, JSON round trip.
+#undef NDEBUG  // the checks are asserts: keep them in Release builds
 #include "john.hpp"
 #include <cassert>
 #include <cmath>
@@ -138,9 +139,50 @@ int main() {
     std::vector<float> w(n);
     syn.render(p1, sp, w.data(), n);
     float hz = detectPitch(w.data(), n, sr);
-    assert(std::abs(writtenMidiFromFreq(hz) - 69) < 0.2);
+    assert(std::abs(writtenMidiFromFreq(hz, 1) - 69) < 0.2);
     std::vector<float> quiet(n, 0.0f);
     assert(detectPitch(quiet.data(), n, sr) == 0 && rms(quiet.data(), n) == 0);
+  }
+
+  // instruments: ranges, written vs sounding octave, JSON, playback pitch, range hints
+  {
+    for (auto& id : INSTRUMENTS) assert(findInstrument(id));
+    assert(!findInstrument("kazoo") && !findInstrument("whistle", "Dm"));
+    Instrument cw = *findInstrument("whistle", "C");
+    assert(cw.low == 60 && cw.high == 83 && cw.octave == 1 && cw.name == "C whistle");
+    assert(findInstrument("guitar")->octave == -1 && findInstrument("violin")->plays(55) && !findInstrument("violin")->plays(54));
+    assert(std::abs(soundingFreq(69, 0) - 440) < 1e-9 && std::abs(soundingFreq(69, 1) - 880) < 1e-9);
+    assert(std::abs(soundingFreq(69, -1) - 220) < 1e-9 && std::abs(writtenMidiFromFreq(220, -1) - 69) < 1e-9);
+
+    Song v = importAbc("X:1\nT:v\nM:4/4\nL:1/4\nK:D\nA4|\n").song;
+    assert(v.instrument == "whistle" && fromJson(toJson(v)).instrument == "whistle");
+    json old = toJson(v);
+    old.erase("instrument");  // songs saved before instruments existed
+    assert(fromJson(old).instrument == "whistle");
+    v.instrument = "violin";
+    assert(fromJson(toJson(v)).instrument == "violin" && instrumentOf(v).name == "Violin");
+    Song odd = v;
+    odd.instrument = "kazoo";
+    assert(instrumentOf(odd).name == "D whistle");
+
+    const int sr = 48000, n = 2048;  // written A4 on a violin sounds A4 = 440 Hz (a whistle would sound 880)
+    Performance pv = perform(v, 60, 0, false);
+    assert(pv.octave == 0);
+    Synth syn;
+    syn.metronome = false;
+    long long sp = sr / 2;
+    std::vector<float> w(n);
+    syn.render(pv, sp, w.data(), n);
+    assert(std::abs(detectPitch(w.data(), n, sr, 200, 3000) - 440) < 3);
+
+    Song low = importAbc("X:1\nT:l\nM:4/4\nL:1/4\nK:C\nG,4|F,4|\n").song;  // G3 is a violin's lowest note, F3 is below it
+    low.instrument = "violin";
+    std::string an = analyze(low), ls = listing(low);
+    assert(an.find("Range on the Violin (playable G3 .. E7)") != std::string::npos && an.find("current: 1 out of range\n") != std::string::npos);
+    assert(an.find("half") == std::string::npos && an.find("phrasing hints") != std::string::npos);
+    assert(ls.find("instrument: Violin") != std::string::npos && ls.find("out-of-range") != std::string::npos);
+    low.instrument = "piano";
+    assert(analyze(low).find("current: 0 out of range") != std::string::npos);
   }
 
   // transpose D major down a tone -> C major
@@ -210,17 +252,50 @@ int main() {
       return out;
     };
     auto want = melodyOf(tune);
+    auto common = [](const std::vector<int>& a, const std::vector<int>& b) {  // longest common subsequence length
+      std::vector<std::vector<int>> L(a.size() + 1, std::vector<int>(b.size() + 1, 0));
+      for (size_t i = 1; i <= a.size(); i++)
+        for (size_t j = 1; j <= b.size(); j++)
+          L[i][j] = a[i - 1] == b[j - 1] ? L[i - 1][j - 1] + 1 : std::max(L[i - 1][j], L[i][j - 1]);
+      return L[a.size()][b.size()];
+    };
+    {  // for a violin the melody is written at the pitch it sounds: an octave above the whistle's written notes
+      TranscribeOptions o;
+      o.bpm = 100;
+      o.instrument = "violin";
+      Transcription tr = transcribe(mix, sr, o);
+      std::vector<int> up = want;
+      for (int& m : up) m += 12;
+      auto got = melodyOf(tr.song);
+      assert(tr.song.instrument == "violin" && common(up, got) >= (int)up.size() * 9 / 10);
+      assert(tr.report.find("Violin plays at the recording's pitch") != std::string::npos);
+      bool threw = false;
+      o.instrument = "kazoo";
+      try { transcribe(mix, sr, o); } catch (const std::runtime_error&) { threw = true; }
+      assert(threw);
+    }
+    {  // a melody narrower than an octave fits the whistle twice: take the low octave, easier for beginners
+      Song narrow = importAbc("X:1\nT:n\nM:4/4\nL:1/4\nK:D\nd e f g|a g f e|d4|]\n").song;  // written D5..A5
+      Performance pn = perform(narrow, 100, 0, false);
+      std::vector<float> x((size_t)((pn.length + 1) * sr), 0.f);
+      Synth sn;
+      sn.sampleRate = sr;
+      sn.metronome = false;
+      long long at = 0;
+      sn.render(pn, at, x.data(), (int)x.size());
+      TranscribeOptions o;
+      o.bpm = 100;
+      std::vector<int> low = melodyOf(narrow);
+      for (int& m : low) m -= 12;
+      auto got = melodyOf(transcribe(x, sr, o).song);
+      assert(common(low, got) >= (int)low.size() - 1);
+    }
     for (double bpm : {100.0, 0.0}) {
       TranscribeOptions o;
       o.bpm = bpm;
       Transcription tr = transcribe(mix, sr, o);
       auto got = melodyOf(tr.song);
-      // longest common subsequence: how many of the tune's notes came back, in order
-      std::vector<std::vector<int>> L(want.size() + 1, std::vector<int>(got.size() + 1, 0));
-      for (size_t i = 1; i <= want.size(); i++)
-        for (size_t j = 1; j <= got.size(); j++)
-          L[i][j] = want[i - 1] == got[j - 1] ? L[i - 1][j - 1] + 1 : std::max(L[i - 1][j], L[i][j - 1]);
-      int hit = L[want.size()][got.size()];
+      int hit = common(want, got);  // how many of the tune's notes came back, in order
       printf("transcribe (bpm %s): %d/%zu notes found, %zu extra, tempo %d, key %s\n", bpm > 0 ? "given" : "auto", hit,
              want.size(), got.size() - hit, tr.song.tempo, keyName(tr.song.key).c_str());
       assert(hit >= (int)want.size() * 9 / 10 && got.size() - hit <= want.size() / 10);
