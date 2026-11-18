@@ -480,6 +480,19 @@
   }
  ],
  "folder": "Intermediate",
+ "i18n": {
+  "pt-BR": {
+   "C natural (the key has only F#): low 2nd finger on the A string.": "C natural (a armadura só tem F#): 2º dedo recuado na corda Lá.",
+   "End of part A: let the G ring with a little vibrato.": "Fim da parte A: deixe o G soar com um pouco de vibrato.",
+   "Last note: vibrato and let it ring.": "Última nota: vibrato, e deixe soar.",
+   "Pickup: the tune starts on the last eighth of the bar.": "Anacruse: a melodia começa na última colcheia do compasso.",
+   "Planxty Irwin": "Planxty Irwin",
+   "Repeated A: cut, as on the G.": "A repetido: corte, como no G.",
+   "Repeated B: cut.": "B repetido: corte.",
+   "Repeated G: a quick cut (grace note above) separates them, fiddle style.": "G repetido: um corte rápido (nota ornamental acima) separa as notas, no estilo do violino irlandês.",
+   "Turlough O'Carolan wrote this planxty (a tune in honour of a patron) for Colonel John Irwin in the early 1700s. Play it as a lilting waltz, three beats to the bar, not too fast. Part B is higher and brighter; the cuts on its repeated notes give it a little lift.": "Turlough O'Carolan escreveu este planxty (uma música em homenagem a um patrono) para o coronel John Irwin no começo do século XVIII. Toque como uma valsa embalada, três tempos por compasso, sem pressa. A parte B é mais aguda e mais brilhante; os cortes (cuts) nas notas repetidas lhe dão um pouco de leveza."
+  }
+ },
  "id": "planxty-irwin",
  "instrument": "violin",
  "key": {

@@ -445,5 +445,19 @@
  "tempo": 90,
  "title": "Lesson 5: Ode to Joy (high octave)",
  "whistle": "D",
- "folder": "Lessons"
+ "folder": "Lessons",
+ "i18n": {
+  "pt-BR": {
+   "Lesson 5: Ode to Joy (high octave)": "Lição 5: Hino à Alegria (oitava aguda)",
+   "Beethoven's Ode to Joy, played almost entirely in the second octave: a real tune to build high-note stamina. Keep the air fast and steady, tongue the repeated notes, and breathe at the marked phrase ends. Use the tempo slider to start slower (around 60) and work up.": "O Hino à Alegria de Beethoven, tocado quase todo na segunda oitava: uma música de verdade para ganhar resistência nas notas agudas. Mantenha o ar rápido e firme, use a língua nas notas repetidas e respire nos fins de frase marcados. Use o controle de andamento para começar mais devagar (por volta de 60) e ir acelerando.",
+   "Ode to Joy, all in the high octave except one note. It only uses F#, G, A, E and D, which you practised in lessons 2 and 3. Keep the air fast and steady the whole way.": "Hino à Alegria, todo na oitava aguda menos uma nota. Usa só F#, G, A, E e D, que você praticou nas lições 2 e 3. Mantenha o ar rápido e firme o tempo todo.",
+   "Repeated notes: tongue each one ('too-too') so they stay separate.": "Notas repetidas: use a língua em cada uma ('tu-tu') para que fiquem separadas.",
+   "Dotted rhythm: hold the F# a little longer, then a quick E.": "Ritmo pontuado: segure o F# um pouco mais, depois um E rápido.",
+   "End of the phrase: breathe after this E.": "Fim da frase: respire depois deste E.",
+   "End of the second phrase: breathe.": "Fim da segunda frase: respire.",
+   "F# G is a quick pair of eighths.": "F# G é um par rápido de colcheias.",
+   "The one low note: drop to low A (relax the air), then breathe and jump back up for the last line.": "A única nota grave: desça para o A grave (relaxe o ar), depois respire e salte de volta para a última linha.",
+   "Back in the high octave: tongue firmly and blow faster again.": "De volta à oitava aguda: use a língua com firmeza e sopre mais rápido de novo."
+  }
+ }
 }

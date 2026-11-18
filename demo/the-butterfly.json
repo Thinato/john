@@ -451,6 +451,20 @@
   }
  ],
  "folder": "Advanced",
+ "i18n": {
+  "pt-BR": {
+   "A slip jig (9/8: three groups of three eighths per bar), one of the most loved Irish tunes. Each part is played twice. Keep it flowing and light, with a lean on the first note of each group of three. The rolls on the long notes can be cuts while you learn it.": "Um slip jig (9/8: três grupos de três colcheias por compasso), uma das músicas irlandesas mais queridas. Cada parte é tocada duas vezes. Mantenha a música fluindo e leve, com um apoio na primeira nota de cada grupo de três. Os rolos (rolls) nas notas longas podem ser cortes (cuts) enquanto você aprende.",
+   "End of part A: shorten this D and breathe.": "Fim da parte A: encurte este D e respire.",
+   "End of part B: breathe.": "Fim da parte B: respire.",
+   "End of the tune: breathe before the repeat.": "Fim da música: respire antes da repetição.",
+   "Long B: roll.": "B longo: rolo.",
+   "Long F#: roll (~), the classic ornament in this tune.": "F# longo: rolo (roll, ~), o ornamento clássico desta música.",
+   "Long high G: roll.": "G agudo longo: rolo.",
+   "Repeated B: cut.": "B repetido: corte.",
+   "Roll, as in bar 1.": "Rolo, como no compasso 1.",
+   "The Butterfly": "The Butterfly"
+  }
+ },
  "id": "the-butterfly",
  "instrument": "whistle",
  "key": {

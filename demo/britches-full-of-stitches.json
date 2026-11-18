@@ -380,6 +380,19 @@
   }
  ],
  "folder": "Intermediate",
+ "i18n": {
+  "pt-BR": {
+   "A favourite Irish polka from Kerry and Cork, played in the second octave of the whistle. The dotted rhythm (long-short) gives it the bounce: lean on the first note of each pair. Learn it slowly, then aim for a lively, steady beat. Cuts in part B separate the repeated high As.": "Uma polca irlandesa muito querida em Kerry e Cork, tocada na segunda oitava da flauta irlandesa. O ritmo pontuado (longa-curta) dá o balanço: apoie-se na primeira nota de cada par. Aprenda devagar, depois busque um pulso animado e constante. Os cortes (cuts) na parte B separam os As agudos repetidos.",
+   "Cut the repeated A again.": "Faça um corte no A repetido de novo.",
+   "End of part A: breathe here.": "Fim da parte A: respire aqui.",
+   "End of the tune: breathe before the repeat.": "Fim da música: respire antes da repetição.",
+   "High B: one finger down and faster air.": "B agudo: um dedo tampando e ar mais rápido.",
+   "Polkas are bouncy: tongue the start.": "Polcas são saltitantes: comece com golpe de língua.",
+   "Repeated A: a cut (flick of the B finger) separates the two As without stopping the air.": "A repetido: um corte (cut, um toque rápido do dedo do B) separa os dois As sem interromper o ar.",
+   "Same as bar 9: cut the repeated A.": "Igual ao compasso 9: faça um corte no A repetido.",
+   "The Britches Full Of Stitches": "The Britches Full Of Stitches"
+  }
+ },
  "id": "britches-full-of-stitches",
  "instrument": "whistle",
  "key": {

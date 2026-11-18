@@ -506,6 +506,17 @@
   }
  ],
  "folder": "Advanced",
+ "i18n": {
+  "pt-BR": {
+   "A well-known Irish reel in E dorian, played here on the fiddle. Part A rocks between the open E and the melody notes; part B goes higher. Keep the bow light and the rhythm steady, with a gentle lean on beats 1 and 3. Start slowly: the string crossings are the hard part.": "Um reel irlandês muito conhecido em Mi dórico, tocado aqui no violino. A parte A balança entre a corda Mi solta e as notas da melodia; a parte B vai mais alto. Mantenha o arco leve e o ritmo constante, com um leve apoio nos tempos 1 e 3. Comece devagar: as trocas de corda são a parte difícil.",
+   "C sharp: E dorian's key signature has two sharps, F# and C#.": "C sustenido: a armadura de Mi dórico tem dois sustenidos, F# e C#.",
+   "Cut, as in bar 5.": "Corte, como no compasso 5.",
+   "Drowsy Maggie": "Drowsy Maggie",
+   "E on the beat: a short roll gives this reel its drive.": "E no tempo: um rolo curto (short roll) dá o impulso deste reel.",
+   "Long D at the start of part B: a cut accents it.": "D longo no começo da parte B: um corte (cut) o acentua.",
+   "Short roll, as in bar 1.": "Rolo curto, como no compasso 1."
+  }
+ },
  "id": "drowsy-maggie",
  "instrument": "violin",
  "key": {

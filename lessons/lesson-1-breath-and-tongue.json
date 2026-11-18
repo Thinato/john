@@ -297,5 +297,20 @@
  "tempo": 80,
  "title": "Lesson 1: Breath and tongue",
  "whistle": "D",
- "folder": "Lessons"
+ "folder": "Lessons",
+ "i18n": {
+  "pt-BR": {
+   "Lesson 1: Breath and tongue": "Lição 1: Respiração e língua",
+   "Warm-up for every practice session. Long tones teach steady air (most whistle problems are air problems), then tonguing and slurring. Play it slowly and listen for a clean, even tone. If a note squeaks, the cause is almost always a leaky hole or too much air.": "Aquecimento para todo dia de estudo. As notas longas ensinam a manter o ar firme (a maioria dos problemas na flauta irlandesa é problema de ar); depois vêm o golpe de língua e o ligado. Toque devagar e preste atenção num som limpo e uniforme. Se uma nota chiar, a causa quase sempre é um furo mal tampado ou ar demais.",
+   "Long tone: breathe in, then blow a steady, gentle stream for 3 beats. Aim for a clean sound with no wobble. The rest is your time to breathe.": "Nota longa: inspire e sopre um fluxo de ar firme e suave por 3 tempos. Procure um som limpo, sem oscilar. A pausa é a sua hora de respirar.",
+   "Same with F#: steady air, the same volume from start to end.": "O mesmo com o F#: ar firme, o mesmo volume do começo ao fim.",
+   "E has five holes covered. Use the flat pads of your fingers, not the tips.": "O E tem cinco furos tampados. Use a polpa dos dedos, não as pontas.",
+   "Bottom D, all six holes: the hardest low note to seal. If it squeaks or warbles, check every hole and blow even more gently.": "D grave, os seis furos: a nota grave mais difícil de vedar. Se chiar ou oscilar, confira cada furo e sopre mais suave ainda.",
+   "Tonguing: start each note with 'too' (the tip of the tongue touches behind your top teeth). The air keeps flowing; only the tongue interrupts it.": "Golpe de língua: comece cada nota com 'tu' (a ponta da língua toca atrás dos dentes de cima). O ar continua passando; só a língua o interrompe.",
+   "Now slur: no tongue, just move your fingers while the air keeps flowing.": "Agora ligado: sem língua, só mexa os dedos enquanto o ar continua passando.",
+   "A slurred scale up and back down. Only tongue the first note.": "Uma escala ligada, subindo e descendo. Use a língua só na primeira nota.",
+   "C#: every hole open. It's the top of the low octave; the next lessons go higher.": "C#: todos os furos abertos. É a nota mais aguda da oitava grave; as próximas lições vão mais alto.",
+   "Tongue the repeated C# so you hear two notes.": "Use a língua no C# repetido para ouvir duas notas."
+  }
+ }
 }
