@@ -1,5 +1,7 @@
 # John — dev notes
 
+- Workflow: issues in GitHub, one branch + PR per issue, `main` is PR-only with required CI. Follow CONTRIBUTING.md (branch names, definition of done, labels).
+
 - Build: `cmake --build build`; test: `ctest --test-dir build --output-on-failure` (tests/test_core.cpp asserts, tests/mcp_smoke.sh drives the server).
 - One shared core (`john_core`: song.cpp, abc.cpp, analyze.cpp, sound.cpp) used by both executables. Put logic there, not in the GUI or MCP files.
 - Bar/beat numbers always come from `positions()`. Accidental display always comes from `accidentals()`. Don't re-derive them.
