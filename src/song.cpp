@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdarg>
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
@@ -26,6 +27,8 @@ static const int SHARP_ORDER[7] = {3, 0, 4, 1, 5, 2, 6};  // F C G D A E B
 static const int FLAT_ORDER[7] = {6, 2, 5, 1, 4, 0, 3};   // B E A D G C F
 
 static int mod12(int x) { return ((x % 12) + 12) % 12; }
+static bool gSolfege = false, gSolfegeKeys = false;  // set by the GUI only
+static bool gLocalized = false;  // a language other than English is loaded
 
 std::string parseMeter(const std::string& m) {
   if (m == "C") return "4/4";
@@ -88,31 +91,36 @@ Room systemRoom(const Song& s, int from, int to, int free) {
   return r;
 }
 
-std::string noteName(const Spelled& s) {
-  std::string r(1, LETTERS[s.letter]);
+void setSolfege(bool notes, bool keys) { gSolfege = notes; gSolfegeKeys = keys; }
+
+static std::string pitchName(const Spelled& s, bool solfege) {
+  static const char* SOLFEGE[7] = {"Do", "Re", "Mi", "Fa", "Sol", "La", "Si"};
+  std::string r = solfege ? tr(SOLFEGE[s.letter]) : std::string(1, LETTERS[s.letter]);
   if (s.alter > 0) r += "#";
   if (s.alter < 0) r += "b";
   return r + std::to_string(s.octave);
 }
 
+std::string noteName(const Spelled& s) { return pitchName(s, gSolfege); }
+
 static const char* MODES[] = {"maj", "min", "dor", "mix", "lyd", "phr", "loc"};
 static const int MODE_FIFTHS[] = {0, -3, -2, -1, 1, -4, -5};
 static const int MODE_SEMIS[] = {0, 9, 2, 7, 5, 4, 11};  // tonic above the relative major
-static const char* MODE_NAMES[] = {"major", "minor", "dorian", "mixolydian", "lydian", "phrygian", "locrian"};
+static const char* MODE_FMT[] = {"%s major", "%s minor", "%s dorian", "%s mixolydian", "%s lydian", "%s phrygian", "%s locrian"};
 
 static int modeIndex(const std::string& m) {
   for (int i = 0; i < 7; i++) if (m == MODES[i]) return i;
   return 0;
 }
 
-std::string keyName(const Key& k) {
-  int mi = modeIndex(k.mode);
-  int tonicPc = mod12(k.fifths * 7 + MODE_SEMIS[mi]);
-  Spelled t = spell(k, 60 + tonicPc);
-  std::string n = noteName(t);
+std::string tonicName(const Key& k) {
+  int tonicPc = mod12(k.fifths * 7 + MODE_SEMIS[modeIndex(k.mode)]);
+  std::string n = pitchName(spell(k, 60 + tonicPc), gLocalized && gSolfegeKeys);  // English keys always use letters
   n.pop_back();  // drop octave digit
-  return n + " " + MODE_NAMES[mi];
+  return n;
 }
+
+std::string keyName(const Key& k) { return trf(MODE_FMT[modeIndex(k.mode)], tonicName(k).c_str()); }
 
 std::optional<Key> parseKey(const std::string& raw) {
   std::string s;
@@ -197,12 +205,12 @@ std::string durationName(const Event& e) {
       {WHOLE / 8, "eighth"}, {WHOLE / 16, "sixteenth"}, {WHOLE / 32, "32nd"}};
   std::string r;
   for (auto [v, n] : V) {
-    if (len == v) { r = n; break; }
-    if (len * 2 == v * 3) { r = std::string("dotted ") + n; break; }
-    if (len * 4 == v * 7) { r = std::string("double-dotted ") + n; break; }
+    if (len == v) { r = tr(n); break; }
+    if (len * 2 == v * 3) { r = trf("dotted %s", tr(n)); break; }
+    if (len * 4 == v * 7) { r = trf("double-dotted %s", tr(n)); break; }
   }
-  if (r.empty()) r = std::to_string(e.len) + " ticks";
-  if (e.tuplet) r += " (" + std::to_string(e.tuplet) + "-tuplet)";
+  if (r.empty()) r = trf("%d ticks", e.len);
+  if (e.tuplet) r += trf(" (%d-tuplet)", e.tuplet);
   return r;
 }
 
@@ -291,7 +299,7 @@ std::vector<Pos> positions(const Song& s) {
 // ---------------- catalog ----------------
 
 std::vector<Technique> defaultTechniques() {
-  return {
+  std::vector<Technique> r = {
       {"cut", "Cut", "^", "Grace note ABOVE the melody note: flick a finger up off a hole just above the sounding note and put it straight back. Separates two notes of the same pitch without tonguing, and accents a note. Usually the G finger (cutting notes below G) or the A/B finger for upper notes."},
       {"tap", "Tap (strike)", "v", "Grace note BELOW: slap a finger down on the hole just below the sounding note and lift it immediately. Accents a note; impossible on bottom D."},
       {"roll", "Long roll", "~", "Note, cut, note, tap, note, all in the time of a dotted quarter (3 eighths). The signature ornament on long notes in jigs and reels. Not possible on bottom D (use a cran)."},
@@ -306,6 +314,8 @@ std::vector<Technique> defaultTechniques() {
       {"trill", "Trill", "tr", "Rapid alternation with the note above."},
       {"double_cut", "Double cut", "^^", "Two quick cuts in a row before the note, giving a stutter. A variant of rolls and crans."},
   };
+  for (auto& t : r) { t.name = tr(t.name); t.description = tr(t.description); }  // English unless the GUI set a language
+  return r;
 }
 
 fs::path dataDir() {
@@ -368,7 +378,8 @@ void saveCustomTechnique(const Technique& t) {
 }
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Settings, hints, zoom, light, tempo, countIn, metronome, volume, sound,
-                                                gate, latencyMs, tolerance, instrument, songFilter)
+                                                gate, latencyMs, tolerance, instrument, songFilter, language, solfege,
+                                                solfegeKeys)
 
 Settings loadSettings() {
   Settings s;
@@ -385,6 +396,78 @@ Settings loadSettings() {
 }
 
 void saveSettings(const Settings& s) { writeJson(dataDir() / "settings.json", json(s)); }
+
+// ---------------- viewer language ----------------
+
+static std::map<std::string, std::string, std::less<>> gTr;  // English -> current language; empty = English
+
+fs::path i18nDir() {
+#ifdef JOHN_I18N
+  return bundled("i18n", JOHN_I18N);
+#else
+  return {};
+#endif
+}
+
+bool setLanguage(const std::string& code) {
+  gTr.clear();
+  json j = readJson(i18nDir() / (code + ".json"));
+  if (j.is_object())  // else "en", unknown or unreadable: English
+    for (auto& [k, v] : j.items())
+      if (v.is_string() && !v.get_ref<const std::string&>().empty()) gTr[k] = v.get<std::string>();
+  return gLocalized = !gTr.empty();
+}
+
+std::vector<std::pair<std::string, std::string>> languages() {
+  std::vector<std::pair<std::string, std::string>> r;
+  std::error_code ec;
+  for (auto& f : fs::directory_iterator(i18nDir(), ec)) {
+    if (f.path().extension() != ".json") continue;
+    std::string code = f.path().stem().string();
+    json j = readJson(f.path());
+    auto name = j.is_object() ? j.find("@language") : j.end();
+    r.push_back({code, j.is_object() && name != j.end() && name->is_string() ? name->get<std::string>() : code});
+  }
+  std::sort(r.begin(), r.end());
+  return r;
+}
+
+std::string systemLanguage() {
+#ifdef __EMSCRIPTEN__
+  std::string want = emscripten_run_script_string("navigator.language || ''");
+#else
+  const char* v = std::getenv("LC_ALL");
+  if (!v || !*v) v = std::getenv("LANG");
+  std::string want = v ? v : "";
+#endif
+  want = want.substr(0, want.find('.'));  // pt_BR.UTF-8 -> pt-BR
+  std::replace(want.begin(), want.end(), '_', '-');
+  auto langs = languages();
+  for (auto& l : langs) if (l.first == want) return l.first;
+  auto base = [](const std::string& c) { return c.substr(0, c.find('-')); };  // pt-PT -> the pt-BR file
+  for (auto& l : langs) if (base(l.first) == base(want)) return l.first;
+  return "en";
+}
+
+const char* tr(const char* english) {
+  auto it = gTr.find(std::string_view(english));
+  return it != gTr.end() ? it->second.c_str() : english;
+}
+
+std::string tr(const std::string& english) { return tr(english.c_str()); }
+
+std::string trf(const char* english, ...) {
+  const char* f = tr(english);
+  va_list ap, ap2;
+  va_start(ap, english);
+  va_copy(ap2, ap);
+  int n = std::max(0, vsnprintf(nullptr, 0, f, ap));
+  std::string r(n, '\0');
+  vsnprintf(r.data(), n + 1, f, ap2);
+  va_end(ap2);
+  va_end(ap);
+  return r;
+}
 
 std::string slug(const std::string& title) {
   std::string r;

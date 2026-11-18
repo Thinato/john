@@ -12,7 +12,7 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
     - **Wait for me**: the cursor waits on each note until you play it in tune.
     - **Play along**: grades each note while the backing plays. Green is right, red is wrong, orange is the wrong octave. Use headphones, or untick *Melody* and keep the metronome, so the mic doesn't hear the backing.
     - Right-click *Reset marks* to set the mic noise gate and latency (also in Settings).
-  - **Settings** (button in the sidebar): instrument hints, zoom, light or dark theme, the tempo for songs without one, count-in, metronome, volume, playback sound, mic tolerance, noise gate and latency, and the instrument new songs get when the agent doesn't name one. Changes apply at once and are kept between sessions. The controls in the main window (hints, zoom, sound, metronome, volume, tolerance) change the same settings.
+  - **Settings** (button in the sidebar): language, note names (C D E or Do Re Mi) and, in Portuguese, key names ("Ré maior" or "D maior"), instrument hints, zoom, light or dark theme, the tempo for songs without one, count-in, metronome, volume, playback sound, mic tolerance, noise gate and latency, and the instrument new songs get when the agent doesn't name one. Changes apply at once and are kept between sessions. The controls in the main window (hints, zoom, sound, metronome, volume, tolerance) change the same settings.
 
 ## Get it
 
@@ -64,6 +64,10 @@ Songs are grouped into folders (Lessons, Beginner, Intermediate, Advanced, or an
 
 Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`). Custom techniques are in `~/Documents/John/techniques.json`, settings in `~/Documents/John/settings.json`.
 
+## Languages
+
+The viewer speaks English and Brazilian Portuguese. By default it follows the system language (`LANG`/`LC_ALL`; the browser's language on the web); pick one in Settings. The MCP server and the agent's tools always answer in English. Translations are in `i18n/<language>.json`, one file per language, mapping each English text to its translation; to add a language, add a file (see `kb/notes/i18n-translate-viewer-text.md`).
+
 ## Lessons
 
 `lessons/` holds a beginner course for the D whistle. John installs it into your song list the first time it runs (delete a lesson and it stays deleted). Each lesson has comments on the notes explaining what to practise:
@@ -90,6 +94,7 @@ Lessons 5 and 7 are public-domain tunes; the rest are original exercises.
 | Speaker/microphone devices (miniaudio) | `src/audio.cpp` |
 | MCP server (stdio JSON-RPC, tools + agent guide in `instructions`) | `src/mcp_main.cpp` |
 | Viewer (Bravura SMuFL glyphs drawn with ImDrawList) | `src/gui_main.cpp` |
+| Viewer translations (English text -> translation) | `i18n/*.json`, `tr()` in `src/song.cpp` |
 | Web build: IndexedDB storage and page | `web/pre.js`, `web/shell.html` |
 
 Notes are stored at written pitch: whistle music is written an octave below how it sounds, so a D whistle's bottom note is D4.
