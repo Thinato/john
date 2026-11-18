@@ -10,6 +10,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdlib>
+#include <fstream>
 #include <sstream>
 #ifdef __EMSCRIPTEN__
 #include <GLFW/emscripten_glfw3.h>
@@ -102,6 +103,10 @@ struct App {
   std::string importNote;       // the last import's separation: line, shown until the next import
   std::future<Song> importing;  // valid while transcribing
 #endif
+  bool showAbc = false;         // Import song (ABC), see abcWindow
+  std::vector<char> abcText = std::vector<char>(1 << 17);  // the paste box (heap: the web's stack is small)
+  char abcPath[1024] = "";
+  std::string abcError, abcResult;
   char comment[2048] = "";
   double lastPoll = -10;
 
@@ -1133,6 +1138,117 @@ static void importWindow(App& a) {
 }
 #endif
 
+#ifdef __EMSCRIPTEN__
+// Browser file picker: the chosen file is written to /picked/<name> (memory, not IndexedDB); abcWindow() imports it on
+// the next frame. Called from an ImGui button, which runs within the click's user activation the browser requires.
+EM_JS(void, pickAbcFile, (), {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.abc,.txt,text/plain';
+  input.onchange = async function() {
+    var f = input.files[0];
+    if (!f) return;
+    var data = new Uint8Array(await f.arrayBuffer());
+    try { FS.mkdir('/picked'); } catch (e) {}
+    FS.writeFile('/picked/' + f.name, data);
+  };
+  input.click();
+});
+#endif
+
+static std::optional<std::string> readText(const fs::path& p) {
+  std::ifstream f(p, std::ios::binary);
+  if (!f) return std::nullopt;
+  std::stringstream ss;
+  ss << f.rdbuf();
+  return ss.str();
+}
+
+// Every tune in the ABC becomes a song (instrument from Settings, as import_abc); the first one is opened.
+static void importAbcText(App& a, const std::string& abc, const std::string& source) {
+  Song like;
+  like.instrument = a.set.instrument;
+  like.harp = a.set.harp;
+  like.source = source;
+  a.abcError.clear();
+  a.abcResult.clear();
+  try {
+    auto r = importAbcSongs(abc, like);  // saveSong() calls persist() on the web
+    std::error_code ec;
+    for (auto& x : r) {
+      a.newestSeen = std::max(a.newestSeen, fs::last_write_time(songPath(x.song.id), ec));  // poll() mustn't follow to the last
+      for (auto& w : x.warnings) a.abcResult += "\n" + w;
+    }
+    a.abcResult = trf("Imported %d song(s).", (int)r.size()) + a.abcResult;
+    open(a, r[0].song.id);
+    a.lastPoll = -1;  // list them now
+  } catch (const std::exception& e) {
+    a.abcError = tr(std::string(e.what()));
+  }
+}
+
+#ifndef __EMSCRIPTEN__
+static void importAbcFile(App& a) {
+  std::error_code ec;
+  auto text = fs::is_regular_file(a.abcPath, ec) ? readText(a.abcPath) : std::nullopt;
+  if (text) importAbcText(a, *text, fs::path(a.abcPath).filename().string());
+  else { a.abcResult.clear(); a.abcError = tr("File not found."); }
+}
+#endif
+
+// Import song: paste ABC, or open a file (web: browser file picker; desktop: a path, or drop an .abc file on the window).
+static void abcWindow(App& a) {
+#ifdef __EMSCRIPTEN__
+  std::error_code ec;
+  std::vector<fs::path> picked;
+  for (auto& e : fs::directory_iterator("/picked", ec)) picked.push_back(e.path());
+  for (auto& p : picked) {
+    auto text = readText(p);
+    fs::remove(p, ec);
+    if (text) importAbcText(a, *text, p.filename().string());
+  }
+#else
+  if (!gDropped.empty()) {  // .abc only: anything else stays for Import audio
+    std::string ext = fs::path(gDropped).extension().string();
+    for (auto& c : ext) c = (char)tolower((unsigned char)c);
+    if (ext == ".abc") {
+      snprintf(a.abcPath, sizeof a.abcPath, "%s", gDropped.c_str());
+      gDropped.clear();
+      a.showAbc = true;
+      importAbcFile(a);
+    }
+  }
+#endif
+  if (!a.showAbc) return;
+  ImGui::SetNextWindowPos({280, 100}, ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowBgAlpha(1);
+  if (!ImGui::Begin(L("Import song").c_str(), &a.showAbc, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) { ImGui::End(); return; }
+  const float w = ImGui::GetFontSize() * 32;
+  ImGui::PushTextWrapPos(w);
+  ImGui::TextUnformatted(tr("Find tunes on thesession.org or abcnotation.com, copy the ABC and paste it here."));
+  ImGui::PopTextWrapPos();
+  ImGui::InputTextMultiline("##abc", a.abcText.data(), a.abcText.size(), {w, ImGui::GetTextLineHeight() * 14});
+  if (ImGui::Button(L("Import").c_str())) {
+    importAbcText(a, a.abcText.data(), tr("pasted"));
+    if (a.abcError.empty()) a.abcText[0] = 0;
+  }
+  ImGui::SameLine();
+#ifdef __EMSCRIPTEN__
+  if (ImGui::Button(L("Open a file...").c_str())) pickAbcFile();
+#else
+  ImGui::TextUnformatted(tr("or drop an .abc file on the window, or type its path:"));
+  ImGui::SetNextItemWidth(w - ImGui::CalcTextSize(tr("Open")).x - ImGui::GetStyle().FramePadding.x * 2 - ImGui::GetStyle().ItemSpacing.x);
+  ImGui::InputText("##abcPath", a.abcPath, sizeof a.abcPath);
+  ImGui::SameLine();
+  if (ImGui::Button(L("Open").c_str())) importAbcFile(a);
+#endif
+  ImGui::PushTextWrapPos(w);
+  if (!a.abcError.empty()) ImGui::TextColored({1, 0.4f, 0.4f, 1}, "%s", a.abcError.c_str());
+  if (!a.abcResult.empty()) ImGui::TextUnformatted(a.abcResult.c_str());
+  ImGui::PopTextWrapPos();
+  ImGui::End();
+}
+
 int main() {
   try { installSongs(lessonsDir()); } catch (...) {}
 #ifdef __EMSCRIPTEN__
@@ -1239,7 +1355,7 @@ int main() {
       ImGui::TreePop();
     }
 #ifdef __EMSCRIPTEN__  // no agent on the web: point to the desktop app instead
-    if (a.ids.empty()) ImGui::TextWrapped("%s", tr("No songs yet. Songs are imported in the desktop app."));
+    if (a.ids.empty()) ImGui::TextWrapped("%s", tr("No songs yet. Add one with Import song below."));
 #else
     if (a.ids.empty()) ImGui::TextWrapped("%s", tr("No songs yet. Ask the agent to import one via the john MCP server."));
 #endif
@@ -1262,6 +1378,8 @@ int main() {
       else ImGui::SetTooltip("%s", tr("Show fingering charts and fingerings for the notes"));
     }
     ImGui::SliderFloat(L("Zoom").c_str(), &a.set.zoom, 6, 16, "%.0f");
+    if (ImGui::Button(L("Import song").c_str())) a.showAbc = !a.showAbc;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Add songs from ABC notation: paste it or open a file"));
     if (ImGui::Button(L("Settings").c_str())) a.showSettings = !a.showSettings;
 #ifndef __EMSCRIPTEN__  // the web keeps songs in the browser (IndexedDB) and has no transcription
     ImGui::SameLine();
@@ -1293,6 +1411,7 @@ int main() {
     }
     ImGui::End();
     settingsWindow(a);
+    abcWindow(a);  // before importWindow: takes dropped .abc files
 #ifndef __EMSCRIPTEN__
     importWindow(a);
 #endif

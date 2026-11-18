@@ -65,7 +65,7 @@ static json toolList() {
       tool("list_songs", "List saved songs by folder (id, title, key, meter, instrument).",
            {{"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "only songs for this instrument (any whistle key); default all"}}}}),
       tool("import_abc",
-           "Create a song from ABC notation (full tune with X/T/M/L/K headers). Returns warnings and the note listing. "
+           "Create a song from ABC notation (full tune with X/T/M/L/K headers; each X: tune of a multi-tune file becomes its own song, id applies to the first). Returns warnings and the note listing. "
            "Techniques in the ABC (~, {g}A grace cuts, !id! decorations) are kept.",
            {{"abc", str},
             {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
@@ -173,20 +173,21 @@ static std::string callTool(const std::string& name, const json& a) {
     return r.empty() ? "No songs yet. Data folder: " + dataDir().string() : r;
   }
   if (name == "import_abc") {
-    ImportResult ir = importAbc(a.value("abc", ""));
-    Song& s = ir.song;
-    if (s.events.empty()) throw std::runtime_error("no notes found in the ABC");
-    s.source = a.value("source", s.source);
-    s.instrument = a.value("instrument", loadSettings().instrument);
-    s.whistle = a.value("whistle", "D");
-    s.harp = a.value("harp", loadSettings().harp);
-    s.folder = a.value("folder", "");
-    checkInstrument(s);
-    s.id = a.value("overwrite", false) ? slug(a.value("id", s.title)) : uniqueId(a.value("id", s.title));
-    saveSong(s);
-    std::string w;
-    for (auto& x : ir.warnings) w += "warning: " + x + "\n";
-    return "Saved as '" + s.id + "'.\n" + w + "\n" + listing(s);
+    Song like;
+    like.id = a.value("id", "");
+    like.source = a.value("source", "");
+    like.instrument = a.value("instrument", loadSettings().instrument);
+    like.whistle = a.value("whistle", "D");
+    like.harp = a.value("harp", loadSettings().harp);
+    like.folder = a.value("folder", "");
+    checkInstrument(like);
+    std::string out;
+    for (auto& ir : importAbcSongs(a.value("abc", ""), like, a.value("overwrite", false))) {
+      out += (out.empty() ? "" : "\n") + std::string("Saved as '") + ir.song.id + "'.\n";
+      for (auto& x : ir.warnings) out += "warning: " + x + "\n";
+      out += "\n" + listing(ir.song);
+    }
+    return out;
   }
   if (name == "get_song") return listing(mustLoad(a));
   if (name == "analyze_song") return analyze(mustLoad(a));

@@ -245,6 +245,11 @@ Song fromJson(const json& j);
 // ---- import / analysis ----
 struct ImportResult { Song song; std::vector<std::string> warnings; };
 ImportResult importAbc(const std::string& abc);
+// Import every tune (X:) of `abc` as a new saved song: instrument, whistle, harp and folder from `like`, source too when
+// set (else the ABC's C:/S:/Z:). Ids come from uniqueId(title); the first tune's from like.id when set (slug(like.id) as
+// is with overwrite). Warnings name their tune when there are several. A tune needs a K: line and notes; throws if none has. Used by import_abc
+// and the viewer's Import song.
+std::vector<ImportResult> importAbcSongs(const std::string& abc, const Song& like, bool overwrite = false);
 std::string listing(const Song& s);          // compact text table of every event, for the agent
 std::string analyze(const Song& s);          // deterministic technique candidates + range report
 
