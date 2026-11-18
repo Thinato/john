@@ -248,7 +248,8 @@ static std::string callTool(const std::string& name, const json& a) {
     o.instrument = a.value("instrument", o.instrument);
     o.recordingInstrument = a.value("recording_instrument", "");
     if (a.contains("transpose")) {
-      if (!a["transpose"].is_number_integer() || std::abs(a["transpose"].get<long long>()) > 12)
+      const json& t = a["transpose"];
+      if (!t.is_number_integer() || t < -12 || t > 12)
         throw std::runtime_error("transpose must be a whole number within -12..12 semitones");
       o.transpose = a["transpose"].get<int>();
     }

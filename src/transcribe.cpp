@@ -681,10 +681,11 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   }
   snprintf(line, sizeof line, "melody heard in %d%% of the audio; %zu notes\n", voiced * 100 / T, clean.size());
   r += line;
-  if (shift == 0) r += "octave: the " + inst->name + " plays at the recording's pitch\n";
+  const char* heardAs = semis ? "transposed recording" : "recording";
+  if (shift == 0) r += "octave: the " + inst->name + " plays at the " + heardAs + "'s pitch\n";
   else {
-    snprintf(line, sizeof line, "octave: the %s plays %d octave(s) %s the recording, to fit its range\n", inst->name.c_str(),
-             std::abs(shift), shift > 0 ? "above" : "below");
+    snprintf(line, sizeof line, "octave: the %s plays %d octave(s) %s the %s, to fit its range\n", inst->name.c_str(),
+             std::abs(shift), shift > 0 ? "above" : "below", heardAs);
     r += line;
   }
   if (folded) {
