@@ -13,7 +13,7 @@ struct N {
   bool afterRest, phraseStart;
 };
 
-struct RangeCost { int out = 0, half = 0, cross = 0; };
+}  // namespace
 
 RangeCost rangeCost(const Song& s, const Instrument& in, int semis) {
   RangeCost c;
@@ -27,8 +27,6 @@ RangeCost rangeCost(const Song& s, const Instrument& in, int semis) {
   }
   return c;
 }
-
-}  // namespace
 
 std::string analyze(const Song& s) {
   std::ostringstream o;
@@ -69,7 +67,7 @@ std::string analyze(const Song& s) {
   std::vector<std::pair<int, int>> ranked;  // score, semis
   for (int t = -12; t <= 12; t++) {
     RangeCost c = rangeCost(s, in, t);
-    ranked.push_back({c.out * 1000 + c.half * 10 + c.cross * 2 + std::abs(t), t});
+    ranked.push_back({c.out * 1000 + c.hard() + std::abs(t), t});
   }
   std::sort(ranked.begin(), ranked.end());
   o << "best transpositions:";

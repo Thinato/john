@@ -30,6 +30,8 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","meter":"C"}}}' \
 '{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","meter":"C|"}}}' \
 '{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","meter":"4"}}}' \
+'{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","transpose":13}}}' \
+'{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","transpose":0}}}' \
 | "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -58,7 +60,10 @@ reply 20 | grep -q 'fiddle - Fiddle' || { echo "violin filter lost fiddle"; exit
 reply 21 | grep -q "unknown instrument 'kazoo'" || { echo "kazoo filter not rejected"; exit 1; }
 ! reply 22 | grep -q 'meter must' && ! reply 23 | grep -q 'meter must' || { echo "C or C| rejected as meter"; exit 1; }
 reply 24 | grep -q 'meter must be N/D' || { echo "bad meter not rejected"; exit 1; }
+reply 2 | grep -q '0 keeps the recording' || { echo "transcribe_audio has no transpose option"; exit 1; }
+reply 25 | grep -q 'transpose must be a whole number within -12..12' || { echo "transpose 13 not rejected"; exit 1; }
+! reply 26 | grep -q 'transpose must' || { echo "transpose 0 rejected"; exit 1; }
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 24 ] || { echo "expected 24 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 26 ] || { echo "expected 26 replies"; exit 1; }
 echo "mcp smoke passed"

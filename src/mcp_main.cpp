@@ -24,6 +24,7 @@ Getting a tune into John (always via ABC -> import_abc, with instrument = what t
   * Meter: without a meter, the draft tries 4/4, 3/4, 6/8 and 9/8 and keeps the best fit; the report's meter line lists each score. Check it: do the repeating motifs line up with the bar lines, with long or accented notes on beat 1? If the scores are close (on real recordings they often are) or the meter doesn't suit the tune type (jig 6/8, slip jig 9/8, waltz 3/4, reel 4/4), re-run with meter and compare which version makes the phrases fit the bars. 2/4 and 12/8 aren't tried: expect 4/4 and 6/8.
   * Tempo: read the report's tempo line. Confidence low means the detected tempo may well be wrong: re-run with the 'also plausible' bpm (often half, double or 3:2; not always right either) or the song's usual tempo, and keep the version whose note lengths read naturally. If nearly every note is a sixteenth, the real tempo is probably double the detected one; if it is all half and whole notes, it's probably half. Re-run with bpm. If you know the song, use its usual tempo and feel.
   * Pickup and key: does the tune start on a pickup? Do the accidentals point to another key or mode (e.g. a steady C natural in D major = D mixolydian, minor vs dorian)? Fix K: in the ABC.
+  * Range: if no octave keeps the notes in the instrument's range, the draft is transposed to the key that fits best (for the whistle also with the fewest half-holes) and the report's 'transposed' line says from which key. If the user wants the recording's key, re-run with transpose = 0 (notes out of range are then folded by an octave); transpose = N forces another shift.
   * Structure: write repeated sections once with |: :| and 1st/2nd endings so the sheet is short and readable. Trim intros, outros and accompaniment-only passages with start/end (or delete_bars after import).
   * Notes: fix obvious slips (a single note an octave off, one-sixteenth blips, a lone out-of-key note in a clear phrase). Never invent melody that the draft doesn't support; mark doubtful spots instead.
   Then import_abc (source = the file name, and the same instrument you transcribed for). In update_song notes, say it is an automatic transcription, which bars are uncertain, and the feel (tempo, swing, where to breathe). Comment on notes you changed or doubt (set_techniques comment, e.g. "unclear in the recording, check by ear"). Finally ask the user to play it in John next to the recording and tell you what sounds wrong: they are the ears, you are the eyes.
@@ -97,7 +98,7 @@ static json toolList() {
            {"id", "first"}),
       tool("transcribe_audio",
            "Transcribe the melody of an audio file (mp3, wav, flac) into ABC for an instrument (default D whistle): pitch tracking, beat tracking, "
-           "sixteenth-note grid, key detection, octave fitted to the instrument's range. Works best on solo instruments/voice; on full mixes it "
+           "sixteenth-note grid, key detection, octave fitted to the instrument's range (transposed to another key if no octave fits; see transpose). Works best on solo instruments/voice; on full mixes it "
            "follows the strongest pitched line. Returns a report and a draft ABC in the detected meter (4/4, 3/4, 6/8 or 9/8, scores in the report) with straight sixteenths. "
            "Don't import it blindly: check the meter (do motifs fit the bars?), tempo (the report's tempo confidence; doubled/halved note lengths?), pickup, key/mode "
            "and repeats, re-run with meter/bpm/start/end as needed, tidy the ABC, then import_abc, write song notes about what's "
@@ -111,7 +112,11 @@ static json toolList() {
             {"instrument", instrumentSchema},
             {"recording_instrument", {{"type", "string"}, {"enum", INSTRUMENTS},
                                       {"description", "instrument playing the melody in the recording (whistle = D whistle); limits the "
-                                                      "pitch search to its range so accompaniment outside it is ignored. Default: unset"}}}},
+                                                      "pitch search to its range so accompaniment outside it is ignored. Default: unset"}}},
+            {"transpose", {{"type", "integer"}, {"minimum", -12}, {"maximum", 12},
+                           {"description", "semitones to transpose the melody by before fitting the octave (the draft's K: follows); "
+                                           "0 keeps the recording's key. Default: automatic, only when no octave keeps the notes "
+                                           "in the instrument's range (the report's 'transposed' line says so)"}}}},
            {"path"}),
       tool("list_techniques", "List the technique catalog: id, GUI symbol, name, how to play it on the whistle.", json::object()),
       tool("define_technique", "Add or replace a technique in the catalog (for techniques the user wants documented).",
@@ -242,6 +247,11 @@ static std::string callTool(const std::string& name, const json& a) {
     o.title = a.value("title", fs::path(path).stem().string());
     o.instrument = a.value("instrument", o.instrument);
     o.recordingInstrument = a.value("recording_instrument", "");
+    if (a.contains("transpose")) {
+      if (!a["transpose"].is_number_integer() || std::abs(a["transpose"].get<long long>()) > 12)
+        throw std::runtime_error("transpose must be a whole number within -12..12 semitones");
+      o.transpose = a["transpose"].get<int>();
+    }
     Transcription t = transcribeFile(path, a.value("start", 0.0), a.value("end", 0.0), o);
     return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name and instrument = " + o.instrument +
            "):\n" + toAbc(t.song);

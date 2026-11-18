@@ -4,6 +4,7 @@
 #include "john.hpp"
 #include "miniaudio.h"
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <complex>
 #include <map>
@@ -543,14 +544,47 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   auto inst = findInstrument(o.instrument, "D");
   if (!inst) throw std::runtime_error("unknown instrument '" + o.instrument + "'");
   const int lo = inst->low, hi = inst->high, wr = -12 * inst->octave;  // written = sounding + wr + 12 * shift
-  int shift = 0, bestIn = -1;
-  // pick the octave that fits the range best. On a tie the whistle takes the lowest (easier to blow); other
-  // instruments take the one nearest the recording (the piano's huge range fits almost any octave).
+  // pick the octave that fits the range best (melody transposed by t semitones). On a tie the whistle takes the
+  // lowest (easier to blow); other instruments take the one nearest the recording (the piano's huge range fits
+  // almost any octave). in = note time in range.
   const bool lowest = inst->id == "whistle";
-  for (int k = -4; k <= 4; k++) {
-    int in = 0;
-    for (auto& n : clean) in += inst->plays(n.m + wr + 12 * k) * (n.q1 - n.q0);
-    if (in > bestIn || (in == bestIn && !lowest && std::abs(k) < std::abs(shift))) { bestIn = in; shift = k; }
+  auto octaveFit = [&](int t, int& bestIn) {
+    int shift = 0;
+    bestIn = -1;
+    for (int k = -4; k <= 4; k++) {
+      int in = 0;
+      for (auto& n : clean) in += inst->plays(n.m + t + wr + 12 * k) * (n.q1 - n.q0);
+      if (in > bestIn || (in == bestIn && !lowest && std::abs(k) < std::abs(shift))) { bestIn = in; shift = k; }
+    }
+    return shift;
+  };
+  int bestIn, semis = o.transpose.value_or(0), shift = octaveFit(semis, bestIn), total = 0;
+  for (auto& n : clean) total += n.q1 - n.q0;
+  // No octave keeps the notes in range (more than 10% of the note time would fold): try other keys before folding,
+  // which distorts the melody in a way a later transpose can't undo (#9). Ranked as analyze() ranks transpositions,
+  // but a note out of range costs 20 (two half-holes) instead of 1000: on real recordings the out-of-range part is
+  // mostly octave errors and accompaniment, so a strict "most in range first" picks keys like G# minor (see
+  // kb/notes/transcription-transpose-before-folding.md). Other instruments: range only. Ties: the smallest shift.
+  const bool autoShift = !o.transpose && (total - bestIn) * 10 > total;
+  if (autoShift) {
+    std::pair<int, int> best{INT_MAX, 0};  // cost, |shift|
+    Song cand;                             // a D whistle's fingerings, as findInstrument() above
+    for (int t = -5; t <= 6; t++) {
+      int in, k = octaveFit(t, in);
+      cand.events.clear();
+      for (auto& n : clean) { Event e; e.midi = n.m + t + wr + 12 * k; cand.events.push_back(e); }
+      RangeCost c = rangeCost(cand, *inst, 0);
+      std::pair<int, int> cost{c.out * 20 + c.hard(), std::abs(t)};
+      if (cost < best) best = cost, semis = t, shift = k;
+    }
+  }
+  const Key heard = key;
+  if (semis) {
+    for (auto& n : clean) n.m += semis;
+    Song keyed;
+    keyed.key = key;
+    transpose(keyed, semis);
+    key = keyed.key;
   }
   int folded = 0;
   for (auto& n : clean) {  // octave errors and low/high notes the instrument can't play: fold into its range
@@ -637,8 +671,14 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     r += ")";
   }
   r += "\n";
-  snprintf(line, sizeof line, "key: %s (fit %.2f)\ntuning: %+.0f cents from A440\n", keyName(key).c_str(), keyCorr, tune);
+  snprintf(line, sizeof line, "key: %s (fit %.2f)\ntuning: %+.0f cents from A440\n", keyName(heard).c_str(), keyCorr, tune);
   r += line;
+  if (semis) {
+    snprintf(line, sizeof line, "transposed %+d semitones (%s -> %s)%s%s%s\n", semis, keyName(heard).c_str(), keyName(key).c_str(),
+             autoShift ? " to fit the " : ", as given", autoShift ? inst->name.c_str() : "",
+             autoShift ? ": no octave kept the notes in range" : "");
+    r += line;
+  }
   snprintf(line, sizeof line, "melody heard in %d%% of the audio; %zu notes\n", voiced * 100 / T, clean.size());
   r += line;
   if (shift == 0) r += "octave: the " + inst->name + " plays at the recording's pitch\n";
