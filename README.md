@@ -12,6 +12,7 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
     - **Wait for me**: the cursor waits on each note until you play it in tune.
     - **Play along**: grades each note while the backing plays. Green is right, red is wrong, orange is the wrong octave. Use headphones, or untick *Melody* and keep the metronome, so the mic doesn't hear the backing.
     - Right-click *Reset marks* to set the mic noise gate and latency (also in Settings).
+  - **Import audio** (button in the sidebar, desktop only): drop an mp3, wav or flac file on the window, or paste its path, and press *Transcribe*. Optional: start and end (seconds), tempo and meter (blank = detect), the instrument the sheet is for (default from Settings) and the instrument playing the melody in the recording. John keeps working while it listens; the draft opens as a new song in *Unsorted*, with the detected tempo, meter and key in its notes and "unclear in the recording, check by ear" on doubtful notes. Under each line of music a strip shows the pitch John heard in the recording, faint where it was unsure. It's a machine draft: compare it with the recording by ear, or ask the agent to tidy it.
   - **Settings** (button in the sidebar): language, note names (C D E or Do Re Mi) and, in Portuguese, key names ("Ré maior" or "D maior"), instrument hints, zoom, light or dark theme, the tempo for songs without one, count-in, metronome, volume, playback sound, mic tolerance, noise gate and latency, and the instrument new songs get when the agent doesn't name one. Changes apply at once and are kept between sessions. The controls in the main window (hints, zoom, sound, metronome, volume, tolerance) change the same settings.
 
 ## Get it
@@ -62,7 +63,7 @@ Each song is for an instrument: tin whistle (the default unless another is picke
 
 Songs are grouped into folders (Lessons, Beginner, Intermediate, Advanced, or any name). The agent files new songs by difficulty, and you can move a song with the Folder picker in the GUI.
 
-Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`). Custom techniques are in `~/Documents/John/techniques.json`, settings in `~/Documents/John/settings.json`.
+Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`); songs made with Import audio keep their pitch track in `tracks/<id>.json` next to `songs/`. Custom techniques are in `~/Documents/John/techniques.json`, settings in `~/Documents/John/settings.json`.
 
 ## Languages
 
@@ -91,6 +92,7 @@ Lessons 5 and 7 are public-domain tunes; the rest are original exercises.
 | ABC importer (thesession.org bodies, grace-note cuts/taps, `!decorations!`, tuplets, voltas) | `src/abc.cpp` |
 | Hints: range/transposition ranking, cut/roll/cran/slide/breath/tongue candidates | `src/analyze.cpp` |
 | Play order (repeats/endings), backing-whistle synth, YIN pitch detection | `src/sound.cpp` |
+| Audio transcription (pitch track, beats, meter, key) and Import audio | `src/transcribe.cpp`, `importAudio()` in `src/song.cpp` |
 | Speaker/microphone devices (miniaudio) | `src/audio.cpp` |
 | MCP server (stdio JSON-RPC, tools + agent guide in `instructions`) | `src/mcp_main.cpp` |
 | Viewer (Bravura SMuFL glyphs drawn with ImDrawList) | `src/gui_main.cpp` |

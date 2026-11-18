@@ -155,10 +155,7 @@ static std::string callTool(const std::string& name, const json& a) {
     s.whistle = a.value("whistle", "D");
     s.folder = a.value("folder", "");
     checkInstrument(s);
-    std::string base = slug(a.value("id", s.title));
-    s.id = base;
-    if (!a.value("overwrite", false))
-      for (int n = 2; loadSong(s.id); n++) s.id = base + "-" + std::to_string(n);
+    s.id = a.value("overwrite", false) ? slug(a.value("id", s.title)) : uniqueId(a.value("id", s.title));
     saveSong(s);
     std::string w;
     for (auto& x : ir.warnings) w += "warning: " + x + "\n";
@@ -237,18 +234,11 @@ static std::string callTool(const std::string& name, const json& a) {
     o.meter = a.value("meter", o.meter);
     if (!o.meter.empty() && (o.meter = parseMeter(o.meter)).empty())
       throw std::runtime_error("meter must be N/D with D = 2, 4, 8 or 16 (e.g. 4/4, 3/4, 6/8), or C or C|");
-    if (path.rfind("~/", 0) == 0 && getenv("HOME")) path = std::string(getenv("HOME")) + path.substr(1);
-    constexpr int SR = 22050;
-    std::vector<float> x = decodeAudio(path, SR);
-    double start = a.value("start", 0.0), end = a.value("end", 0.0);
-    size_t from = (size_t)std::clamp(start * SR, 0.0, (double)x.size());
-    size_t to = end > 0 ? (size_t)std::clamp(end * SR, (double)from, (double)x.size()) : x.size();
-    x = std::vector<float>(x.begin() + from, x.begin() + to);
     o.bpm = a.value("bpm", 0.0);
     o.title = a.value("title", fs::path(path).stem().string());
     o.instrument = a.value("instrument", o.instrument);
     o.recordingInstrument = a.value("recording_instrument", "");
-    Transcription t = transcribe(x, SR, o);
+    Transcription t = transcribeFile(path, a.value("start", 0.0), a.value("end", 0.0), o);
     return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name and instrument = " + o.instrument +
            "):\n" + toAbc(t.song);
   }

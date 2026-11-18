@@ -13,6 +13,8 @@
 #ifdef __EMSCRIPTEN__
 #include <GLFW/emscripten_glfw3.h>
 #include <emscripten.h>
+#else
+#include <future>
 #endif
 
 using namespace john;
@@ -70,6 +72,7 @@ struct App {
   std::map<std::string, Meta> meta;  // song list info, re-read only when a file changes
   std::vector<Technique> techs;
   std::optional<Song> song;
+  std::optional<PitchTrack> track;  // the open song's pitch track (Import audio), drawn under each line of music
   std::string current;
   fs::file_time_type songMtime{}, newestSeen{};
   int sel = -1;
@@ -78,6 +81,13 @@ struct App {
   bool showSettings = false;
   bool english = true;          // the viewer's language is English (set by main() when the language changes)
   bool follow = true;
+  bool busy = false;            // Import audio is transcribing on a worker thread (see importWindow)
+#ifndef __EMSCRIPTEN__
+  bool showImport = false;
+  char importPath[1024] = "", importStart[16] = "", importEnd[16] = "", importTempo[16] = "", importMeter[16] = "";
+  std::string importInst, importRec, importError;
+  std::future<Song> importing;  // valid while transcribing
+#endif
   char comment[2048] = "";
   double lastPoll = -10;
 
@@ -111,6 +121,7 @@ static void open(App& a, const std::string& id) {
   if (id != a.current) a.sel = -1;
   a.cursor = -1;
   a.song = loadSong(id);
+  a.track = a.song ? loadTrack(id) : std::nullopt;
   a.current = a.song ? id : "";
   std::error_code ec;
   a.songMtime = fs::last_write_time(songPath(id), ec);
@@ -231,6 +242,8 @@ static void drawScore(App& a, Song& s) {
   const float sysH = sp * (whistle ? 26 : 19);  // a system with only near notes on one staff
   const bool grand = grandStaff(s);
   const float bassDy = grand ? sp * 10 : 0;  // treble top line to bass top line
+  const PitchTrack* trk = a.track && a.track->sync.size() >= 2 ? &*a.track : nullptr;
+  const float stripH = trk ? sp * 5 : 0;  // pitch track strip at the bottom of each system
   auto slotW = [&](const Event& e, int i) -> float {
     if (e.kind == Kind::Bar) return sp * (e.bar == "|" ? 1.4f : 2.4f);
     return sp * (1.7f + 1.7f * std::sqrt(e.len / 24.0f)) + (acc[i].shown ? accW : 0);
@@ -285,7 +298,7 @@ static void drawScore(App& a, Song& s) {
   std::vector<float> sysY{origin.y};  // system tops, then the end of the last one
   for (auto [f, t] : lines) {
     room.push_back(f < t ? systemRoom(s, slots[f].ev, slots[t - 1].ev + 1, whistle ? 4 : 6) : Room{});
-    sysY.push_back(sysY.back() + sysH + bassDy + (room.back().above + room.back().below) * sp / 2);
+    sysY.push_back(sysY.back() + sysH + bassDy + (room.back().above + room.back().below) * sp / 2 + stripH);
   }
   auto sysHOf = [&](int sys) { return sysY[sys + 1] - sysY[sys]; };
   auto staffTop = [&](int sys) { return sysY[sys] + sp * 8 + room[sys].above * sp / 2; };  // treble staff top line
@@ -348,7 +361,7 @@ static void drawScore(App& a, Song& s) {
   int hovered = -1;
   for (auto& sl : slots) {
     if (s.events[sl.ev].kind != Kind::Note) continue;
-    float top = sysY[sl.sys], h = sysHOf(sl.sys);
+    float top = sysY[sl.sys], h = sysHOf(sl.sys) - stripH;
     if (mouse.x >= sl.x && mouse.x < sl.x + sl.w && mouse.y >= top && mouse.y < top + h && ImGui::IsWindowHovered())
       hovered = sl.ev;
     if (sl.ev == a.sel || sl.ev == hovered)
@@ -520,6 +533,44 @@ static void drawScore(App& a, Song& s) {
     sc.text(nm, sl.cx, chartTop + sp * (whistle ? 8.4f : 1.0f), sp * 1.4f, IM_COL32(110, 110, 110, 255));
   }
 
+  // ---- pitch track (Import audio): the recording's melody under each line, placed through its beat times ----
+  bool stripHovered = false;
+  if (trk) {
+    std::vector<int> at(s.events.size() + 1, 0);  // tick each event starts at, counted like PitchTrack::sync
+    for (size_t i = 0; i < s.events.size(); i++) at[i + 1] = at[i] + (s.events[i].kind == Kind::Bar ? 0 : s.events[i].len);
+    int lo = 127, hi = 0;
+    for (auto& p : trk->points) if (p.midi) lo = std::min(lo, p.midi), hi = std::max(hi, p.midi);
+    if (hi - lo < 12) { lo = (lo + hi) / 2 - 6; hi = lo + 12; }
+    auto stripTop = [&](int sys) { return sysY[sys + 1] - stripH; };
+    for (int sys = 0; sys < (int)lines.size(); sys++) {
+      if (lines[sys].first == lines[sys].second) continue;
+      const Slot& last = slots[lines[sys].second - 1];
+      ImVec2 p0{origin.x + margin, stripTop(sys)}, p1{last.x + last.w, sysY[sys + 1] - sp};
+      sc.dl->AddRectFilled(p0, p1, IM_COL32(0, 0, 0, 12), 2);
+      stripHovered |= ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(p0, p1);
+    }
+    size_t k = 0;  // slot of the event under the current point
+    float px = 0, py = 0, pconf = 0;
+    int psys = -1;  // line of the previous point, -1 = it had no pitch
+    for (auto& p : trk->points) {
+      double tick = trackTick(*trk, p.time);
+      while (k < slots.size() && (s.events[slots[k].ev].kind == Kind::Bar || at[slots[k].ev + 1] <= tick)) k++;
+      if (k == slots.size()) break;
+      const Slot& sl = slots[k];
+      if (tick < at[sl.ev]) continue;  // before the first note
+      size_t j = k + 1;  // from this note's head to the next note's or rest's, or to the line's end
+      while (j < slots.size() && slots[j].sys == sl.sys && s.events[slots[j].ev].kind == Kind::Bar) j++;
+      const Slot& end = slots[lines[sl.sys].second - 1];
+      float xb = j < slots.size() && slots[j].sys == sl.sys ? slots[j].cx : end.x + end.w;
+      float x = sl.cx + (float)((tick - at[sl.ev]) / std::max(1, at[sl.ev + 1] - at[sl.ev])) * (xb - sl.cx);
+      if (psys == sl.sys) sc.line(px, py, x, py, sp * 0.35f, IM_COL32(40, 110, 200, pconf >= 0.35f ? 255 : 60));  // faint: unclear
+      psys = p.midi ? sl.sys : -1;
+      px = x;
+      py = stripTop(sl.sys) + (stripH - sp) * (1 - (float)(p.midi - lo) / (hi - lo));
+      pconf = p.conf;
+    }
+  }
+
   // ---- beams ----
   for (auto& g : beams) {
     const Slot& f0 = slots[g.front()];
@@ -542,6 +593,7 @@ static void drawScore(App& a, Song& s) {
   }
 
   ImGui::Dummy({width, totalH});
+  if (stripHovered) ImGui::SetTooltip("%s", tr("Pitch heard in the recording (faint where it is unclear)"));
 
   if (hovered >= 0) {
     const Event& e = s.events[hovered];
@@ -854,6 +906,14 @@ static void detailsPanel(App& a) {
   }
 }
 
+static void instrumentCombo(const char* label, std::string& v, const char* none) {  // none: label for "", or null
+  auto name = [&](const std::string& id) { return id.empty() ? std::string(none) : instName(*findInstrument(id)); };
+  if (!ImGui::BeginCombo(label, name(v).c_str())) return;
+  if (none && ImGui::Selectable(none, v.empty())) v.clear();
+  for (auto& id : INSTRUMENTS) if (ImGui::Selectable(name(id).c_str(), v == id)) v = id;
+  ImGui::EndCombo();
+}
+
 // One line per Settings field; App::set is saved by the main loop whenever it changes.
 static void settingsWindow(App& a) {
   if (!a.showSettings) return;
@@ -861,13 +921,6 @@ static void settingsWindow(App& a) {
   ImGui::SetNextWindowPos({240, 60}, ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowBgAlpha(1);  // the score would show through
   if (!ImGui::Begin(L("Settings").c_str(), &a.showSettings, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) { ImGui::End(); return; }
-  auto instrumentCombo = [](const char* label, std::string& v, const char* none) {  // none: label for "", or null
-    auto name = [&](const std::string& id) { return id.empty() ? std::string(none) : instName(*findInstrument(id)); };
-    if (!ImGui::BeginCombo(label, name(v).c_str())) return;
-    if (none && ImGui::Selectable(none, v.empty())) v.clear();
-    for (auto& id : INSTRUMENTS) if (ImGui::Selectable(name(id).c_str(), v == id)) v = id;
-    ImGui::EndCombo();
-  };
   ImGui::PushItemWidth(220);
   ImGui::SeparatorText(tr("Language"));
   static const auto langs = languages();  // the i18n/ files
@@ -907,6 +960,87 @@ static void settingsWindow(App& a) {
   ImGui::End();
 }
 
+#ifndef __EMSCRIPTEN__
+static std::string gDropped;  // a file dropped on the window (GLFW drop callback), for Import audio
+
+static void openImport(App& a) {
+  a.showImport = true;
+  a.importError.clear();
+  if (!a.busy) a.importInst = a.set.instrument;  // default from Settings
+}
+
+// Import audio: transcribe a recording into a new song. importAudio() runs on a worker thread so the GUI never
+// blocks; the main loop polls the future and opens the song when it is ready.
+static void importWindow(App& a) {
+  if (!gDropped.empty()) {
+    snprintf(a.importPath, sizeof a.importPath, "%s", gDropped.c_str());
+    gDropped.clear();
+    openImport(a);
+  }
+  if (a.busy && a.importing.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+    a.busy = false;
+    try {
+      Song s = a.importing.get();
+      a.showImport = false;
+      open(a, s.id);
+    } catch (const std::exception& e) {
+      a.importError = trf("Couldn't transcribe this file: %s", e.what());
+    }
+  }
+  if (!a.showImport) return;
+  ImGui::SetNextWindowPos({260, 80}, ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowBgAlpha(1);
+  if (!ImGui::Begin(L("Import audio").c_str(), &a.showImport, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) { ImGui::End(); return; }
+  ImGui::TextUnformatted(tr("Drop an audio file (mp3, wav or flac) on the John window, or paste its path."));
+  ImGui::BeginDisabled(a.busy);
+  ImGui::PushItemWidth(320);
+  ImGui::InputText(L("File").c_str(), a.importPath, sizeof a.importPath);
+  ImGui::PopItemWidth();
+  ImGui::PushItemWidth(150);
+  ImGui::InputTextWithHint(L("Start (seconds)").c_str(), "0", a.importStart, sizeof a.importStart);
+  ImGui::InputTextWithHint(L("End (seconds)").c_str(), tr("end of the file"), a.importEnd, sizeof a.importEnd);
+  ImGui::InputTextWithHint(L("Tempo (bpm)").c_str(), tr("detect"), a.importTempo, sizeof a.importTempo);
+  ImGui::InputTextWithHint(L("Meter").c_str(), tr("detect"), a.importMeter, sizeof a.importMeter);
+  instrumentCombo(L("Instrument").c_str(), a.importInst, nullptr);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("The instrument the sheet is for"));
+  instrumentCombo(L("Recording instrument").c_str(), a.importRec, tr("not set"));
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Who plays the melody in the recording, if you know: John then listens only in its range"));
+  ImGui::PopItemWidth();
+  if (ImGui::Button(L("Transcribe").c_str())) {
+    auto num = [](const char* t, double& v) {  // blank = 0
+      char* e;
+      v = strtod(t, &e);
+      while (*e == ' ') e++;
+      return *e == 0 && v >= 0;
+    };
+    double start, end, bpm;
+    TranscribeOptions o;
+    o.meter = parseMeter(a.importMeter);
+    o.instrument = a.importInst;
+    o.recordingInstrument = a.importRec;
+    std::error_code ec;
+    if (!fs::is_regular_file(a.importPath, ec)) a.importError = tr("File not found.");
+    else if (!num(a.importStart, start) || !num(a.importEnd, end)) a.importError = tr("Start and end are seconds into the recording.");
+    else if (!num(a.importTempo, bpm)) a.importError = tr("Tempo is quarter notes per minute, or blank to detect it.");
+    else if (o.meter.empty() && a.importMeter[strspn(a.importMeter, " ")]) a.importError = tr("Meter is like 4/4, 3/4 or 6/8, or blank to detect it.");
+    else {
+      a.importError.clear();
+      o.bpm = bpm;
+      a.busy = true;
+      a.importing = std::async(std::launch::async, [path = std::string(a.importPath), start, end, o] { return importAudio(path, start, end, o); });
+    }
+  }
+  ImGui::EndDisabled();
+  if (a.busy) { ImGui::SameLine(); ImGui::TextUnformatted(tr("Transcribing...")); }
+  if (!a.importError.empty()) {
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30);
+    ImGui::TextColored({1, 0.4f, 0.4f, 1}, "%s", a.importError.c_str());
+    ImGui::PopTextWrapPos();
+  }
+  ImGui::End();
+}
+#endif
+
 int main() {
   try { installSongs(lessonsDir()); } catch (...) {}
 #ifdef __EMSCRIPTEN__
@@ -943,6 +1077,7 @@ int main() {
   ImGui_ImplOpenGL3_Init(nullptr);
 #else
   ImGui_ImplOpenGL3_Init("#version 150");
+  glfwSetDropCallback(win, [](GLFWwindow*, int n, const char** paths) { if (n > 0) gDropped = paths[0]; });
 #endif
 
   App a;
@@ -968,8 +1103,10 @@ int main() {
     try { poll(a); } catch (const std::exception&) {}  // e.g. data folder briefly unavailable; retry next poll
     practiceUpdate(a, io.DeltaTime);
     if (a.set.light != light) { light = a.set.light; light ? ImGui::StyleColorsLight() : ImGui::StyleColorsDark(); }
-    if (a.set.language != lang) applyLanguage(lang = a.set.language);
-    setSolfege(a.set.solfege, a.set.solfegeKeys);
+    if (!a.busy) {  // the transcription thread reads them (tr(), keyName())
+      if (a.set.language != lang) applyLanguage(lang = a.set.language);
+      setSolfege(a.set.solfege, a.set.solfegeKeys);
+    }
     a.audio.metronome = a.set.metronome;
     a.audio.volume = a.set.volume;
 
@@ -1030,7 +1167,12 @@ int main() {
     }
     ImGui::SliderFloat(L("Zoom").c_str(), &a.set.zoom, 6, 16, "%.0f");
     if (ImGui::Button(L("Settings").c_str())) a.showSettings = !a.showSettings;
-#ifndef __EMSCRIPTEN__  // the web keeps songs in the browser (IndexedDB)
+#ifndef __EMSCRIPTEN__  // the web keeps songs in the browser (IndexedDB) and has no transcription
+    ImGui::SameLine();
+    if (ImGui::Button(L("Import audio").c_str())) {
+      if (a.showImport) a.showImport = false;
+      else openImport(a);
+    }
     ImGui::TextDisabled("%s", tr("Data folder:"));
     ImGui::TextWrapped("%s", dataDir().c_str());
 #endif
@@ -1055,6 +1197,9 @@ int main() {
     }
     ImGui::End();
     settingsWindow(a);
+#ifndef __EMSCRIPTEN__
+    importWindow(a);
+#endif
     if (a.set != a.saved && !ImGui::IsAnyItemActive()) {  // save on change, once a slider drag ends
       a.saved = a.set;
       try { saveSettings(a.set); } catch (const std::exception&) {}

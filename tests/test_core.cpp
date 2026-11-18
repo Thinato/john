@@ -1,6 +1,7 @@
 // Core self-checks: key parsing, spelling, fingerings, ABC import, transpose, analysis, JSON round trip.
 #undef NDEBUG  // the checks are asserts: keep them in Release builds
 #include "john.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -16,6 +17,36 @@ static const Event& nth(const Song& s, int n) {  // n-th note/rest (skipping bar
   for (auto& e : s.events) if (e.kind != Kind::Bar && n-- == 0) return e;
   assert(false);
   return s.events[0];
+}
+
+static void writeWav(const fs::path& path, const std::vector<float>& x, int rate) {  // 16-bit mono PCM
+  FILE* f = fopen(path.c_str(), "wb");
+  auto u32 = [&](unsigned v) { fwrite(&v, 4, 1, f); };
+  auto u16 = [&](unsigned short v) { fwrite(&v, 2, 1, f); };
+  const unsigned n = (unsigned)x.size();
+  fwrite("RIFF", 1, 4, f); u32(36 + n * 2); fwrite("WAVEfmt ", 1, 8, f);
+  u32(16); u16(1); u16(1); u32(rate); u32(rate * 2); u16(2); u16(16);
+  fwrite("data", 1, 4, f); u32(n * 2);
+  for (float v : x) u16((unsigned short)(short)std::lround(std::clamp(v, -1.f, 1.f) * 32767));
+  fclose(f);
+}
+
+// Share of the track's voiced frames, placed on the song through PitchTrack::sync, that land on a note of the same
+// pitch class (the written octave differs from the recording's by the instrument).
+static double aligned(const Song& s, const PitchTrack& t) {
+  std::vector<int> at(s.events.size() + 1, 0);
+  for (size_t i = 0; i < s.events.size(); i++) at[i + 1] = at[i] + (s.events[i].kind == Kind::Bar ? 0 : s.events[i].len);
+  int same = 0, all = 0;
+  size_t i = 0;
+  for (auto& p : t.points) {
+    double tick = trackTick(t, p.time);
+    while (i < s.events.size() && at[i + 1] <= tick) i++;
+    if (i == s.events.size()) break;
+    if (tick < 0 || !p.midi || s.events[i].kind != Kind::Note) continue;
+    all++;
+    same += (p.midi - s.events[i].midi) % 12 == 0;
+  }
+  return all ? (double)same / all : 0;
 }
 
 int main() {
@@ -523,12 +554,54 @@ int main() {
       assert(tr.report.find(bpm > 0 ? "bpm (quarter notes), as given\n" : "bpm (quarter notes), confidence high\n") != std::string::npos);
       assert(tr.song.key.fifths == 1);
       assert(tr.song.meter == "4/4" && tr.report.find("\nmeter: 4/4 (detected; 4/4 ") != std::string::npos);
+      // the per-frame pitch track comes back too, and its beat times put it under the right notes
+      assert(tr.track.points.size() > mix.size() / 300 && tr.track.sync.size() > 20);
+      for (auto& [tick, sec] : tr.track.sync) assert(std::abs(trackTick(tr.track, sec) - tick) < 1e-6);
+      printf("transcribe (bpm %s): pitch track %zu frames, %.0f%% on its notes\n", bpm > 0 ? "given" : "auto", tr.track.points.size(),
+             aligned(tr.song, tr.track) * 100);
+      assert(aligned(tr.song, tr.track) >= 0.85);
       // the ABC we hand the agent reads back to the same song
       Song back = importAbc(toAbc(tr.song)).song;
       assert(back.events.size() == tr.song.events.size());
       for (size_t i = 0; i < back.events.size(); i++)
         assert(back.events[i].midi == tr.song.events[i].midi && back.events[i].len == tr.song.events[i].len &&
                back.events[i].tie == tr.song.events[i].tie);
+    }
+    {  // Import audio: a WAV through the same core function as the viewer gives a new song and its pitch track
+      fs::create_directories(home);
+      fs::path wav = home / "my tune.wav";
+      writeWav(wav, mix, sr);
+      Song s = importAudio(wav.string(), 0, 0, {});
+      auto saved = loadSong(s.id);
+      assert(saved && saved->id == "my-tune" && saved->title == "my tune" && saved->source == "my tune.wav" && saved->folder.empty());
+      assert(saved->notes.rfind("Automatic transcription\ntempo: ", 0) == 0 && saved->notes.find("\nmeter: 4/4") != std::string::npos &&
+             saved->notes.find("\nkey: G major") != std::string::npos);
+      assert(common(want, melodyOf(*saved)) >= (int)want.size() * 9 / 10);
+      int unclear = 0, notes = 0;
+      for (auto& e : saved->events) notes += e.kind == Kind::Note, unclear += e.comment == "unclear in the recording, check by ear";
+      auto t = loadTrack(s.id);
+      assert(t && t->points.size() > mix.size() / 300 && t->sync.size() > 20);
+      printf("import audio: '%s', %d notes (%d unclear), pitch track %.0f%% on its notes\n", s.id.c_str(), notes, unclear,
+             aligned(*saved, *t) * 100);
+      assert(aligned(*saved, *t) >= 0.85 && unclear <= notes / 10);
+      // a second import gets its own id; start/end trim the recording (here: the first two bars, 4.8 s, are left out).
+      // The last two bars are made faint: their notes get the "check by ear" comment.
+      std::vector<float> faint = mix;
+      for (size_t i = (size_t)(6 * 2.4 * sr); i < faint.size(); i++) faint[i] *= 0.3f;
+      writeWav(wav, faint, sr);
+      Song s2 = importAudio(wav.string(), 4.8, 0, {});
+      assert(s2.id == "my-tune-2" && loadTrack("my-tune-2") && melodyOf(s2).size() < melodyOf(*saved).size());
+      auto pos2 = positions(s2);
+      int faintUnclear = 0;
+      for (size_t i = 0; i < s2.events.size(); i++)
+        if (!s2.events[i].comment.empty()) faintUnclear++, assert(pos2[i].bar >= 5);  // bars 7 and 8 of the tune
+      assert(faintUnclear >= 3);
+      bool threw = false;
+      try { importAudio((home / "missing.wav").string(), 0, 0, {}); } catch (const std::runtime_error&) { threw = true; }
+      assert(threw && !loadTrack("missing") && !loadSong("missing"));
+      fs::remove_all(home / "tracks");
+      fs::remove(home / "songs" / "my-tune.json");
+      fs::remove(home / "songs" / "my-tune-2.json");
     }
   }
 
@@ -537,14 +610,9 @@ int main() {
     fs::create_directories(home);
     fs::path wav = home / "a5.wav";
     const int rate = 44100, n = rate / 2;
-    FILE* f = fopen(wav.c_str(), "wb");
-    auto u32 = [&](unsigned v) { fwrite(&v, 4, 1, f); };
-    auto u16 = [&](unsigned short v) { fwrite(&v, 2, 1, f); };
-    fwrite("RIFF", 1, 4, f); u32(36 + n * 2); fwrite("WAVEfmt ", 1, 8, f);
-    u32(16); u16(1); u16(1); u32(rate); u32(rate * 2); u16(2); u16(16);
-    fwrite("data", 1, 4, f); u32(n * 2);
-    for (int i = 0; i < n; i++) u16((unsigned short)(short)(12000 * std::sin(2 * M_PI * 880 * i / rate)));
-    fclose(f);
+    std::vector<float> a5(n);
+    for (int i = 0; i < n; i++) a5[i] = (float)(12000 / 32767.0 * std::sin(2 * M_PI * 880 * i / rate));
+    writeWav(wav, a5, rate);
     auto x = decodeAudio(wav.string(), 22050);
     assert(std::abs((int)x.size() - 22050 / 2) < 100);
     assert(std::abs(detectPitch(x.data() + 2000, 2048, 22050) - 880) < 5);

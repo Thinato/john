@@ -233,9 +233,24 @@ struct TranscribeOptions {
   std::string recordingInstrument;     // plays the melody in the recording (D whistle); limits the pitch search to its
                                        // sounding range. "" = search C3..E7
 };
-struct Transcription { Song song; std::string report; };
+struct TrackPoint { float time = 0; int midi = 0; float conf = 0; };  // seconds, sounding MIDI (0 = no melody), salience
+// The melody line frame by frame (what JOHN_TRANSCRIBE_DEBUG dumps) and, per detected beat, (song tick, seconds): the
+// song's ticks count from its first event, in event order, so linear interpolation maps the recording onto the notes.
+struct PitchTrack { std::vector<TrackPoint> points; std::vector<std::pair<int, double>> sync; };
+struct Transcription { Song song; std::string report; PitchTrack track; };
 // Melody of a recording as a song for o.instrument (octave fitted to its range). Throws if no melody is found.
 Transcription transcribe(const std::vector<float>& audio, int sampleRate, const TranscribeOptions& o = {});
 std::string toAbc(const Song& s);            // ABC with L:1/16 (no tuplets), readable by importAbc
+double trackTick(const PitchTrack& t, double seconds);  // song tick at a time of the recording (extrapolated at the ends)
+// Decode `path` (~/ allowed), keep start..end seconds (end <= 0: to the end) and transcribe it: transcribe_audio and
+// the viewer's Import audio. o.meter must be "" or normalized by parseMeter. Throws on unreadable audio or no melody.
+Transcription transcribeFile(std::string path, double start, double end, TranscribeOptions o);
+// Import audio (desktop viewer): transcribeFile(), then save the draft as a new song (Unsorted, source = the file
+// name, notes = the report's tempo/meter/key lines, notes the recording is unclear about commented) and its pitch
+// track as dataDir()/tracks/<id>.json. Returns the saved song. Safe on a worker thread while the GUI keeps drawing,
+// as long as the language isn't changed meanwhile (tr() reads it).
+Song importAudio(const std::string& path, double start, double end, const TranscribeOptions& o);
+std::optional<PitchTrack> loadTrack(const std::string& id);  // dataDir()/tracks/<id>.json, if the song has one
+std::string uniqueId(const std::string& title);  // slug(title), with -2, -3... if a song already has it
 
 }  // namespace john
