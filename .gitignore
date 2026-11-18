@@ -4,3 +4,5 @@ build/
 .mcp.json
 # local test audio (copyrighted recordings)
 tmp/
+# macOS Finder metadata
+.DS_Store
