@@ -236,7 +236,7 @@ static std::string callTool(const std::string& name, const json& a) {
     TranscribeOptions o;
     o.meter = a.value("meter", o.meter);
     if (!o.meter.empty() && (o.meter = parseMeter(o.meter)).empty())
-      throw std::runtime_error("meter must be N/D with D = 2, 4 or 8 (e.g. 4/4, 3/4, 6/8), or C or C|");
+      throw std::runtime_error("meter must be N/D with D = 2, 4, 8 or 16 (e.g. 4/4, 3/4, 6/8), or C or C|");
     if (path.rfind("~/", 0) == 0 && getenv("HOME")) path = std::string(getenv("HOME")) + path.substr(1);
     constexpr int SR = 22050;
     std::vector<float> x = decodeAudio(path, SR);

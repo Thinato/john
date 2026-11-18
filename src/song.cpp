@@ -28,7 +28,7 @@ std::string parseMeter(const std::string& m) {
   if (m == "C") return "4/4";
   if (m == "C|") return "2/2";
   int n = 0, d = 0, used = 0;
-  if (sscanf(m.c_str(), "%d/%d%n", &n, &d, &used) != 2 || m[used] || n < 1 || n > 32 || (d != 2 && d != 4 && d != 8)) return "";
+  if (sscanf(m.c_str(), "%d/%d%n", &n, &d, &used) != 2 || m[used] || n < 1 || n > 32 || (d != 2 && d != 4 && d != 8 && d != 16)) return "";
   return std::to_string(n) + "/" + std::to_string(d);
 }
 

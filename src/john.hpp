@@ -81,7 +81,7 @@ std::optional<Instrument> findInstrument(const std::string& id, const std::strin
 Instrument instrumentOf(const Song& s);           // the song's instrument; a D whistle if the song's values are unknown
 
 // ---- theory ----
-std::string parseMeter(const std::string& meter);  // "N/D" (D = 2, 4, 8; 1 <= N <= 32), "C" -> "4/4", "C|" -> "2/2"; "" if invalid
+std::string parseMeter(const std::string& meter);  // "N/D" (D = 2, 4, 8, 16; 1 <= N <= 32), "C" -> "4/4", "C|" -> "2/2"; "" if invalid
 int meterTicks(const std::string& meter);          // ticks per bar
 bool compoundMeter(const std::string& meter);      // 6/8, 9/8, 12/8
 int keyAlter(const Key& k, int letter);            // key signature alteration for a letter
