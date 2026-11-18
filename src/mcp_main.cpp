@@ -5,6 +5,10 @@
 #include <map>
 #include <set>
 #include <sstream>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 using namespace john;
 
@@ -262,6 +266,10 @@ static void send(const json& j) {
 }
 
 int main() {
+#ifdef _WIN32  // messages end in a bare \n: no \r\n translation on either stream
+  _setmode(_fileno(stdin), _O_BINARY);
+  _setmode(_fileno(stdout), _O_BINARY);
+#endif
   std::ios::sync_with_stdio(false);
   try { installSongs(lessonsDir()); } catch (...) {}  // nothing may reach stdout but JSON-RPC
   static const std::set<std::string> versions = {"2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"};
