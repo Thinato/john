@@ -255,6 +255,9 @@ struct TranscribeOptions {
   // "vocals" or "other": transcribeFile() first runs Demucs (JOHN_DEMUCS, else demucs on PATH) on the section and
   // transcribes that stem; if it can't, the full mix. The report's "separation:" line says which. "" = no separation.
   std::string separate;
+  // the tempo drifts (slow airs, film music, free playing): beats follow a local tempo instead of a steady one, and
+  // the report gives the tempo range (song tempo = the median). Off: as before #11.
+  bool rubato = false;
 };
 struct TrackPoint { float time = 0; int midi = 0; float conf = 0; };  // seconds, sounding MIDI (0 = no melody), salience
 // The melody line frame by frame (what JOHN_TRANSCRIBE_DEBUG dumps) and, per detected beat, (song tick, seconds): the

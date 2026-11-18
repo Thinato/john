@@ -41,6 +41,8 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","transpose":0}}}' \
 '{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","separate":"drums"}}}' \
 "{\"jsonrpc\":\"2.0\",\"id\":28,\"method\":\"tools/call\",\"params\":{\"name\":\"transcribe_audio\",\"arguments\":{\"path\":\"$SILENCE\",\"separate\":\"vocals\"}}}" \
+'{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","rubato":"yes"}}}' \
+'{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","rubato":true}}}' \
 | JOHN_DEMUCS="$STUB" "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -75,8 +77,11 @@ reply 25 | grep -q 'transpose must be a whole number within -12..12' || { echo "
 reply 2 | grep -q 'only short sections of copyrighted recordings' || { echo "transcribe_audio has no separate option"; exit 1; }
 reply 27 | grep -q 'separate must be' || { echo "separate drums not rejected"; exit 1; }
 reply 28 >/dev/null || { echo "no reply to the separate call"; exit 1; }
+reply 2 | grep -q '"rubato":{"description":"the tempo drifts' || { echo "transcribe_audio has no rubato option"; exit 1; }
+reply 29 | grep -q 'rubato must be true or false' || { echo "rubato yes not rejected"; exit 1; }
+! reply 30 | grep -q 'rubato must' || { echo "rubato true rejected"; exit 1; }
 case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 28 ] || { echo "expected 28 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 30 ] || { echo "expected 30 replies"; exit 1; }
 echo "mcp smoke passed"

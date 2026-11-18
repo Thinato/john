@@ -528,6 +528,68 @@ int main() {
       double ratio = std::atof(r.c_str() + at + 29);
       assert(ratio > 1.7 && ratio < 2.3 && written(tr.song) == written(even) && r.find("triplets:") == std::string::npos);
     }
+    {  // a ritardando and accelerando (80 -> 50 -> 80 bpm): with rubato the note values come back, without it they
+       // don't (#11)
+      Song t = importAbc("X:1\nT:r\nM:4/4\nL:1/8\nK:D\nD2 F2 A2 d2|c2 A2 B2 G2|F A d c B2 A2|G2 E2 F4|"
+                         "A2 d2 f2 e2|d c B A G2 F2|E2 A2 c2 e2|d8|f2 e2 d2 c2|B A G F E2 D2|"
+                         "F2 A2 d2 A2|B4 A4|G B d B A F D F|E2 G2 c2 e2|d2 c2 B2 c2|d8|]\n").song;
+      Performance p = perform(t, 60, 0, false);  // a beat a second, then warped: tempo 65 - 15 cos(2 pi beat / beats)
+      const double beats = p.length;
+      auto at = [&](double b) {  // seconds at beat b
+        double s = 0;
+        for (int i = 0; i < 1000; i++) {
+          double u = b * (i + 0.5) / 1000;
+          s += b / 1000 * 60 / (65 + 15 * std::cos(2 * M_PI * u / beats));
+        }
+        return s;
+      };
+      for (auto& v : p.voices) {
+        double end = at(v.start + v.dur);
+        v.gap = end - at(v.start + v.dur - v.gap);
+        v.start = at(v.start);
+        v.dur = end - v.start;
+      }
+      p.length = at(beats);
+      std::vector<float> x((size_t)((p.length + 1) * sr), 0.f);
+      Synth sy;
+      sy.sampleRate = sr;
+      sy.metronome = false;
+      long long pos = 0;
+      sy.render(p, pos, x.data(), (int)x.size());
+      auto lengths = [](const Song& s) {  // (pitch, length) of each played note, tied pieces merged
+        std::vector<std::pair<int, int>> out;
+        bool tied = false;
+        for (auto& e : s.events) {
+          if (e.kind != Kind::Note) continue;
+          if (tied) out.back().second += e.len;
+          else out.push_back({e.midi, e.len});
+          tied = e.tie;
+        }
+        return out;
+      };
+      auto want = lengths(t);
+      auto same = [&](const Song& s) {  // notes with the right pitch and length, in order (longest common subsequence)
+        auto got = lengths(s);
+        std::vector<std::vector<int>> L(want.size() + 1, std::vector<int>(got.size() + 1, 0));
+        for (size_t i = 1; i <= want.size(); i++)
+          for (size_t j = 1; j <= got.size(); j++)
+            L[i][j] = want[i - 1] == got[j - 1] ? L[i - 1][j - 1] + 1 : std::max(L[i - 1][j], L[i][j - 1]);
+        return L[want.size()][got.size()];
+      };
+      TranscribeOptions o;
+      o.meter = "4/4";
+      Transcription steady = transcribe(x, sr, o);
+      o.rubato = true;
+      Transcription rub = transcribe(x, sr, o);
+      std::string r = rub.report.substr(0, rub.report.find('\n') + 1);
+      printf("transcribe (rubato): %d of %zu notes right, %d without rubato; %s", same(rub.song), want.size(), same(steady.song),
+             r.c_str());
+      assert(lengths(rub.song) == want && same(steady.song) < (int)want.size() * 3 / 4);
+      assert(steady.report.find("confidence low") != std::string::npos && steady.report.find("re-run with rubato: true\n") != std::string::npos);
+      int med = 0, lo = 0, hi = 0;  // the tempo line: the median and the range of the beats
+      assert(sscanf(r.c_str(), "tempo: %d bpm (quarter notes, the median); follows the recording: %d-%d bpm (rubato)\n", &med, &lo, &hi) == 3);
+      assert(med >= 60 && med <= 70 && lo >= 45 && lo <= 55 && hi >= 75 && hi <= 85);
+    }
     {  // a short low note that starts a wide leap (D up a tenth) is melody, not accompaniment: keep it (#7)
       Song leap = importAbc("X:1\nT:l\nM:4/4\nL:1/8\nK:D\nD f a f b a f a|D f g a b2 a2|D f a f g f e f|D f a g f4|]\n").song;
       Performance pl = perform(leap, 120, 0, false);
