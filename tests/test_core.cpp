@@ -388,6 +388,26 @@ int main() {
       assert(std::count(got.begin(), got.end(), 62) == 4);
       assert(common(want, got) == (int)want.size() && got.size() == want.size());
     }
+    {  // the pitch search reaches E7: a violin line up to D7/E7 and the whistle's top C#7 come back at pitch (#40)
+      const std::pair<const char*, const char*> tunes[] = {
+          {"X:1\nT:v\nM:4/4\nL:1/8\nK:D\nd'2 f'2 a'2 d''2|e''2 d''2 c''2 b'2|a'2 b'2 c''2 d''2|e''4 d''4|]\n", "violin"},
+          {"X:1\nT:w\nM:4/4\nL:1/8\nK:D\nD4 A4|d2 f2 a2 b2|c'2 b2 a2 f2|g2 a2 b2 c'2|b4 a4|]\n", "whistle"}};
+      for (auto [abc, inst] : tunes) {
+        Song hi = importAbc(abc).song;
+        hi.instrument = inst;
+        Performance ph = perform(hi, 100, 0, false);
+        std::vector<float> x((size_t)((ph.length + 1) * sr), 0.f);
+        Synth sh;
+        sh.sampleRate = sr;
+        sh.metronome = false;
+        long long at = 0;
+        sh.render(ph, at, x.data(), (int)x.size());
+        TranscribeOptions o;
+        o.bpm = 100;
+        o.instrument = inst;
+        assert(melodyOf(transcribe(x, sr, o).song) == melodyOf(hi));
+      }
+    }
     {  // the same whistle tune over a louder low accompaniment: only a search limited to the whistle's range keeps it (#10)
       std::vector<float> loud(mix.size());
       for (size_t i = 0; i < mix.size(); i++) loud[i] = mix[i] + acc[i] * 2 * melodyRms / accRms;  // 8 dB over the melody
@@ -402,7 +422,7 @@ int main() {
              want.size(), got0.size() - all, lim, want.size(), got.size() - lim);
       // the limited search still hears the chords' harmonics that fall in the whistle's range (low D, G in rests)
       assert(all < (int)want.size() * 7 / 10 && lim >= (int)want.size() * 9 / 10 && got.size() - lim < (got0.size() - all) / 2);
-      assert(tr.report.find("pitch search: limited to the D whistle's sounding range, C5..C7\n") != std::string::npos);
+      assert(tr.report.find("pitch search: limited to the D whistle's sounding range, C5..D#7\n") != std::string::npos);
       bool threw = false;
       o.recordingInstrument = "kazoo";
       try { transcribe(loud, sr, o); } catch (const std::runtime_error&) { threw = true; }

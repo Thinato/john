@@ -199,7 +199,7 @@ struct TranscribeOptions {
   std::string title = "Transcription";
   std::string instrument = "whistle";  // the song is written for this instrument (D whistle) and fitted to its range
   std::string recordingInstrument;     // plays the melody in the recording (D whistle); limits the pitch search to its
-                                       // sounding range. "" = search C3..C7
+                                       // sounding range. "" = search C3..E7
 };
 struct Transcription { Song song; std::string report; };
 // Melody of a recording as a song for o.instrument (octave fitted to its range). Throws if no melody is found.
