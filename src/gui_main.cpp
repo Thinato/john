@@ -52,6 +52,8 @@ static int beamCount(int base) { return base == 24 ? 1 : base == 12 ? 2 : base =
 // ---------------- app state ----------------
 struct App {
   std::vector<std::string> ids;
+  struct Meta { fs::file_time_type mtime{}; std::string folder, title; };
+  std::map<std::string, Meta> meta;  // song list info, re-read only when a file changes
   std::vector<Technique> techs;
   std::optional<Song> song;
   std::string current;
@@ -103,17 +105,23 @@ static void open(App& a, const std::string& id) {
 }
 
 // Apply a user edit to the selected note on top of the latest file, so concurrent agent edits are not lost.
-template <class F> static void editSelected(App& a, F f) {
+template <class F> static void editSong(App& a, F f) {
   std::error_code ec;
   if (fs::last_write_time(songPath(a.current), ec) != a.songMtime) open(a, a.current);
-  if (!a.song || a.sel < 0 || a.song->events[a.sel].kind != Kind::Note) return;
-  f(a.song->events[a.sel]);
+  if (!a.song) return;
+  f(*a.song);
   try {
     saveSong(*a.song);
   } catch (const std::exception&) {
     return;  // next poll reloads whatever is on disk
   }
   a.songMtime = fs::last_write_time(songPath(a.current), ec);
+}
+
+template <class F> static void editSelected(App& a, F f) {
+  editSong(a, [&](Song& s) {
+    if (a.sel >= 0 && a.sel < (int)s.events.size() && s.events[a.sel].kind == Kind::Note) f(s.events[a.sel]);
+  });
 }
 
 static void poll(App& a) {
@@ -127,7 +135,13 @@ static void poll(App& a) {
   for (auto& id : a.ids) {
     auto t = fs::last_write_time(songPath(id), ec);
     if (!ec && t > newestT) { newestT = t; newest = id; }
+    auto& m = a.meta[id];
+    if (!ec && m.mtime != t) {
+      auto s = loadSong(id);
+      m = {t, s ? s->folder : "", s && !s->title.empty() ? s->title : id};
+    }
   }
+  std::erase_if(a.meta, [&](auto& kv) { return std::find(a.ids.begin(), a.ids.end(), kv.first) == a.ids.end(); });
   if (a.follow && !newest.empty() && newestT > a.newestSeen && newest != a.current) open(a, newest);  // follow the agent
   a.newestSeen = std::max(a.newestSeen, newestT);
   if (!a.current.empty()) {
@@ -713,6 +727,18 @@ static void detailsPanel(App& a) {
   ImGui::TextDisabled("%s  |  %s  |  %s whistle%s", keyName(s.key).c_str(), s.meter.c_str(), s.whistle.c_str(),
                       s.tempo ? ("  |  " + std::to_string(s.tempo) + " bpm").c_str() : "");
   if (!s.source.empty()) ImGui::TextWrapped("Source: %s", s.source.c_str());
+  std::vector<std::string> choices = FOLDERS;
+  if (!s.folder.empty() && std::find(choices.begin(), choices.end(), s.folder) == choices.end()) choices.push_back(s.folder);
+  choices.push_back("");
+  ImGui::SetNextItemWidth(200);
+  if (ImGui::BeginCombo("Folder", s.folder.empty() ? "Unsorted" : s.folder.c_str())) {
+    for (auto& f : choices)
+      if (ImGui::Selectable(f.empty() ? "Unsorted" : f.c_str(), f == s.folder)) {
+        std::string pick = f;  // editSong may reload the song, invalidating references into it
+        editSong(a, [&](Song& x) { x.folder = pick; });
+      }
+    ImGui::EndCombo();
+  }
   if (!s.notes.empty()) { ImGui::Separator(); ImGui::TextWrapped("%s", s.notes.c_str()); }
   ImGui::Separator();
 
@@ -797,8 +823,17 @@ int main() {
     ImGui::Begin("main", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus);
     ImGui::BeginChild("songs", {220, 0}, ImGuiChildFlags_Borders);
     ImGui::TextDisabled("SONGS");
-    for (auto& id : a.ids)
-      if (ImGui::Selectable(id.c_str(), id == a.current)) { a.sel = -1; open(a, id); }
+    std::map<std::string, std::vector<std::string>, decltype(&folderBefore)> byFolder(&folderBefore);
+    for (auto& id : a.ids) byFolder[a.meta[id].folder].push_back(id);
+    for (auto& [folder, ids] : byFolder) {
+      std::string label = (folder.empty() ? "Unsorted" : folder) + " (" + std::to_string(ids.size()) + ")##" + folder;
+      if (!ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth)) continue;
+      for (auto& id : ids) {
+        if (ImGui::Selectable((a.meta[id].title + "##" + id).c_str(), id == a.current)) { a.sel = -1; open(a, id); }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", a.meta[id].title.c_str());  // long titles get clipped
+      }
+      ImGui::TreePop();
+    }
     if (a.ids.empty()) ImGui::TextWrapped("No songs yet. Ask the agent to import one via the john MCP server.");
     ImGui::Separator();
     ImGui::Checkbox("Follow agent", &a.follow);

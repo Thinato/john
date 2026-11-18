@@ -264,6 +264,17 @@ int main() {
   auto low = importAbc("X:1\nT:low\nM:4/4\nL:1/8\nK:C\nC2 D2 E4|\n").song;
   assert(analyze(low).find("OUT OF RANGE") != std::string::npos);
 
+  // folders: saved only when set, standard ones first in course order, custom A-Z, unsorted last
+  {
+    Song f = s;
+    assert(!toJson(f).contains("folder"));
+    f.folder = "Intermediate";
+    assert(fromJson(toJson(f)).folder == "Intermediate");
+    std::vector<std::string> fs_ = {"", "Zebra", "Advanced", "Celtic", "Lessons", "Beginner"};
+    std::sort(fs_.begin(), fs_.end(), folderBefore);
+    assert((fs_ == std::vector<std::string>{"Lessons", "Beginner", "Advanced", "Celtic", "Zebra", ""}));
+  }
+
   // listing and JSON round trip through disk
   s.id = "test-jig";
   saveSong(s);

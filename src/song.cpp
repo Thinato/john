@@ -328,9 +328,19 @@ json toJson(const Song& s) {
     }
     ev.push_back(x);
   }
-  return {{"id", s.id}, {"title", s.title}, {"source", s.source}, {"notes", s.notes},
+  json j = {{"id", s.id}, {"title", s.title}, {"source", s.source}, {"notes", s.notes},
           {"meter", s.meter}, {"key", {{"fifths", s.key.fifths}, {"mode", s.key.mode}}},
           {"tempo", s.tempo}, {"whistle", s.whistle}, {"events", ev}};
+  if (!s.folder.empty()) j["folder"] = s.folder;
+  return j;
+}
+
+bool folderBefore(const std::string& a, const std::string& b) {
+  auto rank = [](const std::string& f) {
+    auto it = std::find(FOLDERS.begin(), FOLDERS.end(), f);
+    return f.empty() ? 1000 : it != FOLDERS.end() ? (int)(it - FOLDERS.begin()) : 100;
+  };
+  return rank(a) != rank(b) ? rank(a) < rank(b) : a < b;
 }
 
 Song fromJson(const json& j) {
@@ -339,6 +349,7 @@ Song fromJson(const json& j) {
   s.title = j.value("title", "");
   s.source = j.value("source", "");
   s.notes = j.value("notes", "");
+  s.folder = j.value("folder", "");
   s.meter = j.value("meter", "4/4");
   if (j.contains("key")) s.key = {std::clamp(j["key"].value("fifths", 2), -7, 7), j["key"].value("mode", "maj")};
   s.tempo = j.value("tempo", 0);

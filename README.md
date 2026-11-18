@@ -35,6 +35,8 @@ ctest --test-dir build        # core checks + MCP smoke test
    - "These are tabs for <tune>: D E F# G ... Where should the cuts and rolls go?"
    - "Document a technique called 'bounce': ..." (adds it to the catalog and legend)
 
+Songs are grouped into folders (Lessons, Beginner, Intermediate, Advanced, or any name). The agent files new songs by difficulty, and you can move a song with the Folder picker in the GUI.
+
 Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`). Custom techniques are in `~/Documents/John/techniques.json`.
 
 ## Lessons

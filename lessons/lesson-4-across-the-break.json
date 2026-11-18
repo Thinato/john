@@ -352,9 +352,10 @@
   "mode": "maj"
  },
  "meter": "4/4",
- "notes": "Two octaves of the D scale, plus a drill for 'the break': C# (all holes open) to high D (all closed). All six fingers must land together while the air speeds up. Practise the drill slowly; once C#–D is solid, most tunes open up.",
+ "notes": "Two octaves of the D scale, plus a drill for 'the break': C# (all holes open) to high D (all closed). All six fingers must land together while the air speeds up. Practise the drill slowly; once C#\u2013D is solid, most tunes open up.",
  "source": "John lessons (original exercise)",
  "tempo": 80,
  "title": "Lesson 4: Across the break - C# to high D",
- "whistle": "D"
+ "whistle": "D",
+ "folder": "Lessons"
 }

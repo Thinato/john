@@ -39,6 +39,7 @@ struct Song {
   std::string title;
   std::string source;      // where it came from (thesession URL, photo, ...)
   std::string notes;       // free text from the agent: overall advice for the tune
+  std::string folder;      // song list group: one of FOLDERS or any name; empty = unsorted
   std::string meter = "4/4";
   Key key;
   int tempo = 0;           // quarter notes per minute, 0 = unknown
@@ -140,6 +141,8 @@ std::vector<std::string> listSongs();       // ids
 std::optional<Song> loadSong(const std::string& id);
 void saveSong(const Song& s);
 std::string slug(const std::string& title);
+inline const std::vector<std::string> FOLDERS = {"Lessons", "Beginner", "Intermediate", "Advanced"};
+bool folderBefore(const std::string& a, const std::string& b);  // FOLDERS order, then custom A-Z, unsorted last
 fs::path lessonsDir();                      // the repo's lessons/ folder (build-time path)
 int installLessons(const fs::path& from);   // copy lessons not installed before into dataDir(); returns count
 json toJson(const Song& s);

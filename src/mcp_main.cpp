@@ -2,6 +2,7 @@
 #include "john.hpp"
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <set>
 #include <sstream>
 
@@ -27,7 +28,8 @@ Then:
 2. If notes are out of range or need many half-holes, update_song with transpose (keep the key the user expects unless it is unplayable).
 3. Decide techniques with musical judgment for the tune type: jigs/reels/hornpipes get rolls on long notes and cuts on repeated notes; slow airs get slides, vibrato and few cuts; don't ornament every candidate, and leave beginners room to breathe. Use set_techniques with a short comment on each ornamented note explaining why (the player is learning to read music).
 4. update_song notes = 2-4 sentences of overall advice (style, tempo, where to breathe).
-5. Tell the user the song id; it is visible in the John GUI.
+5. update_song folder by difficulty on a D whistle: Beginner = mostly low octave, slow or moderate, simple rhythm, no half-holes; Intermediate = second octave, C natural or half-holes, cuts, quicker tunes or syncopation; Advanced = fast dance tunes, rolls and crans, frequent half-holes, tricky rhythm. ("Lessons" is the bundled course.)
+6. Tell the user the song id; it is visible in the John GUI.
 Missing a technique? define_technique adds it to the catalog (shown in the GUI legend).
 Only want part of a tune (e.g. just the chorus)? delete_bars removes bars by number; re-read get_song afterwards because event indexes shift.)";
 
@@ -47,7 +49,7 @@ static json toolList() {
   json str = {{"type", "string"}};
   json strArr = {{"type", "array"}, {"items", str}};
   return json::array({
-      tool("list_songs", "List saved songs (id, title, key, meter).", json::object()),
+      tool("list_songs", "List saved songs by folder (id, title, key, meter).", json::object()),
       tool("import_abc",
            "Create a song from ABC notation (full tune with X/T/M/L/K headers). Returns warnings and the note listing. "
            "Techniques in the ABC (~, {g}A grace cuts, !id! decorations) are kept.",
@@ -55,7 +57,8 @@ static json toolList() {
             {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
             {"source", {{"type", "string"}, {"description", "where the tune came from (URL, 'photo of ...')"}}},
             {"whistle", {{"type", "string"}, {"description", "whistle key, default D"}}},
-            {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}}},
+            {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
+            {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}},
            {"abc"}),
       tool("get_song",
            "Show a song as a table: event index, bar, beat, note, length, whistle fingering (X covered, O open, H half, + upper octave), techniques, comment.",
@@ -74,8 +77,8 @@ static json toolList() {
                 {"required", {"index"}}}}}}},
            {"id", "edits"}),
       tool("update_song",
-           "Change song info: title, source, notes (overall advice shown in the GUI), tempo (quarter notes per minute), whistle key, or transpose by semitones.",
-           {{"id", str}, {"title", str}, {"source", str}, {"notes", str}, {"tempo", {{"type", "integer"}}}, {"whistle", str}, {"transpose", {{"type", "integer"}}}},
+           "Change song info: title, source, notes (overall advice shown in the GUI), folder (song list group), tempo (quarter notes per minute), whistle key, or transpose by semitones.",
+           {{"id", str}, {"title", str}, {"source", str}, {"notes", str}, {"folder", str}, {"tempo", {{"type", "integer"}}}, {"whistle", str}, {"transpose", {{"type", "integer"}}}},
            {"id"}),
       tool("delete_bars",
            "Delete bars first..last (inclusive, bar numbers as get_song shows them; a pickup is bar 0) with their notes, rests and techniques. "
@@ -113,9 +116,11 @@ static Song mustLoad(const json& a) {
 
 static std::string callTool(const std::string& name, const json& a) {
   if (name == "list_songs") {
-    std::string r;
+    std::map<std::string, std::string, decltype(&folderBefore)> byFolder(&folderBefore);
     for (auto& id : listSongs())
-      if (auto s = loadSong(id)) r += id + " - " + s->title + " (" + keyName(s->key) + ", " + s->meter + ")\n";
+      if (auto s = loadSong(id)) byFolder[s->folder] += "  " + id + " - " + s->title + " (" + keyName(s->key) + ", " + s->meter + ")\n";
+    std::string r;
+    for (auto& [f, lines] : byFolder) r += (f.empty() ? "Unsorted" : f) + ":\n" + lines;
     return r.empty() ? "No songs yet. Data folder: " + dataDir().string() : r;
   }
   if (name == "import_abc") {
@@ -124,6 +129,7 @@ static std::string callTool(const std::string& name, const json& a) {
     if (s.events.empty()) throw std::runtime_error("no notes found in the ABC");
     s.source = a.value("source", s.source);
     s.whistle = a.value("whistle", "D");
+    s.folder = a.value("folder", "");
     if (whistleBase(s.whistle) < 0) throw std::runtime_error("unknown whistle key '" + s.whistle + "' (use a note name like D, C, Bb)");
     std::string base = slug(a.value("id", s.title));
     s.id = base;
@@ -175,6 +181,7 @@ static std::string callTool(const std::string& name, const json& a) {
     s.title = a.value("title", s.title);
     s.source = a.value("source", s.source);
     s.notes = a.value("notes", s.notes);
+    s.folder = a.value("folder", s.folder);
     s.tempo = a.value("tempo", s.tempo);
     if (a.contains("whistle")) {
       if (whistleBase(a["whistle"].get<std::string>()) < 0) throw std::runtime_error("unknown whistle key (use a note name like D, C, Bb)");
