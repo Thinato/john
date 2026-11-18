@@ -898,7 +898,7 @@ static void detailsPanel(App& a) {
   // Play in key: the 12 tonics in the song's mode; the octave follows the instrument (transposeToKey)
   const int cur = tonicPc(s.key), orig = ((cur - s.transposed) % 12 + 12) % 12;
   ImGui::SetNextItemWidth(200);
-  if (ImGui::BeginCombo(L("Play in key").c_str(), keyName(s.key).c_str())) {
+  if (ImGui::BeginCombo(L("Play in key").c_str(), keyName(s.key).c_str(), ImGuiComboFlags_HeightLargest)) {  // all 12, no scrolling
     for (int pc = 0; pc < 12; pc++) {
       Song k;
       k.key = s.key;

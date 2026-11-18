@@ -63,6 +63,8 @@ The agent can also transcribe an audio file (`transcribe_audio`). For a singer o
 
 Each song is for an instrument: tin whistle (the default unless another is picked in Settings, in any key), violin, piano, guitar, electric guitar or harmonica. Range checks, transposition hints, playback pitch and the mic follow the song's instrument; fingering charts are shown for the whistle only (untick "Instrument hints" in the sidebar to hide them). Pick it with the Instrument picker in the GUI, or tell the agent. The song list shows the instrument after each title (nothing for a D whistle), and the menu above the list shows only the songs for one instrument; the agent's `list_songs` can filter the same way.
 
+The harmonica is a 10-hole diatonic in any key (G to F#; pick yours under Settings, or per song with the Harmonica key picker); its range follows the harp, so an A harp starts on A3. For harmonica songs the details panel shows the usual keys for that harp (1st position = the harp's key, 2nd position = a fifth above). To play a song in another key, use the Play in key picker: it transposes the song by the smallest step, picks the octave that fits the instrument best, and saves it. The original key is marked, and picking it brings back the original sheet.
+
 Songs are grouped into folders (Lessons, Beginner, Intermediate, Advanced, or any name). The agent files new songs by difficulty, and you can move a song with the Folder picker in the GUI.
 
 Songs live in `~/Documents/John/songs/*.json` (on Windows `%USERPROFILE%\Documents\John`; override with `JOHN_HOME`); songs made with Import audio keep their pitch track in `tracks/<id>.json` next to `songs/`. Custom techniques are in `~/Documents/John/techniques.json`, settings in `~/Documents/John/settings.json`.
