@@ -3,6 +3,13 @@ project(john CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(EMSCRIPTEN)  # web build (emcmake): the viewer only, see the john target below
+  if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+  endif()
+  add_compile_options(-fexceptions)
+  add_link_options(-fexceptions)
+endif()
 
 include(FetchContent)
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz)
@@ -14,12 +21,20 @@ FetchContent_Populate(miniaudio)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(json glfw imgui)
+FetchContent_MakeAvailable(json imgui)
+if(NOT EMSCRIPTEN)  # the web uses emscripten's GLFW port
+  FetchContent_MakeAvailable(glfw)
+endif()
 
 # Bravura (SIL OFL) music font, used to draw clefs, notes and rests.
 set(BRAVURA ${CMAKE_BINARY_DIR}/Bravura.otf)
 if(NOT EXISTS ${BRAVURA})
   file(DOWNLOAD https://github.com/steinbergmedia/bravura/raw/master/redist/otf/Bravura.otf ${BRAVURA} STATUS st)
+endif()
+# Noto Sans (SIL OFL 1.1) text font: Latin-1 and more, the same on every platform.
+set(NOTO ${CMAKE_BINARY_DIR}/NotoSans-Regular.ttf)
+if(NOT EXISTS ${NOTO})
+  file(DOWNLOAD https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSans/hinted/ttf/NotoSans-Regular.ttf ${NOTO} STATUS st)
 endif()
 
 add_library(john_core STATIC src/song.cpp src/abc.cpp src/analyze.cpp src/sound.cpp src/transcribe.cpp src/miniaudio.cpp)
@@ -28,19 +43,35 @@ target_compile_definitions(john_core PUBLIC MA_NO_ENCODING MA_NO_RESOURCE_MANAGE
 # transcription crunches minutes of audio; keep it fast in Debug builds too
 set_source_files_properties(src/transcribe.cpp src/miniaudio.cpp PROPERTIES COMPILE_OPTIONS -O2)
 target_link_libraries(john_core PUBLIC nlohmann_json::nlohmann_json)
-target_compile_definitions(john_core PRIVATE JOHN_LESSONS="${CMAKE_SOURCE_DIR}/lessons")
-
-add_executable(john-mcp src/mcp_main.cpp)
-target_link_libraries(john-mcp PRIVATE john_core)
 
 add_executable(john src/gui_main.cpp src/audio.cpp
   ${imgui_SOURCE_DIR}/imgui.cpp ${imgui_SOURCE_DIR}/imgui_draw.cpp
   ${imgui_SOURCE_DIR}/imgui_tables.cpp ${imgui_SOURCE_DIR}/imgui_widgets.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
 target_include_directories(john PRIVATE ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
-target_compile_definitions(john PRIVATE JOHN_FONT="${BRAVURA}" GL_SILENCE_DEPRECATION)
+target_link_libraries(john PRIVATE john_core)
+
+if(EMSCRIPTEN)
+  # john.html/.js/.wasm/.data. Fonts and lessons/ are bundled in john.data, the data folder lives in IndexedDB
+  # (web/pre.js), audio is miniaudio's Web Audio backend. No MCP server, no tests.
+  target_compile_definitions(john_core PRIVATE JOHN_LESSONS="/lessons")
+  target_compile_definitions(john PRIVATE JOHN_FONT="/fonts/Bravura.otf" JOHN_TEXT_FONT="/fonts/NotoSans-Regular.ttf")
+  target_compile_options(john PRIVATE --use-port=contrib.glfw3)
+  target_link_options(john PRIVATE --use-port=contrib.glfw3 -sALLOW_MEMORY_GROWTH -lidbfs.js  # SHELL: stops de-duplication
+    "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/web/pre.js" "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html"
+    "SHELL:--preload-file ${BRAVURA}@/fonts/Bravura.otf" "SHELL:--preload-file ${NOTO}@/fonts/NotoSans-Regular.ttf"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/lessons@/lessons")
+  set_target_properties(john PROPERTIES SUFFIX .html LINK_DEPENDS "${CMAKE_SOURCE_DIR}/web/pre.js;${CMAKE_SOURCE_DIR}/web/shell.html")
+  return()
+endif()
+
+target_compile_definitions(john_core PRIVATE JOHN_LESSONS="${CMAKE_SOURCE_DIR}/lessons")
+target_compile_definitions(john PRIVATE JOHN_FONT="${BRAVURA}" JOHN_TEXT_FONT="${NOTO}" GL_SILENCE_DEPRECATION)
 find_package(OpenGL REQUIRED)
-target_link_libraries(john PRIVATE john_core glfw OpenGL::GL)
+target_link_libraries(john PRIVATE glfw OpenGL::GL)
+
+add_executable(john-mcp src/mcp_main.cpp)
+target_link_libraries(john-mcp PRIVATE john_core)
 
 enable_testing()
 add_executable(john-tests tests/test_core.cpp)

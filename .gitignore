@@ -9,3 +9,4 @@ tmp/
 # knowledge base index (local cache, rebuilt from notes + code)
 kb/.cache/
 __pycache__/
+build-web/

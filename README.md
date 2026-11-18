@@ -16,7 +16,7 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
 
 ## Build
 
-Needs CMake ≥ 3.24 and a C++20 compiler. GLFW, Dear ImGui, nlohmann/json, miniaudio and the Bravura music font are downloaded at configure time.
+Needs CMake ≥ 3.24 and a C++20 compiler. GLFW, Dear ImGui, nlohmann/json, miniaudio, the Bravura music font and the Noto Sans text font (both SIL Open Font License) are downloaded at configure time.
 On macOS, the first time you turn on the mic, the system asks to allow microphone access for the app you launched `john` from (Terminal, iTerm, ...).
 
 ```sh
@@ -24,6 +24,18 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build        # core checks + MCP smoke test
 ```
+
+### Web version
+
+The viewer also runs in the browser, with no server: songs, techniques and settings are kept in the browser's storage (IndexedDB), and the lessons are bundled. There is no MCP server or audio-file transcription on the web. Needs [Emscripten](https://emscripten.org/) (`emcc` on the PATH):
+
+```sh
+emcmake cmake -S . -B build-web
+cmake --build build-web       # john.html, john.js, john.wasm, john.data
+python3 -m http.server -d build-web 8000
+```
+
+Then open <http://localhost:8000/john.html>. Sound starts on the first click; the mic needs `localhost` or HTTPS.
 
 ## Use
 
@@ -68,6 +80,7 @@ Lessons 5 and 7 are public-domain tunes; the rest are original exercises.
 | Speaker/microphone devices (miniaudio) | `src/audio.cpp` |
 | MCP server (stdio JSON-RPC, tools + agent guide in `instructions`) | `src/mcp_main.cpp` |
 | Viewer (Bravura SMuFL glyphs drawn with ImDrawList) | `src/gui_main.cpp` |
+| Web build: IndexedDB storage and page | `web/pre.js`, `web/shell.html` |
 
 Notes are stored at written pitch: whistle music is written an octave below how it sounds, so a D whistle's bottom note is D4.
 Durations are in ticks (192 per whole note).
