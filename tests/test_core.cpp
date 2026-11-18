@@ -290,6 +290,19 @@ int main() {
       auto got = melodyOf(transcribe(x, sr, o).song);
       assert(common(low, got) >= (int)low.size() - 1);
     }
+    {  // notes of irregular lengths have no steady beat: the tempo is flagged as uncertain, with a runner-up
+      Song odd = importAbc("X:1\nT:o\nM:4/4\nL:1/16\nK:D\nd3 e5 f2 g7 a3 b6 a2 g5 f3 e7 d2 e4 f9 g3 a5 b2 a6 g3 f7 e2 d5|]\n").song;
+      Performance po = perform(odd, 100, 0, false);
+      std::vector<float> x((size_t)((po.length + 1) * sr), 0.f);
+      Synth so;
+      so.sampleRate = sr;
+      so.metronome = false;
+      long long at = 0;
+      so.render(po, at, x.data(), (int)x.size());
+      std::string r = transcribe(x, sr, {}).report;
+      printf("transcribe (irregular): %s", r.substr(0, r.find('\n') + 1).c_str());
+      assert(r.find("confidence high") == std::string::npos && r.find("also plausible: ~") != std::string::npos);
+    }
     for (double bpm : {100.0, 0.0}) {
       TranscribeOptions o;
       o.bpm = bpm;
@@ -300,6 +313,7 @@ int main() {
              want.size(), got.size() - hit, tr.song.tempo, keyName(tr.song.key).c_str());
       assert(hit >= (int)want.size() * 9 / 10 && got.size() - hit <= want.size() / 10);
       assert(std::abs(tr.song.tempo - 100) <= 4);
+      assert(tr.report.find(bpm > 0 ? "bpm (quarter notes), as given\n" : "bpm (quarter notes), confidence high\n") != std::string::npos);
       assert(tr.song.key.fifths == 1);
       // the ABC we hand the agent reads back to the same song
       Song back = importAbc(toAbc(tr.song)).song;

@@ -334,11 +334,12 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     for (auto& e : env) e /= sd;
   }
   double period;  // frames per beat
-  double tempoConf = 0;
+  double tempoConf = 0, rival = 0;  // peak strength; runner-up peak / best peak
+  int rivalBpm = 0;                 // runner-up tempo (quarter notes per minute), 0 = none
   if (o.bpm > 0) period = 60.0 / (o.bpm / quarterPerBeat) / hopSec;
   else {
     int lo = (int)(60.0 / 220 / hopSec), hi = std::min(T / 2, (int)(60.0 / 40 / hopSec));
-    std::vector<double> r(hi + 2, 0);
+    std::vector<double> r(hi + 2, 0), sc(hi + 2, 0);
     for (int L = lo; L <= hi + 1; L++)
       for (int t = 0; t + L < T; t++) r[L] += env[t] * env[t + L];
     double best = -1, r0 = 0;
@@ -347,12 +348,18 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     double center = compound ? 80 : 110;  // typical beats per minute
     for (int L = lo + 1; L <= hi; L++) {
       double bpm = 60.0 / (L * hopSec);
-      double w = std::exp(-0.5 * std::pow(std::log2(bpm / center), 2));
-      if (r[L] * w > best) { best = r[L] * w; arg = L; }
+      sc[L] = r[L] * std::exp(-0.5 * std::pow(std::log2(bpm / center), 2));
+      if (sc[L] > best) { best = sc[L]; arg = L; }
     }
     double a = r[arg - 1], b = r[arg], c = r[arg + 1];
     period = arg + (a - 2 * b + c != 0 ? 0.5 * (a - c) / (a - 2 * b + c) : 0);
     tempoConf = r0 > 0 ? b / r0 : 0;
+    // runner-up: the strongest other peak more than ~15% away (often half or double the tempo)
+    for (int L = lo + 2; L < hi; L++)
+      if (sc[L] >= sc[L - 1] && sc[L] >= sc[L + 1] && std::abs(std::log2((double)L / arg)) > 0.2 && sc[L] > rival * best) {
+        rival = best > 0 ? sc[L] / best : 0;
+        rivalBpm = (int)std::lround(60.0 / (L * hopSec) * quarterPerBeat);
+      }
   }
   std::vector<double> beats;
   {
@@ -489,9 +496,20 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   for (auto& [b, v] : perBar) if (v.first / v.second < 0.35) weak += (weak.empty() ? "" : ", ") + std::to_string(b);
   char line[256];
   std::string r;
-  snprintf(line, sizeof line, "tempo: %d bpm (quarter notes)%s\n", bpm,
-           o.bpm > 0 ? ", as given" : tempoConf < 0.15 ? ", weak beat: pass bpm if note lengths look doubled or halved" : "");
+  snprintf(line, sizeof line, "tempo: %d bpm (quarter notes)", bpm);
   r += line;
+  if (o.bpm > 0) r += ", as given";
+  else {
+    // a steady beat gives one clear autocorrelation peak; a near-equal rival (half, double, 3:2) or a weak peak
+    // (irregular onsets, rubato) means the detected tempo may be wrong
+    bool low = rival >= 0.85 || tempoConf < 0.3, high = rival < 0.6 && !low;
+    r += high ? ", confidence high" : low ? ", confidence low" : ", confidence medium";
+    if (!high && rivalBpm) {
+      snprintf(line, sizeof line, "; also plausible: ~%d bpm%s", rivalBpm, low ? ", re-run with bpm if the note lengths look wrong" : "");
+      r += line;
+    }
+  }
+  r += "\n";
   snprintf(line, sizeof line, "key: %s (fit %.2f)\ntuning: %+.0f cents from A440\n", keyName(key).c_str(), keyCorr, tune);
   r += line;
   snprintf(line, sizeof line, "melody heard in %d%% of the audio; %zu notes\n", voiced * 100 / T, clean.size());
