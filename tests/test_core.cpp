@@ -575,6 +575,53 @@ int main() {
         assert(melodyOf(transcribe(x, sr, o).song) == melodyOf(hi));
       }
     }
+    {  // ornaments the synth plays (cuts and taps between repeated notes, long rolls) come back as techniques on the
+       // main notes, with no grace notes left in the melody; only a whistle draft marks them, the report lists them (#12)
+      Song orn = importAbc("X:1\nT:o\nM:4/4\nL:1/8\nK:D\nd2 !cut!d2 B2 !tap!B2|~A3 B A2 F2|G2 !cut!G2 !tap!G2 F2|~D3 E F4|]\n").song;
+      auto notes = [](const Song& s) {
+        std::vector<std::tuple<int, int, std::vector<std::string>>> out;  // pitch, length, techniques; ties merged
+        bool tied = false;
+        for (auto& e : s.events) {
+          if (e.kind != Kind::Note) continue;
+          if (tied) std::get<1>(out.back()) += e.len;
+          else out.push_back({e.midi, e.len, e.techniques});
+          tied = e.tie;
+        }
+        return out;
+      };
+      const char* where = "2 cuts (bar 1 beat 2, bar 3 beat 2); 2 taps (bar 1 beat 4, bar 3 beat 3); 2 rolls (bar 2 beat 1, bar 4 beat 1)";
+      for (double bpm : {100.0, 120.0}) {
+        Performance po = perform(orn, bpm, 0, false);
+        std::vector<float> x((size_t)((po.length + 1) * sr), 0.f);
+        Synth so;
+        so.sampleRate = sr;
+        so.metronome = false;
+        long long at = 0;
+        so.render(po, at, x.data(), (int)x.size());
+        TranscribeOptions o;
+        o.bpm = bpm;
+        o.meter = "4/4";
+        Transcription tr = transcribe(x, sr, o);
+        assert(notes(tr.song) == notes(orn));
+        assert(tr.report.find("\nornaments (candidates, check by ear): " + std::string(where) + "; marked in the ABC\n") != std::string::npos);
+        assert(notes(importAbc(toAbc(tr.song)).song) == notes(orn));  // the draft ABC carries them to import_abc
+        // a roll right after a cut on the same pitch, not re-articulated: split where the roll starts
+        Song cutRoll = importAbc("X:1\nT:c\nM:4/4\nL:1/8\nK:D\nd2 !cut!d2 ~d3 B|A2 !cut!A2 ~A3 F|]\n").song;
+        Performance pc = perform(cutRoll, bpm, 0, false);
+        std::vector<float> y((size_t)((pc.length + 1) * sr), 0.f);
+        Synth sc;
+        sc.sampleRate = sr;
+        sc.metronome = false;
+        at = 0;
+        sc.render(pc, at, y.data(), (int)y.size());
+        assert(notes(transcribe(y, sr, o).song) == notes(cutRoll));
+        if (bpm != 100) continue;
+        o.instrument = "violin";
+        tr = transcribe(x, sr, o);
+        for (auto& e : tr.song.events) assert(e.techniques.empty());
+        assert(tr.report.find(std::string(where) + "; not marked: the ABC is for the Violin\n") != std::string::npos);
+      }
+    }
     {  // piano notes fade under the voicing threshold before the next one: sustain them, no note + rest pairs (#6);
        // a melody with real rests keeps them
       auto played = [](const Song& s) {

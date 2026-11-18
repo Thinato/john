@@ -59,9 +59,10 @@ constexpr int CENTS = 10;        // fine salience resolution
 constexpr int NB = (HI - LO) * 100 / CENTS + 1;
 constexpr int HARMONICS = 8;
 
-struct RawNote { int a, b, m; double conf; bool ring = false; };  // frames [a, b), sounding MIDI, mean salience;
-                                                                   // ring: sustained through its decay tail (#6)
-struct QNote { int q0, q1, m; double conf; bool ring = false; };  // grid units [q0, q1)
+struct RawNote { int a, b, m; double conf; bool ring = false; std::string orn; };  // frames [a, b), sounding MIDI,
+                                                    // mean salience; ring: sustained through its decay tail (#6);
+                                                    // orn: candidate ornament technique id ("cut", "tap", "roll") (#12)
+struct QNote { int q0, q1, m; double conf; bool ring = false; std::string orn; };  // grid units [q0, q1)
 
 // Triplets and swing (#2), tuned on the synthetic tests and the recordings in tmp/ (kb note transcription-triplets-swing).
 // A beat is a triplet when it has at least 2 off-beat note starts and each lies within TRIPLET of a beat of 1/3 or 2/3
@@ -288,6 +289,50 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       else notes.push_back(n);
     } else if (!notes.empty() && notes.back().b == n.a) notes.back().b = n.b;  // short glide: part of the previous note
   }
+  // Ornaments (#12): a grace is a run of under minF frames inside a note where a pitch 1..7 semitones above (cut) or
+  // 1..4 below (tap) reaches 0.8x the note's salience and, at least once, 0.9x the strongest pitch of the frame (a
+  // semitone grace must lead and reach 1.3x the note: neighbouring semitones leak into each other). The note's pitch
+  // must stay at 0.25x its level around (the 93 ms window is longer than any grace, so a real one never hides the
+  // main note) and lead alone (grace under 0.4x) within minF frames on both sides; the note goes on for at least minF
+  // after it, so no tiny note is split off. The Viterbi often stays on the main pitch through a tap, so this reads
+  // the salience, not the path. Found on the merged runs, so the main pitch is the path's; the graces leave the
+  // melody (their time stays with the main note) and tag it below, before the continuity filter, which then moves or
+  // drops the main note like any other.
+  struct Grace { int a, b, m, d; };  // frames [a, b), main pitch state, grace - main in semitones
+  std::vector<Grace> graces;
+  std::vector<char> inGrace(T, 0);  // the re-articulation split below leaves graces to the ornament pass
+  for (auto& n : notes) {
+    auto sal = [&](int t, int m) { return m < 0 || m >= M ? 0.f : S[(size_t)t * M + m]; };
+    auto best = [&](int t) {  // strongest grace candidate at frame t
+      int d = 0;
+      for (int k = -4; k <= 7; k++) if (k && (!d || sal(t, n.m + k) > sal(t, n.m + d))) d = k;
+      return d;
+    };
+    auto alone = [&](int from, int to, int d) {  // the main pitch leads, without the grace, somewhere in [from, to)
+      for (int t = std::max(from, n.a); t < std::min(to, n.b); t++)
+        if (sal(t, n.m) > 0 && sal(t, n.m) >= frameMax[t] && sal(t, n.m + d) < 0.4f * sal(t, n.m)) return true;
+      return false;
+    };
+    for (int t = n.a; t < n.b;) {
+      int d = best(t), e = t;
+      bool peak = false;
+      float low = 1e30f, around = 0;
+      for (; e < n.b; e++) {
+        const int k = best(e);
+        const float g = sal(e, n.m + k), main = sal(e, n.m);
+        if (k * d <= 0 || main <= 0 || g < 0.8f * main) break;
+        if (std::abs(k) > 1 ? g >= 0.9f * frameMax[e] : g >= frameMax[e] && g >= 1.3f * main) peak = true, d = k;
+        low = std::min(low, main);
+      }
+      if (e == t) { t++; continue; }
+      for (int u = std::max(n.a, t - minF); u < std::min(n.b, e + minF); u++) around = std::max(around, sal(u, n.m));
+      if (e - t < minF && e + minF <= n.b && peak && low >= 0.25f * around && alone(t - minF, t, d) && alone(e, e + minF, d)) {
+        graces.push_back({t, e, n.m, d});
+        for (int u = std::max(0, t - minF / 2); u < std::min(T, e + minF / 2); u++) inGrace[u] = 1;
+      }
+      t = e;
+    }
+  }
   std::vector<RawNote> split;
   for (auto& n : notes) {
     auto v = [&](int t) { return S[(size_t)t * M + n.m]; };
@@ -295,7 +340,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     float before = 0;
     for (int t = n.a; t < n.b; t++) {
       before = std::max(before, v(t));
-      if (t - start < minF || n.b - t < minF || v(t) > v(t - 1) || v(t) > v(t + 1)) continue;
+      if (t - start < minF || n.b - t < minF || v(t) > v(t - 1) || v(t) > v(t + 1) || inGrace[t]) continue;
       float after = 0;
       for (int u = t + 1; u < std::min(n.b, t + 3 * minF); u++) after = std::max(after, v(u));
       if (v(t) < 0.5f * before && v(t) < 0.5f * after) {
@@ -305,6 +350,43 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       }
     }
     split.push_back({start, n.b, n.m, 0});
+  }
+  // Tag the main notes. A cut then a tap within 0.4 s inside one note (main, cut, main, tap, main) = roll: in a long
+  // roll they are an eighth apart; further apart they re-articulate repeated notes. Another grace near a note's start
+  // marks that note; one further in re-articulates the pitch (a cut between repeated notes): split there, the grace's
+  // time goes to the second note. A roll in a note already marked (a cut on a repeated note, then a roll on the same
+  // pitch, not re-articulated) starts as long before its cut as the cut is before its tap: split there.
+  // ponytail: fixed 0.4 s (an eighth down to 75 bpm), the tempo isn't known yet; use the beat if slow rolls get split
+  {
+    std::vector<RawNote> tagged;
+    for (auto& n : split) {
+      std::vector<Grace> in;
+      for (auto& g : graces) if (g.m == n.m && g.a >= n.a && g.a < n.b) in.push_back(g);
+      RawNote cur = n;
+      for (size_t k = 0; k < in.size(); k++) {
+        const Grace& g = in[k];
+        if (g.a - cur.a < minF) { if (cur.orn.empty()) cur.orn = g.d > 0 ? "cut" : "tap"; continue; }
+        if (g.d > 0 && k + 1 < in.size() && in[k + 1].d < 0 && (in[k + 1].a - g.a) * hopSec <= 0.4) {
+          if (int at = g.a - (in[k + 1].a - g.a); !cur.orn.empty() && at - cur.a >= minF) {
+            RawNote head = cur;
+            head.b = at;
+            tagged.push_back(head);
+            cur.a = at;
+          }
+          cur.orn = "roll";
+          k++;
+          continue;
+        }
+        if (cur.b - g.a < minF) continue;  // at the very end of a piece: no tiny note split off
+        RawNote head = cur;
+        head.b = g.a;
+        tagged.push_back(head);
+        cur.a = g.a;
+        cur.orn = g.d > 0 ? "cut" : "tap";
+      }
+      tagged.push_back(cur);
+    }
+    split = std::move(tagged);
   }
   // Melody continuity: compare each note with the duration-weighted median pitch of the notes around it (±2 s).
   // An octave away with energy in the other octave = octave error, move it. Short and well below = accompaniment
@@ -518,7 +600,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       for (auto& r : split) {
         int q0 = cellOf(beatPos(r.a)), q1 = cellOf(beatPos(r.b));
         int step = rhythm && F.trip.count((int)std::floor((double)q0 / g)) ? 4 : 3;  // shortest note: a triplet or sixteenth
-        QNote n{q0, std::max(q0 + step, q1), r.m + LO, r.conf, r.ring};
+        QNote n{q0, std::max(q0 + step, q1), r.m + LO, r.conf, r.ring, r.orn};
         if (!out.empty()) {
           QNote& p = out.back();
           if (n.q0 <= p.q0) {  // two notes on one grid point: keep the longer
@@ -692,7 +774,11 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   int cursor = clean.front().q0;
   for (auto& n : clean) {
     if (n.q0 > cursor) emitSpan(cursor, n.q0, 0, false);
+    size_t first = s.events.size();
     emitSpan(n.q0, n.q1, n.m + wr + 12 * shift, true);
+    if (!n.orn.empty())  // the ornament marks the note's first piece (a bar line may come before it)
+      for (size_t i = first; i < s.events.size(); i++)
+        if (s.events[i].kind == Kind::Note) { s.events[i].techniques.push_back(n.orn); break; }
     cursor = n.q1;
   }
   int endBar = cursor;
@@ -702,6 +788,29 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   fin.kind = Kind::Bar;
   fin.bar = "|]";
   s.events.push_back(fin);
+  // Ornament candidates (#12), located by positions(). Only a whistle draft keeps them as techniques (import_abc reads
+  // !cut! !tap! !roll!); for other instruments the report lists them.
+  std::string ornLine;
+  {
+    auto pos = positions(s);
+    std::string list;
+    for (const char* t : {"cut", "tap", "roll"}) {
+      std::string where;
+      int k = 0;
+      for (size_t i = 0; i < s.events.size(); i++)
+        if (auto& v = s.events[i].techniques; std::find(v.begin(), v.end(), t) != v.end()) {
+          char at[48];  // F.beat: 4-tick grid cells per beat
+          snprintf(at, sizeof at, "%sbar %d beat %.3g", k++ ? ", " : "", pos[i].bar, 1 + pos[i].tick / (4.0 * F.beat));
+          where += at;
+        }
+      if (k) list += (list.empty() ? "" : "; ") + std::to_string(k) + " " + t + (k > 1 ? "s" : "") + " (" + where + ")";
+    }
+    if (!list.empty()) {
+      ornLine = "ornaments (candidates, check by ear): " + list +
+                (inst->id == "whistle" ? "; marked in the ABC\n" : "; not marked: the ABC is for the " + inst->name + "\n");
+      if (inst->id != "whistle") for (auto& e : s.events) e.techniques.clear();
+    }
+  }
 
   // ---- report ----
   int voiced = 0;
@@ -777,6 +886,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     r += "pitch search: limited to the " + rec->name + "'s sounding range, " + noteName(spell(c, sLo + LO)) + ".." +
          noteName(spell(c, sHi + LO)) + "\n";
   }
+  r += ornLine;
   if (!weak.empty()) r += "unclear bars (check by ear): " + weak + "\n";
   track.sync = F.sync;
   return {s, r, track};
