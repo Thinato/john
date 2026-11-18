@@ -52,7 +52,7 @@ static int beamCount(int base) { return base == 24 ? 1 : base == 12 ? 2 : base =
 // ---------------- app state ----------------
 struct App {
   std::vector<std::string> ids;
-  struct Meta { fs::file_time_type mtime{}; std::string folder, title; };
+  struct Meta { fs::file_time_type mtime{}; std::string folder, title, inst, tag; };  // tag: instrument shown in the list, "" for a D whistle
   std::map<std::string, Meta> meta;  // song list info, re-read only when a file changes
   std::vector<Technique> techs;
   std::optional<Song> song;
@@ -137,7 +137,8 @@ static void poll(App& a) {
     auto& m = a.meta[id];
     if (!ec && m.mtime != t) {
       auto s = loadSong(id);
-      m = {t, s ? s->folder : "", s && !s->title.empty() ? s->title : id};
+      Instrument in = s ? instrumentOf(*s) : *findInstrument("whistle");
+      m = {t, s ? s->folder : "", s && !s->title.empty() ? s->title : id, in.id, in.name == "D whistle" ? "" : in.name};
     }
   }
   std::erase_if(a.meta, [&](auto& kv) { return std::find(a.ids.begin(), a.ids.end(), kv.first) == a.ids.end(); });
@@ -898,18 +899,34 @@ int main() {
     ImGui::Begin("main", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus);
     ImGui::BeginChild("songs", {220, 0}, ImGuiChildFlags_Borders);
     ImGui::TextDisabled("SONGS");
+    auto instLabel = [](const std::string& id) { return id.empty() ? "All instruments" : id == "whistle" ? "Tin whistle" : findInstrument(id)->name; };
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::BeginCombo("##instFilter", instLabel(a.set.songFilter).c_str())) {
+      if (ImGui::Selectable(instLabel("").c_str(), a.set.songFilter.empty())) a.set.songFilter = "";
+      for (auto& id : INSTRUMENTS)
+        if (ImGui::Selectable(instLabel(id).c_str(), id == a.set.songFilter)) a.set.songFilter = id;
+      ImGui::EndCombo();
+    }
     std::map<std::string, std::vector<std::string>, decltype(&folderBefore)> byFolder(&folderBefore);
-    for (auto& id : a.ids) byFolder[a.meta[id].folder].push_back(id);
+    for (auto& id : a.ids)
+      if (a.set.songFilter.empty() || a.meta[id].inst == a.set.songFilter) byFolder[a.meta[id].folder].push_back(id);
     for (auto& [folder, ids] : byFolder) {
       std::string label = (folder.empty() ? "Unsorted" : folder) + " (" + std::to_string(ids.size()) + ")##" + folder;
       if (!ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth)) continue;
       for (auto& id : ids) {
-        if (ImGui::Selectable((a.meta[id].title + "##" + id).c_str(), id == a.current)) { a.sel = -1; open(a, id); }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", a.meta[id].title.c_str());  // long titles get clipped
+        auto& m = a.meta[id];
+        float x = ImGui::GetCursorPosX();
+        if (ImGui::Selectable((m.title + "##" + id).c_str(), id == a.current)) { a.sel = -1; open(a, id); }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s%s", m.title.c_str(), m.tag.empty() ? "" : " - ", m.tag.c_str());  // long titles get clipped
+        if (!m.tag.empty()) {
+          ImGui::SameLine(x + ImGui::CalcTextSize(m.title.c_str()).x + 6);
+          ImGui::TextDisabled("%s", m.tag.c_str());
+        }
       }
       ImGui::TreePop();
     }
     if (a.ids.empty()) ImGui::TextWrapped("No songs yet. Ask the agent to import one via the john MCP server.");
+    else if (byFolder.empty()) ImGui::TextDisabled("No songs for this instrument.");
     ImGui::Separator();
     ImGui::Checkbox("Follow agent", &a.follow);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Switch to a song as soon as the agent changes it");

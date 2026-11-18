@@ -24,6 +24,9 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"update_song","arguments":{"id":"fiddle","instrument":"kazoo"}}}' \
 '{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"analyze_song","arguments":{"id":"fiddle"}}}' \
 '{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","recording_instrument":"kazoo"}}}' \
+'{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"list_songs","arguments":{}}}' \
+'{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"list_songs","arguments":{"instrument":"violin"}}}' \
+'{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"list_songs","arguments":{"instrument":"kazoo"}}}' \
 | "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -44,5 +47,11 @@ check "unknown instrument 'kazoo'"
 check 'Range on the Violin'
 check '"enum":\["whistle","violin"'
 check "unknown recording_instrument 'kazoo'"
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 18 ] || { echo "expected 18 replies"; exit 1; }
+check 'smoke-reel - Smoke Reel (D major, 4/4, D whistle)'
+check 'fiddle - Fiddle (G major, 4/4, Violin)'
+reply() { printf "%s\n" "$OUT" | grep "\"id\":$1,"; }
+reply 20 | grep -q 'fiddle - Fiddle' || { echo "violin filter lost fiddle"; exit 1; }
+! reply 20 | grep -q 'smoke-reel' || { echo "violin filter kept smoke-reel"; exit 1; }
+reply 21 | grep -q "unknown instrument 'kazoo'" || { echo "kazoo filter not rejected"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 21 ] || { echo "expected 21 replies"; exit 1; }
 echo "mcp smoke passed"

@@ -487,7 +487,7 @@ int main() {
     assert(loadSettings() == Settings{});
     Settings s;
     s.hints = false; s.zoom = 12; s.light = true; s.tempo = 90; s.countIn = false; s.metronome = false;
-    s.volume = 0.3f; s.sound = "piano"; s.gate = 0.02f; s.latencyMs = 120; s.tolerance = 25; s.instrument = "violin";
+    s.volume = 0.3f; s.sound = "piano"; s.gate = 0.02f; s.latencyMs = 120; s.tolerance = 25; s.instrument = "violin"; s.songFilter = "piano";
     saveSettings(s);
     assert(loadSettings() == s);
     write(R"({"tempo": 80, "future_setting": 1})");
@@ -498,9 +498,9 @@ int main() {
     assert(loadSettings() == Settings{});
     write(R"({"hints": "yes"})");  // wrong type
     assert(loadSettings() == Settings{});
-    write(R"({"sound": "banjo", "instrument": "kazoo", "zoom": 0, "volume": 9})");  // values the GUI can't use
+    write(R"({"sound": "banjo", "instrument": "kazoo", "songFilter": "lute", "zoom": 0, "volume": 9})");  // values the GUI can't use
     Settings c = loadSettings();
-    assert(c.sound.empty() && c.instrument == "whistle" && c.zoom == 6 && c.volume == 1);
+    assert(c.sound.empty() && c.instrument == "whistle" && c.songFilter.empty() && c.zoom == 6 && c.volume == 1);
     fs::remove(home / "settings.json");
   }
 
