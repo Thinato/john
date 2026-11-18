@@ -59,7 +59,7 @@ static json toolList() {
            {{"abc", str},
             {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
             {"source", {{"type", "string"}, {"description", "where the tune came from (URL, 'photo of ...')"}}},
-            {"instrument", instrumentSchema},
+            {"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "instrument the song is for, default: the one chosen in John's Settings (whistle unless changed)"}}},
             {"whistle", {{"type", "string"}, {"description", "whistle key, default D"}}},
             {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
             {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}},
@@ -142,7 +142,7 @@ static std::string callTool(const std::string& name, const json& a) {
     Song& s = ir.song;
     if (s.events.empty()) throw std::runtime_error("no notes found in the ABC");
     s.source = a.value("source", s.source);
-    s.instrument = a.value("instrument", "whistle");
+    s.instrument = a.value("instrument", loadSettings().instrument);
     s.whistle = a.value("whistle", "D");
     s.folder = a.value("folder", "");
     checkInstrument(s);

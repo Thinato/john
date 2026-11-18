@@ -59,9 +59,10 @@ struct App {
   std::string current;
   fs::file_time_type songMtime{}, newestSeen{};
   int sel = -1;
-  float sp = 9.0f;  // staff space in px (zoom)
+  Settings set = loadSettings();  // edited in place (Settings window, sidebar, transport); saved when it changes
+  Settings saved = set;
+  bool showSettings = false;
   bool follow = true;
-  bool hints = true;  // instrument hints (fingering charts and fingerings); not saved yet, see #18
   char comment[2048] = "";
   double lastPoll = -10;
 
@@ -71,12 +72,8 @@ struct App {
   Audio audio;
   std::string practiceFor;      // song id the state below belongs to
   float bpm = 100;
-  std::string sound;            // playback sound for this session, "" = the song's instrument (not saved)
   bool listen = false;
   int mode = Wait;
-  float tolerance = 40;         // cents
-  float gate = 0.01f;           // mic level below which we hear nothing
-  float latencyMs = 80;         // mic + speaker delay, for grading play-along
   std::vector<Grade> grades;    // per event
   std::vector<int> order;       // playOrder of the song
   int cursor = -1, cursorSys = -1;
@@ -203,7 +200,7 @@ static float x1Of(const std::vector<Slot>& slots, int k, const Song& s) {
 }
 
 static void drawScore(App& a, Song& s) {
-  const float sp = a.sp;
+  const float sp = a.set.zoom;
   ImVec2 origin = ImGui::GetCursorScreenPos();
   float width = ImGui::GetContentRegionAvail().x;
   Score sc{ImGui::GetWindowDrawList(), sp};
@@ -214,7 +211,7 @@ static void drawScore(App& a, Song& s) {
   const float headW = sp * 1.18f, accW = sp * 1.3f;
   const float margin = sp * 2;
   const Instrument inst = instrumentOf(s);
-  const bool whistle = inst.id == "whistle" && a.hints;  // fingering charts are whistle-only, and can be hidden
+  const bool whistle = inst.id == "whistle" && a.set.hints;  // fingering charts are whistle-only, and can be hidden
   const float sysH = sp * (whistle ? 26 : 19);
   auto slotW = [&](const Event& e, int i) -> float {
     if (e.kind == Kind::Bar) return sp * (e.bar == "|" ? 1.4f : 2.4f);
@@ -562,7 +559,7 @@ static void startPlayback(App& a, int fromOrder, bool countIn) {
   a.playFrom = fromOrder;
   a.gradeVi = 0;
   a.frames = a.hits = a.octs = 0;
-  a.audio.play(perform(*a.song, a.bpm, fromOrder, countIn, a.sound));
+  a.audio.play(perform(*a.song, a.bpm, fromOrder, countIn, a.set.sound));
 }
 
 static void restartHere(App& a) {  // restart playback at the current note, e.g. with a new tempo or sound
@@ -577,7 +574,7 @@ static void practiceUpdate(App& a, float dt) {
   auto order = playOrder(*a.song);
   if (a.practiceFor != a.current || order != a.order || a.grades.size() != a.song->events.size()) {  // new or edited song
     a.audio.stop();
-    if (a.practiceFor != a.current) a.bpm = a.song->tempo ? (float)a.song->tempo : 100;
+    if (a.practiceFor != a.current) a.bpm = a.song->tempo ? (float)a.song->tempo : (float)a.set.tempo;
     a.practiceFor = a.current;
     a.order = std::move(order);
     a.cursor = -1;
@@ -599,7 +596,7 @@ static void practiceUpdate(App& a, float dt) {
     a.silentFor = level > 1e-5f ? 0 : a.silentFor + dt;
     Instrument in = instrumentOf(*a.song);
     float fmin = (float)soundingFreq(in.low, in.octave) * 0.8f, fmax = (float)soundingFreq(in.high, in.octave) * 1.15f;
-    if (level > a.gate)
+    if (level > a.set.gate)
       if (float hz = detectPitch(buf.data(), n, a.audio.micRate(), fmin, fmax)) a.heard = (float)writtenMidiFromFreq(hz, in.octave);
   }
   auto cents = [&](int midi) { return (a.heard - midi) * 100; };
@@ -611,7 +608,7 @@ static void practiceUpdate(App& a, float dt) {
     double t = a.audio.playTime();
     for (auto& v : p.voices) if (t >= v.start && t < v.start + v.dur) a.cursor = v.ev;
     if (a.listen && a.mode == App::PlayAlong) {  // grade each note once its time has passed
-      double tl = t - a.latencyMs / 1000.0;
+      double tl = t - a.set.latencyMs / 1000.0;
       while (a.gradeVi < p.voices.size() && tl >= p.voices[a.gradeVi].start + p.voices[a.gradeVi].dur) {
         const Voice& v = p.voices[a.gradeVi];
         if (a.frames > 0 && v.ord >= 0 && v.ord < (int)a.order.size())
@@ -623,8 +620,8 @@ static void practiceUpdate(App& a, float dt) {
         const Voice& v = p.voices[a.gradeVi];
         if (tl >= v.start + v.dur * 0.25 && tl < v.start + v.dur - v.gap) {  // skip the attack and graces
           a.frames++;
-          if (a.heard > 0 && std::abs(cents(v.midi)) <= a.tolerance) a.hits++;
-          else if (a.heard > 0 && std::abs(std::abs(cents(v.midi)) - 1200) <= a.tolerance) a.octs++;
+          if (a.heard > 0 && std::abs(cents(v.midi)) <= a.set.tolerance) a.hits++;
+          else if (a.heard > 0 && std::abs(std::abs(cents(v.midi)) - 1200) <= a.set.tolerance) a.octs++;
         }
       }
     }
@@ -633,7 +630,7 @@ static void practiceUpdate(App& a, float dt) {
     if (a.listen && a.mode == App::Wait && a.waitK < (int)a.order.size()) {
       const Event& e = a.song->events[a.order[a.waitK]];
       a.cursor = a.order[a.waitK];
-      bool right = a.heard > 0 && std::abs(cents(e.midi)) <= a.tolerance;
+      bool right = a.heard > 0 && std::abs(cents(e.midi)) <= a.set.tolerance;
       // re-articulation for repeated notes: a cut (pitch jump), a tongued dip in level, or a real gap (2+ frames)
       a.dropFrames = a.heard == 0 ? a.dropFrames + 1 : 0;
       if ((a.heard > 0 && std::abs(cents(e.midi)) > 100) || (a.held > 0 && recent < a.held * 0.4f) || a.dropFrames >= 2)
@@ -658,9 +655,9 @@ static void transportBar(App& a) {
   bool space = ImGui::IsKeyPressed(ImGuiKey_Space, false) && !ImGui::GetIO().WantTextInput;
   if (ImGui::Button(playing ? "  Stop  " : "  Play  ") || space) {
     if (playing) a.audio.stop();
-    else startPlayback(a, startOrder(a), true);
+    else startPlayback(a, startOrder(a), a.set.countIn);
   }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Space. Starts from the selected note, after a one-bar count-in.");
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(a.set.countIn ? "Space. Starts from the selected note, after a one-bar count-in." : "Space. Starts from the selected note.");
   ImGui::SameLine();
   ImGui::SetNextItemWidth(170);
   ImGui::SliderFloat("##bpm", &a.bpm, 40, 220, "tempo %.0f");
@@ -670,22 +667,21 @@ static void transportBar(App& a) {
   auto soundName = [&](const std::string& id) { return findInstrument(id, a.song->whistle).value_or(*findInstrument(id)).name; };
   std::string songSound = instrumentOf(*a.song).name + " (song)";
   ImGui::SetNextItemWidth(170);
-  if (ImGui::BeginCombo("##sound", ("sound: " + (a.sound.empty() ? songSound : soundName(a.sound))).c_str())) {
-    if (ImGui::Selectable(songSound.c_str(), a.sound.empty())) { a.sound.clear(); if (playing) restartHere(a); }
+  if (ImGui::BeginCombo("##sound", ("sound: " + (a.set.sound.empty() ? songSound : soundName(a.set.sound))).c_str())) {
+    if (ImGui::Selectable(songSound.c_str(), a.set.sound.empty())) { a.set.sound.clear(); if (playing) restartHere(a); }
     for (auto& id : INSTRUMENTS)
-      if (ImGui::Selectable(soundName(id).c_str(), a.sound == id)) { a.sound = id; if (playing) restartHere(a); }
+      if (ImGui::Selectable(soundName(id).c_str(), a.set.sound == id)) { a.set.sound = id; if (playing) restartHere(a); }
     ImGui::EndCombo();
   }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Which instrument plays the tune, for this session only. The notes keep the song's pitch.");
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Which instrument plays the tune (saved, also in Settings). The notes keep the song's pitch.");
   ImGui::SameLine();
-  bool melody = a.audio.melody, metro = a.audio.metronome;
-  float vol = a.audio.volume;
+  bool melody = a.audio.melody;
   if (ImGui::Checkbox("Melody", &melody)) a.audio.melody = melody;
   ImGui::SameLine();
-  if (ImGui::Checkbox("Metronome", &metro)) a.audio.metronome = metro;
+  ImGui::Checkbox("Metronome", &a.set.metronome);
   ImGui::SameLine();
   ImGui::SetNextItemWidth(90);
-  if (ImGui::SliderFloat("##vol", &vol, 0, 1, "volume %.1f")) a.audio.volume = vol;
+  ImGui::SliderFloat("##vol", &a.set.volume, 0, 1, "volume %.1f");
 
   // microphone row
   if (ImGui::Button(a.listen ? "Mic: on " : "Mic: off")) {
@@ -702,24 +698,24 @@ static void transportBar(App& a) {
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("Press Play and play with the backing. Notes turn green (right), red (wrong) or orange (wrong octave).\nUse headphones, or untick Melody and follow the metronome, so the mic doesn't hear the backing.");
   ImGui::SameLine();
   ImGui::SetNextItemWidth(110);
-  ImGui::SliderFloat("##tol", &a.tolerance, 10, 100, "tolerance %.0fc");
+  ImGui::SliderFloat("##tol", &a.set.tolerance, 10, 100, "tolerance %.0fc");
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("How far from the note (in cents, 100 = a semitone) still counts as right.");
   ImGui::SameLine();
   if (ImGui::Button("Reset marks")) resetPractice(a);
   if (ImGui::BeginPopupContextItem("calib")) {
-    ImGui::SliderFloat("mic gate", &a.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
-    ImGui::SliderFloat("latency ms", &a.latencyMs, 0, 300, "%.0f");
+    ImGui::SliderFloat("mic gate", &a.set.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("latency ms", &a.set.latencyMs, 0, 300, "%.0f");
     ImGui::EndPopup();
   }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Right-click for mic calibration (noise gate, latency).");
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Right-click for mic calibration (noise gate, latency; also in Settings).");
 
   if (a.listen) {
     ImGui::SameLine();
     if (a.heard > 0) {
       int m = (int)std::lround(a.heard);
       float c = (a.heard - m) * 100;
-      ImVec4 col = std::abs(c) <= a.tolerance ? ImVec4(0.3f, 0.9f, 0.4f, 1) : ImVec4(1, 0.7f, 0.2f, 1);
-      bool whistle = instrumentOf(*a.song).id == "whistle" && a.hints;
+      ImVec4 col = std::abs(c) <= a.set.tolerance ? ImVec4(0.3f, 0.9f, 0.4f, 1) : ImVec4(1, 0.7f, 0.2f, 1);
+      bool whistle = instrumentOf(*a.song).id == "whistle" && a.set.hints;
       ImGui::TextColored(col, "hearing %s %+.0fc  %s", noteName(spell(a.song->key, m)).c_str(), c,
                          whistle ? fingeringText(finger(a.song->whistle, m)).c_str() : "");
       if (a.cursor >= 0 && a.cursor < (int)a.song->events.size()) {
@@ -744,7 +740,7 @@ static void detailsPanel(App& a) {
   ImGui::TextWrapped("%s", s.title.c_str());
   ImGui::PopFont();
   const Instrument inst = instrumentOf(s);
-  const bool whistle = inst.id == "whistle" && a.hints;
+  const bool whistle = inst.id == "whistle" && a.set.hints;
   ImGui::TextDisabled("%s  |  %s  |  %s%s", keyName(s.key).c_str(), s.meter.c_str(), inst.name.c_str(),
                       s.tempo ? ("  |  " + std::to_string(s.tempo) + " bpm").c_str() : "");
   if (!s.source.empty()) ImGui::TextWrapped("Source: %s", s.source.c_str());
@@ -817,6 +813,42 @@ static void detailsPanel(App& a) {
   }
 }
 
+// One line per Settings field; App::set is saved by the main loop whenever it changes.
+static void settingsWindow(App& a) {
+  if (!a.showSettings) return;
+  Settings& s = a.set;
+  ImGui::SetNextWindowPos({240, 60}, ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowBgAlpha(1);  // the score would show through
+  if (!ImGui::Begin("Settings", &a.showSettings, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) { ImGui::End(); return; }
+  auto instrumentCombo = [](const char* label, std::string& v, const char* none) {  // none: label for "", or null
+    auto name = [&](const std::string& id) { return id.empty() ? std::string(none) : findInstrument(id)->name; };
+    if (!ImGui::BeginCombo(label, name(v).c_str())) return;
+    if (none && ImGui::Selectable(none, v.empty())) v.clear();
+    for (auto& id : INSTRUMENTS) if (ImGui::Selectable(name(id).c_str(), v == id)) v = id;
+    ImGui::EndCombo();
+  };
+  ImGui::PushItemWidth(220);
+  ImGui::SeparatorText("Sheet");
+  ImGui::Checkbox("Instrument hints (whistle fingerings)", &s.hints);
+  ImGui::SliderFloat("Zoom", &s.zoom, 6, 16, "%.0f");
+  ImGui::Checkbox("Light theme", &s.light);
+  ImGui::SeparatorText("Playback");
+  ImGui::SliderInt("Tempo for songs without one", &s.tempo, 40, 220);
+  ImGui::Checkbox("Count-in bar before playing", &s.countIn);
+  ImGui::Checkbox("Metronome", &s.metronome);
+  ImGui::SliderFloat("Volume", &s.volume, 0, 1, "%.1f");
+  instrumentCombo("Sound", s.sound, "The song's instrument");
+  ImGui::SeparatorText("Microphone");
+  ImGui::SliderFloat("Tolerance (cents)", &s.tolerance, 10, 100, "%.0f");
+  ImGui::SliderFloat("Noise gate", &s.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
+  ImGui::SliderFloat("Latency (ms)", &s.latencyMs, 0, 300, "%.0f");
+  ImGui::SeparatorText("New songs");
+  instrumentCombo("Instrument", s.instrument, nullptr);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Used when the agent imports a song without saying which instrument it is for");
+  ImGui::PopItemWidth();
+  ImGui::End();
+}
+
 int main() {
   try { installLessons(lessonsDir()); } catch (...) {}
   if (!glfwInit()) return 1;
@@ -844,6 +876,7 @@ int main() {
 
   App a;
   const char* snapshot = std::getenv("JOHN_SNAPSHOT");  // dev aid: write the window to a .tga after a few frames and exit
+  bool light = false;  // theme currently applied
   for (int frame = 0; !glfwWindowShouldClose(win); frame++) {
     if (gMusic && frame == 1) {  // measure a notehead (1.18 staff spaces = 0.295 em) once the font is usable
       float w = gMusic->CalcTextSizeA(100, FLT_MAX, 0, utf8(HeadBlack).c_str()).x;
@@ -856,6 +889,9 @@ int main() {
     ImGui::NewFrame();
     try { poll(a); } catch (const std::exception&) {}  // e.g. data folder briefly unavailable; retry next poll
     practiceUpdate(a, io.DeltaTime);
+    if (a.set.light != light) { light = a.set.light; light ? ImGui::StyleColorsLight() : ImGui::StyleColorsDark(); }
+    a.audio.metronome = a.set.metronome;
+    a.audio.volume = a.set.volume;
 
     ImGui::SetNextWindowPos({0, 0});
     ImGui::SetNextWindowSize(io.DisplaySize);
@@ -879,14 +915,15 @@ int main() {
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Switch to a song as soon as the agent changes it");
     const bool noHints = a.song && instrumentOf(*a.song).id != "whistle";  // only the whistle has hints so far
     ImGui::BeginDisabled(noHints);
-    bool shown = a.hints && !noHints;  // unticked while disabled; a.hints keeps the choice for whistle songs
-    if (ImGui::Checkbox("Instrument hints", &shown) && !noHints) a.hints = shown;
+    bool shown = a.set.hints && !noHints;  // unticked while disabled; a.set.hints keeps the choice for whistle songs
+    if (ImGui::Checkbox("Instrument hints", &shown) && !noHints) a.set.hints = shown;
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
       if (noHints) ImGui::SetTooltip("No hints for the %s yet", instrumentOf(*a.song).name.c_str());
       else ImGui::SetTooltip("Show fingering charts and fingerings for the notes");
     }
-    ImGui::SliderFloat("Zoom", &a.sp, 6, 16, "%.0f");
+    ImGui::SliderFloat("Zoom", &a.set.zoom, 6, 16, "%.0f");
+    if (ImGui::Button("Settings")) a.showSettings = !a.showSettings;
     ImGui::TextDisabled("Data folder:");
     ImGui::TextWrapped("%s", dataDir().c_str());
     ImGui::EndChild();
@@ -909,6 +946,11 @@ int main() {
       ImGui::EndChild();
     }
     ImGui::End();
+    settingsWindow(a);
+    if (a.set != a.saved && !ImGui::IsAnyItemActive()) {  // save on change, once a slider drag ends
+      a.saved = a.set;
+      try { saveSettings(a.set); } catch (const std::exception&) {}
+    }
 
     ImGui::Render();
     int w, h;
