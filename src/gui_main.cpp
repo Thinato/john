@@ -865,7 +865,8 @@ int main() {
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Switch to a song as soon as the agent changes it");
     const bool noHints = a.song && instrumentOf(*a.song).id != "whistle";  // only the whistle has hints so far
     ImGui::BeginDisabled(noHints);
-    ImGui::Checkbox("Instrument hints", &a.hints);
+    bool shown = a.hints && !noHints;  // unticked while disabled; a.hints keeps the choice for whistle songs
+    if (ImGui::Checkbox("Instrument hints", &shown) && !noHints) a.hints = shown;
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
       if (noHints) ImGui::SetTooltip("No hints for the %s yet", instrumentOf(*a.song).name.c_str());
