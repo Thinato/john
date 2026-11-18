@@ -59,6 +59,8 @@ Then open <http://localhost:8000/john.html>. Sound starts on the first click; th
    - "These are tabs for <tune>: D E F# G ... Where should the cuts and rolls go?"
    - "Document a technique called 'bounce': ..." (adds it to the catalog and legend)
 
+The agent can also transcribe an audio file (`transcribe_audio`). For a singer or lead over a full band, it can first separate the melody with [Demucs](https://github.com/adefossez/demucs), an optional tool you install yourself (`pip install demucs`, or set `JOHN_DEMUCS` to its path). It is slow, so give it short sections; use only short sections of copyrighted recordings, for personal practice. Without Demucs the full mix is transcribed.
+
 Each song is for an instrument: tin whistle (the default unless another is picked in Settings, in any key), violin, piano, guitar, electric guitar or harmonica. Range checks, transposition hints, playback pitch and the mic follow the song's instrument; fingering charts are shown for the whistle only (untick "Instrument hints" in the sidebar to hide them). Pick it with the Instrument picker in the GUI, or tell the agent. The song list shows the instrument after each title (nothing for a D whistle), and the menu above the list shows only the songs for one instrument; the agent's `list_songs` can filter the same way.
 
 Songs are grouped into folders (Lessons, Beginner, Intermediate, Advanced, or any name). The agent files new songs by difficulty, and you can move a song with the Folder picker in the GUI.

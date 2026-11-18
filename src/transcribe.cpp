@@ -7,6 +7,7 @@
 #include <climits>
 #include <cmath>
 #include <complex>
+#include <cstdio>
 #include <map>
 #include <numeric>
 #include <set>
@@ -14,8 +15,8 @@
 
 namespace john {
 
-std::vector<float> decodeAudio(const std::string& path, int sampleRate) {
-  ma_decoder_config cfg = ma_decoder_config_init(ma_format_f32, 1, (ma_uint32)sampleRate);
+std::vector<float> decodeAudio(const std::string& path, int sampleRate, int channels) {
+  ma_decoder_config cfg = ma_decoder_config_init(ma_format_f32, (ma_uint32)channels, (ma_uint32)sampleRate);
   ma_decoder dec;
   if (ma_decoder_init_file(path.c_str(), &cfg, &dec) != MA_SUCCESS)
     throw std::runtime_error("can't open or decode '" + path + "' (mp3, wav or flac)");
@@ -23,12 +24,25 @@ std::vector<float> decodeAudio(const std::string& path, int sampleRate) {
   float buf[8192];
   for (;;) {
     ma_uint64 got = 0;
-    ma_result r = ma_decoder_read_pcm_frames(&dec, buf, 8192, &got);
-    out.insert(out.end(), buf, buf + got);
+    ma_result r = ma_decoder_read_pcm_frames(&dec, buf, 8192 / channels, &got);
+    out.insert(out.end(), buf, buf + got * channels);
     if (r != MA_SUCCESS || got == 0) break;
   }
   ma_decoder_uninit(&dec);
   return out;
+}
+
+void writeWav(const std::string& path, const std::vector<float>& x, int rate, int ch) {
+  FILE* f = fopen(path.c_str(), "wb");
+  if (!f) throw std::runtime_error("can't write '" + path + "'");
+  auto u32 = [&](unsigned v) { fwrite(&v, 4, 1, f); };
+  auto u16 = [&](unsigned short v) { fwrite(&v, 2, 1, f); };
+  const unsigned n = (unsigned)x.size();
+  fwrite("RIFF", 1, 4, f); u32(36 + n * 2); fwrite("WAVEfmt ", 1, 8, f);
+  u32(16); u16(1); u16((unsigned short)ch); u32(rate); u32(rate * 2 * ch); u16((unsigned short)(2 * ch)); u16(16);
+  fwrite("data", 1, 4, f); u32(n * 2);
+  for (float v : x) u16((unsigned short)(short)std::lround(std::clamp(v, -1.f, 1.f) * 32767));
+  fclose(f);
 }
 
 static void fft(std::vector<std::complex<float>>& a) {

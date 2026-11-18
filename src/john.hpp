@@ -238,7 +238,9 @@ std::string listing(const Song& s);          // compact text table of every even
 std::string analyze(const Song& s);          // deterministic technique candidates + range report
 
 // ---- audio transcription (transcribe.cpp) ----
-std::vector<float> decodeAudio(const std::string& path, int sampleRate);  // mono; mp3/wav/flac; throws on failure
+// mp3/wav/flac, interleaved when channels > 1 (mono by default); throws on failure
+std::vector<float> decodeAudio(const std::string& path, int sampleRate, int channels = 1);
+void writeWav(const std::string& path, const std::vector<float>& x, int sampleRate, int channels = 1);  // 16-bit PCM
 struct TranscribeOptions {
   double bpm = 0;             // quarter notes per minute; 0 = detect
   std::string meter;          // "" = detect (4/4, 3/4, 6/8 or 9/8)
@@ -250,6 +252,9 @@ struct TranscribeOptions {
   // still folds more than 10% of the note time, the shift in -5..+6 with the fewest notes out of range and hard
   // fingerings (see transcribe()); otherwise none.
   std::optional<int> transpose;
+  // "vocals" or "other": transcribeFile() first runs Demucs (JOHN_DEMUCS, else demucs on PATH) on the section and
+  // transcribes that stem; if it can't, the full mix. The report's "separation:" line says which. "" = no separation.
+  std::string separate;
 };
 struct TrackPoint { float time = 0; int midi = 0; float conf = 0; };  // seconds, sounding MIDI (0 = no melody), salience
 // The melody line frame by frame (what JOHN_TRANSCRIBE_DEBUG dumps) and, per detected beat, (song tick, seconds): the
