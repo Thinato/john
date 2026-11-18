@@ -16,6 +16,7 @@ Getting a tune into John (always via ABC -> import_abc):
 - Photo/PDF of sheet music: read the image and transcribe it to ABC carefully (K: key signature, M: meter, L: unit, every bar). After importing, compare get_song bar by bar against the image.
 - thesession.org: curl -s 'https://thesession.org/tunes/search?q=NAME&format=json', then curl -s 'https://thesession.org/tunes/ID?format=json'. Each settings[] item has an "abc" body (a lone "!" is a line break) and "key" like "Dmajor". Add headers yourself: X:1, T:name, M: from the tune type (reel/hornpipe/barndance/strathspey 4/4, jig 6/8, slip jig 9/8, slide 12/8, polka 2/4, waltz/mazurka 3/4, three-two 3/2), L:1/8, K:key. Pass source = the setting URL.
 - Audio file (mp3/wav/flac): transcribe_audio gives a draft ABC plus a report. The draft is a machine guess (4/4, straight sixteenths, the loudest pitched line); you are the musician who turns it into a sheet. Review it before importing:
+  * Solo instrument: instrument = what the sheet is for (a piano recording can become a whistle sheet); it doesn't limit what is heard. If you know which instrument plays the melody in the recording (e.g. a whistle over an orchestra), also pass recording_instrument: the pitch search then stays in its range, so louder accompaniment outside it can't take over (the report's "pitch search" line shows the range).
   * Meter: do the repeating motifs line up with the bar lines, with long or accented notes on beat 1? Motifs grouped in 3 beats or in threes of eighths mean 3/4 or 6/8 (waltz, jig, slip jig 9/8): re-run with meter and compare which version makes the phrases fit the bars.
   * Tempo: read the report's tempo line. Confidence low means the detected tempo may well be wrong: re-run with the 'also plausible' bpm (often half, double or 3:2; not always right either) or the song's usual tempo, and keep the version whose note lengths read naturally. If nearly every note is a sixteenth, the real tempo is probably double the detected one; if it is all half and whole notes, it's probably half. Re-run with bpm. If you know the song, use its usual tempo and feel.
   * Pickup and key: does the tune start on a pickup? Do the accidentals point to another key or mode (e.g. a steady C natural in D major = D mixolydian, minor vs dorian)? Fix K: in the ABC.
@@ -102,7 +103,10 @@ static json toolList() {
             {"start", {{"type", "number"}, {"description", "seconds into the file to start at (default 0)"}}},
             {"end", {{"type", "number"}, {"description", "seconds into the file to stop at (default: end)"}}},
             {"title", str},
-            {"instrument", instrumentSchema}},
+            {"instrument", instrumentSchema},
+            {"recording_instrument", {{"type", "string"}, {"enum", INSTRUMENTS},
+                                      {"description", "instrument playing the melody in the recording (whistle = D whistle); limits the "
+                                                      "pitch search to its range so accompaniment outside it is ignored. Default: unset"}}}},
            {"path"}),
       tool("list_techniques", "List the technique catalog: id, GUI symbol, name, how to play it on the whistle.", json::object()),
       tool("define_technique", "Add or replace a technique in the catalog (for techniques the user wants documented).",
@@ -222,6 +226,8 @@ static std::string callTool(const std::string& name, const json& a) {
   if (name == "transcribe_audio") {
     std::string path = a.value("path", "");
     if (!findInstrument(a.value("instrument", "whistle"))) throw std::runtime_error("unknown instrument '" + a.value("instrument", "") + "'");
+    if (a.contains("recording_instrument") && !findInstrument(a.value("recording_instrument", "")))
+      throw std::runtime_error("unknown recording_instrument '" + a.value("recording_instrument", "") + "'");
     if (path.rfind("~/", 0) == 0 && getenv("HOME")) path = std::string(getenv("HOME")) + path.substr(1);
     constexpr int SR = 22050;
     std::vector<float> x = decodeAudio(path, SR);
@@ -235,6 +241,7 @@ static std::string callTool(const std::string& name, const json& a) {
     if (meterTicks(o.meter) <= 0) throw std::runtime_error("meter must look like 4/4, 3/4 or 6/8");
     o.title = a.value("title", fs::path(path).stem().string());
     o.instrument = a.value("instrument", o.instrument);
+    o.recordingInstrument = a.value("recording_instrument", "");
     Transcription t = transcribe(x, SR, o);
     return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name and instrument = " + o.instrument +
            "):\n" + toAbc(t.song);

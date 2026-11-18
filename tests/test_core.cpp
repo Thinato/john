@@ -364,6 +364,26 @@ int main() {
       assert(std::count(got.begin(), got.end(), 62) == 4);
       assert(common(want, got) == (int)want.size() && got.size() == want.size());
     }
+    {  // the same whistle tune over a louder low accompaniment: only a search limited to the whistle's range keeps it (#10)
+      std::vector<float> loud(mix.size());
+      for (size_t i = 0; i < mix.size(); i++) loud[i] = mix[i] + acc[i] * 2 * melodyRms / accRms;  // 8 dB over the melody
+      TranscribeOptions o;
+      o.bpm = 100;
+      auto got0 = melodyOf(transcribe(loud, sr, o).song);
+      o.recordingInstrument = "whistle";
+      Transcription tr = transcribe(loud, sr, o);
+      auto got = melodyOf(tr.song);
+      int all = common(want, got0), lim = common(want, got);
+      printf("transcribe (loud accompaniment): unlimited %d/%zu notes, %zu extra; limited to the whistle %d/%zu, %zu extra\n", all,
+             want.size(), got0.size() - all, lim, want.size(), got.size() - lim);
+      // the limited search still hears the chords' harmonics that fall in the whistle's range (low D, G in rests)
+      assert(all < (int)want.size() * 7 / 10 && lim >= (int)want.size() * 9 / 10 && got.size() - lim < (got0.size() - all) / 2);
+      assert(tr.report.find("pitch search: limited to the D whistle's sounding range, C5..C7\n") != std::string::npos);
+      bool threw = false;
+      o.recordingInstrument = "kazoo";
+      try { transcribe(loud, sr, o); } catch (const std::runtime_error&) { threw = true; }
+      assert(threw);
+    }
     for (double bpm : {100.0, 0.0}) {
       TranscribeOptions o;
       o.bpm = bpm;
