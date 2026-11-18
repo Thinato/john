@@ -154,6 +154,25 @@ std::vector<Technique> defaultTechniques();
 fs::path dataDir();                         // $JOHN_HOME or ~/Documents/John
 std::vector<Technique> loadTechniques();    // defaults merged with dataDir()/techniques.json
 void saveCustomTechnique(const Technique& t);
+// User preferences, saved in dataDir()/settings.json and read by both the GUI and the MCP server.
+// A new setting: one field here, its name in the JSON list in song.cpp, one line in the GUI's Settings window.
+struct Settings {
+  bool hints = true;                // instrument hints (whistle fingering charts and fingerings)
+  float zoom = 9;                   // staff space in px
+  bool light = false;               // light theme instead of dark
+  int tempo = 100;                  // playback tempo for songs without one
+  bool countIn = true;              // one bar of clicks before Play
+  bool metronome = true;
+  float volume = 0.6f;
+  std::string sound;                // playback sound, an INSTRUMENTS id; "" = the song's instrument
+  float gate = 0.01f;               // mic level below which nothing is heard
+  float latencyMs = 80;             // mic + speaker delay, for grading play-along
+  float tolerance = 40;             // cents from the note that still count as right
+  std::string instrument = "whistle";  // for new songs (import_abc without an instrument)
+  bool operator==(const Settings&) const = default;
+};
+Settings loadSettings();                    // missing keys -> defaults; unreadable file -> all defaults
+void saveSettings(const Settings& s);
 std::vector<std::string> listSongs();       // ids
 std::optional<Song> loadSong(const std::string& id);
 void saveSong(const Song& s);

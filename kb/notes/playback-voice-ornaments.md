@@ -6,7 +6,7 @@ tags: [audio, playback, synth, instruments, ornaments, breath, sound]
 # Which ornaments each playback voice plays
 
 ## Context
-Changing playback in `src/sound.cpp`: `perform(song, bpm, from, countIn, sound)` and `Synth::render`, or the GUI's session-only Sound combo (`App::sound` in `src/gui_main.cpp`, "" = the song's instrument, never saved).
+Changing playback in `src/sound.cpp`: `perform(song, bpm, from, countIn, sound)` and `Synth::render`, or the GUI's Sound combo (`App::set.sound` in `src/gui_main.cpp`, "" = the song's instrument; a saved setting since #18).
 
 ## Rule
 `perform()` decides per sound (`Performance::sound`, an `INSTRUMENTS` id) what is played: whistle plays everything; violin plays cuts, taps, rolls, crans, slides and vibrato but no breath gaps; guitar plays finger ornaments (as hammer-ons/pull-offs) and slides, no vibrato or breaths; electric guitar adds vibrato; harmonica plays breaths, slides (bends) and vibrato but no finger ornaments; piano plays none of them (staccato and tonguing gaps still apply to every voice). `Performance::octave` always comes from the song's instrument (`instrumentOf`), not from the sound.

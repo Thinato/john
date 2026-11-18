@@ -7,11 +7,12 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
 
 - **`john-mcp`**: an MCP server. It gives an AI agent exact tools: parse ABC, map notes to whistle fingerings, check range and transpositions, list candidate spots for ornaments, and save the result.
 - **`john`**: an ImGui viewer. It shows each tune as real staff notation, with a fingering chart, technique symbols and the agent's reasoning under every note. Hover a note for details, click it to edit its techniques. It reloads live while the agent works.
-  - **Play** (or Space): a synthesized voice of the song's instrument plays the tune in performance order, through repeats and endings, with its cuts, rolls, slides, vibrato and breaths. The *sound* menu switches to another instrument's voice for the session (same notes and pitch). A one-bar count-in comes first, and you can add a metronome. The tempo slider changes the speed, even while playing. Playback starts from the selected note.
+  - **Play** (or Space): a synthesized voice of the song's instrument plays the tune in performance order, through repeats and endings, with its cuts, rolls, slides, vibrato and breaths. The *sound* menu switches to another instrument's voice (same notes and pitch). A one-bar count-in comes first (it can be turned off in Settings), and you can add a metronome. The tempo slider changes the speed, even while playing. Playback starts from the selected note.
   - **Mic**: a live tuner showing the note you play, how far off it is in cents, and its fingering.
     - **Wait for me**: the cursor waits on each note until you play it in tune.
     - **Play along**: grades each note while the backing plays. Green is right, red is wrong, orange is the wrong octave. Use headphones, or untick *Melody* and keep the metronome, so the mic doesn't hear the backing.
-    - Right-click *Reset marks* to set the mic noise gate and latency.
+    - Right-click *Reset marks* to set the mic noise gate and latency (also in Settings).
+  - **Settings** (button in the sidebar): instrument hints, zoom, light or dark theme, the tempo for songs without one, count-in, metronome, volume, playback sound, mic tolerance, noise gate and latency, and the instrument new songs get when the agent doesn't name one. Changes apply at once and are kept between sessions. The controls in the main window (hints, zoom, sound, metronome, volume, tolerance) change the same settings.
 
 ## Build
 
@@ -35,11 +36,11 @@ ctest --test-dir build        # core checks + MCP smoke test
    - "These are tabs for <tune>: D E F# G ... Where should the cuts and rolls go?"
    - "Document a technique called 'bounce': ..." (adds it to the catalog and legend)
 
-Each song is for an instrument: tin whistle (the default, in any key), violin, piano, guitar, electric guitar or harmonica. Range checks, transposition hints, playback pitch and the mic follow the song's instrument; fingering charts are shown for the whistle only (untick "Instrument hints" in the sidebar to hide them). Pick it with the Instrument picker in the GUI, or tell the agent.
+Each song is for an instrument: tin whistle (the default unless another is picked in Settings, in any key), violin, piano, guitar, electric guitar or harmonica. Range checks, transposition hints, playback pitch and the mic follow the song's instrument; fingering charts are shown for the whistle only (untick "Instrument hints" in the sidebar to hide them). Pick it with the Instrument picker in the GUI, or tell the agent.
 
 Songs are grouped into folders (Lessons, Beginner, Intermediate, Advanced, or any name). The agent files new songs by difficulty, and you can move a song with the Folder picker in the GUI.
 
-Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`). Custom techniques are in `~/Documents/John/techniques.json`.
+Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`). Custom techniques are in `~/Documents/John/techniques.json`, settings in `~/Documents/John/settings.json`.
 
 ## Lessons
 

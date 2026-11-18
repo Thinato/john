@@ -481,6 +481,29 @@ int main() {
   for (auto& x : loadTechniques()) found |= x.id == "bounce";
   assert(found);
 
+  // settings: no file -> defaults; round trip; missing keys -> defaults; garbage -> all defaults
+  {
+    auto write = [&](const char* text) { std::ofstream(home / "settings.json") << text; };
+    assert(loadSettings() == Settings{});
+    Settings s;
+    s.hints = false; s.zoom = 12; s.light = true; s.tempo = 90; s.countIn = false; s.metronome = false;
+    s.volume = 0.3f; s.sound = "piano"; s.gate = 0.02f; s.latencyMs = 120; s.tolerance = 25; s.instrument = "violin";
+    saveSettings(s);
+    assert(loadSettings() == s);
+    write(R"({"tempo": 80, "future_setting": 1})");
+    Settings d;
+    d.tempo = 80;
+    assert(loadSettings() == d);
+    write("{not json");
+    assert(loadSettings() == Settings{});
+    write(R"({"hints": "yes"})");  // wrong type
+    assert(loadSettings() == Settings{});
+    write(R"({"sound": "banjo", "instrument": "kazoo", "zoom": 0, "volume": 9})");  // values the GUI can't use
+    Settings c = loadSettings();
+    assert(c.sound.empty() && c.instrument == "whistle" && c.zoom == 6 && c.volume == 1);
+    fs::remove(home / "settings.json");
+  }
+
   fs::remove_all(home);
   puts("core tests passed");
 }
