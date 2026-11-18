@@ -244,6 +244,10 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   std::vector<int> path(T);
   path[T - 1] = (int)(std::max_element(score.begin(), score.end()) - score.begin());
   for (int t = T - 1; t > 0; t--) path[t - 1] = back[(size_t)t * (M + 1) + path[t]];
+  PitchTrack track;  // returned for the viewer's pitch strip; times and salience rounded, they are only drawn
+  for (int t = 0; t < T; t++)
+    track.points.push_back({(float)(std::round((t * HOP + N / 2.0) / sr * 1000) / 1000), path[t] == M ? 0 : path[t] + LO,
+                            path[t] == M ? 0.f : (float)(std::round(S[(size_t)t * M + path[t]] / norm * 100) / 100)});
 
   if (const char* dbg = getenv("JOHN_TRANSCRIBE_DEBUG")) {  // per-frame pitch track for tuning the tracker
     if (FILE* f = fopen(dbg, "w")) {
@@ -405,6 +409,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
                                                               // (quarter notes per minute), 0 = none
     double tempoConf = 0, rival = 0, score = 0;
     std::vector<QNote> clean;
+    std::vector<std::pair<int, double>> sync;  // PitchTrack::sync: (song tick, seconds) of each beat
   };
   auto fitMeter = [&](const std::string& meter, const Tempo& tp) {
     Fit F;
@@ -468,6 +473,9 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       }
       clean.push_back(n);
     }
+    // the song starts at grid cell clean.front().q0; beat k is cell k * g, a cell is a sixteenth (12 ticks)
+    for (size_t k = 0; k < beats.size(); k++)
+      F.sync.push_back({((int)k * g - clean.front().q0) * 12, (beats[k] * HOP + N / 2.0) / sr});
 
     // ---- bars: downbeat phase where the most note time starts ----
     const int bar = F.bar = meterTicks(meter) / 12;  // grid cells per bar
@@ -649,7 +657,8 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
          noteName(spell(c, sHi + LO)) + "\n";
   }
   if (!weak.empty()) r += "unclear bars (check by ear): " + weak + "\n";
-  return {s, r};
+  track.sync = F.sync;
+  return {s, r, track};
 }
 
 std::string toAbc(const Song& s) {

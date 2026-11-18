@@ -343,11 +343,11 @@ static json readJson(const fs::path& p) {
   return json::parse(f, nullptr, false);  // discarded value on error
 }
 
-static void writeJson(const fs::path& p, const json& j) {
+static void writeJson(const fs::path& p, const json& j, int indent = 1) {
   // write-then-rename so the GUI never reads a half-written file
   fs::path tmp = p;
   tmp += ".tmp" + std::to_string(getpid());
-  { std::ofstream f(tmp); f << j.dump(1) << "\n"; }
+  { std::ofstream f(tmp); f << j.dump(indent) << "\n"; }
   fs::rename(tmp, p);
   persist();
 }
@@ -591,6 +591,88 @@ std::optional<Song> loadSong(const std::string& id) {
 }
 
 void saveSong(const Song& s) { writeJson(dataDir() / "songs" / (s.id + ".json"), toJson(s)); }
+
+std::string uniqueId(const std::string& title) {
+  std::string base = slug(title), id = base;
+  for (int n = 2; loadSong(id); n++) id = base + "-" + std::to_string(n);
+  return id;
+}
+
+// ---------------- audio import ----------------
+
+Transcription transcribeFile(std::string path, double start, double end, TranscribeOptions o) {
+  if (path.rfind("~/", 0) == 0 && getenv("HOME")) path = std::string(getenv("HOME")) + path.substr(1);
+  constexpr int SR = 22050;
+  std::vector<float> x = decodeAudio(path, SR);
+  size_t from = (size_t)std::clamp(start * SR, 0.0, (double)x.size());
+  size_t to = end > 0 ? (size_t)std::clamp(end * SR, (double)from, (double)x.size()) : x.size();
+  return transcribe(std::vector<float>(x.begin() + from, x.begin() + to), SR, o);
+}
+
+double trackTick(const PitchTrack& t, double sec) {
+  const auto& y = t.sync;
+  if (y.size() < 2) return -1;
+  size_t k = std::upper_bound(y.begin(), y.end(), sec, [](double v, auto& p) { return v < p.second; }) - y.begin();
+  k = std::clamp(k, (size_t)1, y.size() - 1);  // the first or last beat interval beyond the ends
+  auto [t0, s0] = y[k - 1];
+  auto [t1, s1] = y[k];
+  return t0 + (sec - s0) / (s1 - s0) * (t1 - t0);
+}
+
+Song importAudio(const std::string& path, double start, double end, const TranscribeOptions& opt) {
+  TranscribeOptions o = opt;
+  o.title = fs::path(path).stem().string();
+  Transcription t = transcribeFile(path, start, end, o);
+  Song& s = t.song;
+  s.id = uniqueId(s.title);
+  s.source = fs::path(path).filename().string();
+  s.folder = "";
+  s.notes = tr("Automatic transcription");
+  std::istringstream report(t.report);
+  for (std::string l; std::getline(report, l);)
+    if (l.rfind("tempo:", 0) == 0 || l.rfind("meter:", 0) == 0 || l.rfind("key:", 0) == 0) s.notes += "\n" + l;
+  // mean salience of each note (tied notes together) from the pitch track; below 0.35, as the report's unclear bars
+  std::vector<int> at(s.events.size() + 1, 0), head(s.events.size(), -1);
+  for (size_t i = 0, h = 0; i < s.events.size(); i++) {
+    const Event& e = s.events[i];
+    at[i + 1] = at[i] + (e.kind == Kind::Bar ? 0 : e.len);
+    if (e.kind != Kind::Note) continue;
+    bool cont = h < i && s.events[h].tie && head[h] >= 0;  // h: the previous note
+    head[i] = cont ? head[h] : (int)i;
+    h = i;
+  }
+  std::vector<double> sum(s.events.size(), 0), n(s.events.size(), 0);
+  size_t i = 0;
+  for (auto& p : t.track.points) {
+    double tick = trackTick(t.track, p.time);
+    while (i < s.events.size() && at[i + 1] <= tick) i++;
+    if (i == s.events.size()) break;
+    if (tick >= 0 && head[i] >= 0) sum[head[i]] += p.conf, n[head[i]]++;
+  }
+  for (size_t k = 0; k < s.events.size(); k++)
+    if (n[k] > 0 && sum[k] / n[k] < 0.35) s.events[k].comment = tr("unclear in the recording, check by ear");
+  json pts = json::array(), sync = json::array();
+  for (auto& p : t.track.points) pts.push_back({p.time, p.midi, p.conf});
+  for (auto& [tick, sec] : t.track.sync) sync.push_back({tick, sec});
+  fs::create_directories(dataDir() / "tracks");
+  writeJson(dataDir() / "tracks" / (s.id + ".json"), {{"sync", sync}, {"points", pts}}, -1);  // before the song: the GUI may open it at once
+  saveSong(s);
+  return s;
+}
+
+std::optional<PitchTrack> loadTrack(const std::string& id) {
+  if (id.empty() || id.find('/') != std::string::npos || id.find("..") != std::string::npos) return std::nullopt;
+  json j = readJson(dataDir() / "tracks" / (id + ".json"));
+  if (!j.is_object()) return std::nullopt;
+  try {
+    PitchTrack t;
+    for (auto& p : j.at("points")) t.points.push_back({p.at(0).get<float>(), p.at(1).get<int>(), p.at(2).get<float>()});
+    for (auto& y : j.at("sync")) t.sync.push_back({y.at(0).get<int>(), y.at(1).get<double>()});
+    return t;
+  } catch (const json::exception&) {
+    return std::nullopt;
+  }
+}
 
 fs::path bundled(const fs::path& rel, const fs::path& built) {
   std::error_code ec;
