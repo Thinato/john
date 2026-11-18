@@ -1,5 +1,5 @@
 # Builds the web version (emscripten, same setup as the `web` job in ci.yml) and publishes it to GitHub Pages:
-# https://thinato.github.io/john/ . One-time setup: Settings -> Pages -> Source: GitHub Actions.
+# https://lisecki.dev/john/ . Pages source: GitHub Actions; the domain comes from the user site (Thinato/thinato.github.io, CNAME lisecki.dev).
 name: Pages
 
 on:

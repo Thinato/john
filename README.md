@@ -17,7 +17,7 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
 
 ## Get it
 
-- **Try it in the browser:** <https://thinato.github.io/john/>. The viewer with the lessons, playback and mic; songs are kept in the browser. No AI agent and no audio transcription.
+- **Try it in the browser:** <https://lisecki.dev/john/>. The viewer with the lessons, playback and mic; songs are kept in the browser. No AI agent and no audio transcription.
 - **Desktop app** (adds the AI agent / MCP server, audio transcription and songs on disk): download from [Releases](https://github.com/Thinato/john/releases).
   - **macOS** (11 or later, Apple silicon or Intel): download `john-macos.zip` and unzip it. The app isn't signed, so in Terminal run `xattr -dr com.apple.quarantine john-macos` once, then `cd john-macos && ./john`.
   - **Linux** (x86-64, X11 or XWayland): `tar xzf john-linux.tar.gz && cd john-linux && ./john`.
