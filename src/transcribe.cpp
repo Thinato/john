@@ -354,7 +354,8 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   // Tag the main notes. A cut then a tap within 0.4 s inside one note (main, cut, main, tap, main) = roll: in a long
   // roll they are an eighth apart; further apart they re-articulate repeated notes. Another grace near a note's start
   // marks that note; one further in re-articulates the pitch (a cut between repeated notes): split there, the grace's
-  // time goes to the second note.
+  // time goes to the second note. A roll in a note already marked (a cut on a repeated note, then a roll on the same
+  // pitch, not re-articulated) starts as long before its cut as the cut is before its tap: split there.
   // ponytail: fixed 0.4 s (an eighth down to 75 bpm), the tempo isn't known yet; use the beat if slow rolls get split
   {
     std::vector<RawNote> tagged;
@@ -365,11 +366,18 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       for (size_t k = 0; k < in.size(); k++) {
         const Grace& g = in[k];
         if (g.a - cur.a < minF) { if (cur.orn.empty()) cur.orn = g.d > 0 ? "cut" : "tap"; continue; }
-        if (g.d > 0 && k + 1 < in.size() && in[k + 1].d < 0 && (in[k + 1].a - g.a) * hopSec <= 0.4 && cur.orn.empty()) {
+        if (g.d > 0 && k + 1 < in.size() && in[k + 1].d < 0 && (in[k + 1].a - g.a) * hopSec <= 0.4) {
+          if (int at = g.a - (in[k + 1].a - g.a); !cur.orn.empty() && at - cur.a >= minF) {
+            RawNote head = cur;
+            head.b = at;
+            tagged.push_back(head);
+            cur.a = at;
+          }
           cur.orn = "roll";
           k++;
           continue;
         }
+        if (cur.b - g.a < minF) continue;  // at the very end of a piece: no tiny note split off
         RawNote head = cur;
         head.b = g.a;
         tagged.push_back(head);

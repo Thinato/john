@@ -605,6 +605,16 @@ int main() {
         assert(notes(tr.song) == notes(orn));
         assert(tr.report.find("\nornaments (candidates, check by ear): " + std::string(where) + "; marked in the ABC\n") != std::string::npos);
         assert(notes(importAbc(toAbc(tr.song)).song) == notes(orn));  // the draft ABC carries them to import_abc
+        // a roll right after a cut on the same pitch, not re-articulated: split where the roll starts
+        Song cutRoll = importAbc("X:1\nT:c\nM:4/4\nL:1/8\nK:D\nd2 !cut!d2 ~d3 B|A2 !cut!A2 ~A3 F|]\n").song;
+        Performance pc = perform(cutRoll, bpm, 0, false);
+        std::vector<float> y((size_t)((pc.length + 1) * sr), 0.f);
+        Synth sc;
+        sc.sampleRate = sr;
+        sc.metronome = false;
+        at = 0;
+        sc.render(pc, at, y.data(), (int)y.size());
+        assert(notes(transcribe(y, sr, o).song) == notes(cutRoll));
         if (bpm != 100) continue;
         o.instrument = "violin";
         tr = transcribe(x, sr, o);
