@@ -1,6 +1,6 @@
 # John — dev notes
 
-- **Knowledge base: search it before digging, add to it when you learn something.** `python3 kb/kb.py query "<question>"` searches the notes in `kb/notes/` and the code (needs `VOYAGE_API_KEY`; without it, grep `kb/notes/`). When you learn something non-obvious about the codebase (a user correction, a gotcha, a pitfall, a confirmed approach), write or update a note in `kb/notes/` in the same PR; format and rules in `kb/README.md`, checked by `python3 kb/kb.py check`.
+- **Knowledge base first: before any work, read it; add to it when you learn something.** Start every task with `ls kb/notes/` and `python3 kb/kb.py query "<the task>"` (plus a query per area you will touch), and keep using it while you work. It searches the notes in `kb/notes/` and the code (needs `VOYAGE_API_KEY`; without it, grep `kb/notes/`). When you learn something non-obvious about the codebase (a user correction, a gotcha, a pitfall, a confirmed approach), write or update a note in `kb/notes/` in the same PR; format and rules in `kb/README.md`, checked by `python3 kb/kb.py check`.
 - Workflow: issues in GitHub, one branch + PR per issue, `main` is PR-only with required CI. Follow CONTRIBUTING.md (branch names, definition of done, labels).
 
 - Build: `cmake --build build`; test: `ctest --test-dir build --output-on-failure` (tests/test_core.cpp asserts, tests/mcp_smoke.sh drives the server).

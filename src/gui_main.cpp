@@ -61,6 +61,7 @@ struct App {
   int sel = -1;
   float sp = 9.0f;  // staff space in px (zoom)
   bool follow = true;
+  bool hints = true;  // instrument hints (fingering charts and fingerings); not saved yet, see #18
   char comment[2048] = "";
   double lastPoll = -10;
 
@@ -213,7 +214,7 @@ static void drawScore(App& a, Song& s) {
   const float headW = sp * 1.18f, accW = sp * 1.3f;
   const float margin = sp * 2;
   const Instrument inst = instrumentOf(s);
-  const bool whistle = inst.id == "whistle";  // fingering charts are whistle-only
+  const bool whistle = inst.id == "whistle" && a.hints;  // fingering charts are whistle-only, and can be hidden
   const float sysH = sp * (whistle ? 26 : 19);
   auto slotW = [&](const Event& e, int i) -> float {
     if (e.kind == Kind::Bar) return sp * (e.bar == "|" ? 1.4f : 2.4f);
@@ -718,7 +719,7 @@ static void transportBar(App& a) {
       int m = (int)std::lround(a.heard);
       float c = (a.heard - m) * 100;
       ImVec4 col = std::abs(c) <= a.tolerance ? ImVec4(0.3f, 0.9f, 0.4f, 1) : ImVec4(1, 0.7f, 0.2f, 1);
-      bool whistle = instrumentOf(*a.song).id == "whistle";
+      bool whistle = instrumentOf(*a.song).id == "whistle" && a.hints;
       ImGui::TextColored(col, "hearing %s %+.0fc  %s", noteName(spell(a.song->key, m)).c_str(), c,
                          whistle ? fingeringText(finger(a.song->whistle, m)).c_str() : "");
       if (a.cursor >= 0 && a.cursor < (int)a.song->events.size()) {
@@ -743,33 +744,39 @@ static void detailsPanel(App& a) {
   ImGui::TextWrapped("%s", s.title.c_str());
   ImGui::PopFont();
   const Instrument inst = instrumentOf(s);
-  const bool whistle = inst.id == "whistle";
+  const bool whistle = inst.id == "whistle" && a.hints;
   ImGui::TextDisabled("%s  |  %s  |  %s%s", keyName(s.key).c_str(), s.meter.c_str(), inst.name.c_str(),
                       s.tempo ? ("  |  " + std::to_string(s.tempo) + " bpm").c_str() : "");
   if (!s.source.empty()) ImGui::TextWrapped("Source: %s", s.source.c_str());
   std::vector<std::string> choices = FOLDERS;
   if (!s.folder.empty() && std::find(choices.begin(), choices.end(), s.folder) == choices.end()) choices.push_back(s.folder);
   choices.push_back("");
+  bool edited = false;  // editSong may reload the song or empty a.song: don't use `s` after an edit this frame
   ImGui::SetNextItemWidth(200);
   if (ImGui::BeginCombo("Folder", s.folder.empty() ? "Unsorted" : s.folder.c_str())) {
     for (auto& f : choices)
       if (ImGui::Selectable(f.empty() ? "Unsorted" : f.c_str(), f == s.folder)) {
-        std::string pick = f;  // editSong may reload the song, invalidating references into it
+        std::string pick = f;
         editSong(a, [&](Song& x) { x.folder = pick; });
+        edited = true;
+        break;
       }
     ImGui::EndCombo();
   }
+  if (edited) return;  // redraw from the fresh song next frame
   ImGui::SetNextItemWidth(200);
   if (ImGui::BeginCombo("Instrument", inst.name.c_str())) {
     for (auto& id : INSTRUMENTS) {
       std::string pick = id;
       if (ImGui::Selectable(findInstrument(id, s.whistle).value_or(*findInstrument(id)).name.c_str(), id == inst.id)) {
         editSong(a, [&](Song& x) { x.instrument = pick; });
-        break;  // the song may have been reloaded
+        edited = true;
+        break;
       }
     }
     ImGui::EndCombo();
   }
+  if (edited) return;
   if (!s.notes.empty()) { ImGui::Separator(); ImGui::TextWrapped("%s", s.notes.c_str()); }
   ImGui::Separator();
 
@@ -870,6 +877,15 @@ int main() {
     ImGui::Separator();
     ImGui::Checkbox("Follow agent", &a.follow);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Switch to a song as soon as the agent changes it");
+    const bool noHints = a.song && instrumentOf(*a.song).id != "whistle";  // only the whistle has hints so far
+    ImGui::BeginDisabled(noHints);
+    bool shown = a.hints && !noHints;  // unticked while disabled; a.hints keeps the choice for whistle songs
+    if (ImGui::Checkbox("Instrument hints", &shown) && !noHints) a.hints = shown;
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+      if (noHints) ImGui::SetTooltip("No hints for the %s yet", instrumentOf(*a.song).name.c_str());
+      else ImGui::SetTooltip("Show fingering charts and fingerings for the notes");
+    }
     ImGui::SliderFloat("Zoom", &a.sp, 6, 16, "%.0f");
     ImGui::TextDisabled("Data folder:");
     ImGui::TextWrapped("%s", dataDir().c_str());

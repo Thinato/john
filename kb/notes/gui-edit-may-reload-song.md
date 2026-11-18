@@ -15,4 +15,4 @@ GUI code in `src/gui_main.cpp` that changes the current song from inside a loop 
 `App::song` is a `std::optional<Song>`; a reload replaces its contents, and a deleted file empties it, so `Song&`, `Event&` and iterators taken earlier can point at changed or destroyed data.
 
 ## How to apply
-Pattern: `std::string pick = f;` before `editSong(a, [&](Song& x) { ... pick ... });`, then `break;`. The Instrument combo and the technique checkboxes do this. `detailsPanel` still has two gaps (the Folder combo doesn't break, and `Song& s` is used after the combos), tracked in #30.
+Pattern: `std::string pick = f;` before `editSong(a, [&](Song& x) { ... pick ... });`, then `break;`. In `detailsPanel`, the Folder and Instrument combos set `edited` and the panel returns right after the combo (it redraws from the fresh song next frame), because `Song& s` is used further down; the technique checkboxes break and nothing after them reads `s`. New edits there must do the same: break, then return before touching `s` again.

@@ -35,7 +35,7 @@ ctest --test-dir build        # core checks + MCP smoke test
    - "These are tabs for <tune>: D E F# G ... Where should the cuts and rolls go?"
    - "Document a technique called 'bounce': ..." (adds it to the catalog and legend)
 
-Each song is for an instrument: tin whistle (the default, in any key), violin, piano, guitar, electric guitar or harmonica. Range checks, transposition hints, playback pitch and the mic follow the song's instrument; fingering charts are shown for the whistle only. Pick it with the Instrument picker in the GUI, or tell the agent.
+Each song is for an instrument: tin whistle (the default, in any key), violin, piano, guitar, electric guitar or harmonica. Range checks, transposition hints, playback pitch and the mic follow the song's instrument; fingering charts are shown for the whistle only (untick "Instrument hints" in the sidebar to hide them). Pick it with the Instrument picker in the GUI, or tell the agent.
 
 Songs are grouped into folders (Lessons, Beginner, Intermediate, Advanced, or any name). The agent files new songs by difficulty, and you can move a song with the Folder picker in the GUI.
 
