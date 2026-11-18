@@ -14,6 +14,16 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
     - Right-click *Reset marks* to set the mic noise gate and latency (also in Settings).
   - **Settings** (button in the sidebar): instrument hints, zoom, light or dark theme, the tempo for songs without one, count-in, metronome, volume, playback sound, mic tolerance, noise gate and latency, and the instrument new songs get when the agent doesn't name one. Changes apply at once and are kept between sessions. The controls in the main window (hints, zoom, sound, metronome, volume, tolerance) change the same settings.
 
+## Get it
+
+- **Try it in the browser:** <https://thinato.github.io/john/>. The viewer with the lessons, playback and mic; songs are kept in the browser. No AI agent and no audio transcription.
+- **Desktop app** (adds the AI agent / MCP server, audio transcription and songs on disk): download from [Releases](https://github.com/Thinato/john/releases).
+  - **macOS** (11 or later, Apple silicon or Intel): download `john-macos.zip` and unzip it. The app isn't signed, so in Terminal run `xattr -dr com.apple.quarantine john-macos` once, then `cd john-macos && ./john`.
+  - **Linux** (x86-64, X11 or XWayland): `tar xzf john-linux.tar.gz && cd john-linux && ./john`.
+  - **Windows**: not yet ([#50](https://github.com/Thinato/john/issues/50)).
+
+  Keep `lessons/` and `fonts/` next to `john` and `john-mcp`. To connect the agent, run `claude mcp add --scope user john -- "$PWD/john-mcp"` in that folder (see [Use](#use)).
+
 ## Build
 
 Needs CMake ≥ 3.24 and a C++20 compiler. GLFW, Dear ImGui, nlohmann/json, miniaudio, the Bravura music font and the Noto Sans text font (both SIL Open Font License) are downloaded at configure time.

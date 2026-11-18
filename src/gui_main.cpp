@@ -904,9 +904,11 @@ int main() {
   io.IniFilename = nullptr;
   ImGui::StyleColorsDark();
   ImGui::GetStyle().FontSizeBase = 16.0f;
-  if (fs::exists(JOHN_TEXT_FONT)) gText = io.Fonts->AddFontFromFileTTF(JOHN_TEXT_FONT, 16.0f);
+  std::string textFont = bundled("fonts/NotoSans-Regular.ttf", JOHN_TEXT_FONT).string();  // release package, else build dir
+  std::string musicFont = bundled("fonts/Bravura.otf", JOHN_FONT).string();
+  if (fs::exists(textFont)) gText = io.Fonts->AddFontFromFileTTF(textFont.c_str(), 16.0f);
   if (!gText) gText = io.Fonts->AddFontDefault();
-  if (fs::exists(JOHN_FONT)) gMusic = io.Fonts->AddFontFromFileTTF(JOHN_FONT, 36.0f);
+  if (fs::exists(musicFont)) gMusic = io.Fonts->AddFontFromFileTTF(musicFont.c_str(), 36.0f);
   ImGui_ImplGlfw_InitForOpenGL(win, true);
 #ifdef __EMSCRIPTEN__
   ImGui_ImplOpenGL3_Init(nullptr);

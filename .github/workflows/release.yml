@@ -1,0 +1,78 @@
+# Builds the desktop apps and attaches them to a GitHub Release when a v* tag is pushed (git tag v1.0 && git push
+# origin v1.0). A manual run builds and uploads the packages as workflow artifacts only, without a release.
+# Each package holds john, john-mcp, lessons/ and fonts/; the apps look for lessons/ and fonts/ next to themselves
+# first (bundled() in src/song.cpp), so the folder works from anywhere.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.platform }})
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos  # universal binary (Apple silicon + Intel), macOS 11 or later
+            cmake: -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          - os: ubuntu-latest
+            platform: linux
+            cmake: -DGLFW_BUILD_WAYLAND=OFF
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install GLFW build dependencies (X11, OpenGL)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: |
+          d=john-${{ matrix.platform }}
+          mkdir -p $d/fonts
+          cp build/john build/john-mcp $d/
+          cp -R lessons $d/
+          cp build/Bravura.otf build/NotoSans-Regular.ttf $d/fonts/
+          curl -fsSL -o $d/fonts/Bravura-LICENSE.txt https://raw.githubusercontent.com/steinbergmedia/bravura/master/LICENSE.txt
+          curl -fsSL -o $d/fonts/NotoSans-LICENSE.txt https://raw.githubusercontent.com/notofonts/latin-greek-cyrillic/main/OFL.txt
+          if [ "$RUNNER_OS" = macOS ]; then zip -qry $d.zip $d; else tar czf $d.tar.gz $d; fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: john-${{ matrix.platform }}
+          path: john-${{ matrix.platform }}.*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" john-macos.zip john-linux.tar.gz --repo "$GITHUB_REPOSITORY" --title "John $GITHUB_REF_NAME" --generate-notes

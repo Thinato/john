@@ -11,6 +11,9 @@
 #include <sstream>
 #include <stdexcept>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -480,9 +483,22 @@ std::optional<Song> loadSong(const std::string& id) {
 
 void saveSong(const Song& s) { writeJson(dataDir() / "songs" / (s.id + ".json"), toJson(s)); }
 
+fs::path bundled(const fs::path& rel, const fs::path& built) {
+  std::error_code ec;
+  fs::path dir;  // the running executable's folder
+#if defined(__APPLE__)
+  char buf[4096];
+  uint32_t n = sizeof buf;
+  if (_NSGetExecutablePath(buf, &n) == 0) dir = fs::canonical(buf, ec).parent_path();
+#elif defined(__linux__)
+  dir = fs::canonical("/proc/self/exe", ec).parent_path();
+#endif
+  return !dir.empty() && fs::exists(dir / rel, ec) ? dir / rel : built;
+}
+
 fs::path lessonsDir() {
 #ifdef JOHN_LESSONS
-  return JOHN_LESSONS;
+  return bundled("lessons", JOHN_LESSONS);
 #else
   return {};
 #endif
