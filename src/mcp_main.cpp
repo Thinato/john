@@ -24,6 +24,7 @@ Getting a tune into John (always via ABC -> import_abc, with instrument = what t
   * Dense mix (a singer or lead over a full band, and the draft follows the accompaniment): re-run with separate = "vocals" for a sung melody, or "other" for a whistle, flute, fiddle or piano lead. That runs Demucs (an optional tool the user installs: pip install demucs, or JOHN_DEMUCS = its path) on the section first and transcribes only that stem. It is slow (a CPU can take longer than the section itself), so always pass start/end: only short sections of copyrighted recordings, for personal practice. The report's "separation" line says whether the stem or, when Demucs is missing or fails, the full mix was transcribed.
   * Meter: without a meter, the draft tries 4/4, 3/4, 6/8 and 9/8 and keeps the best fit; the report's meter line lists each score. Check it: do the repeating motifs line up with the bar lines, with long or accented notes on beat 1? If the scores are close (on real recordings they often are) or the meter doesn't suit the tune type (jig 6/8, slip jig 9/8, waltz 3/4, reel 4/4), re-run with meter and compare which version makes the phrases fit the bars. 2/4 and 12/8 aren't tried: expect 4/4 and 6/8.
   * Tempo: read the report's tempo line. Confidence low means the detected tempo may well be wrong: re-run with the 'also plausible' bpm (often half, double or 3:2; not always right either) or the song's usual tempo, and keep the version whose note lengths read naturally. If nearly every note is a sixteenth, the real tempo is probably double the detected one; if it is all half and whole notes, it's probably half. Re-run with bpm. If you know the song, use its usual tempo and feel.
+  * Rubato: slow airs, film music and free playing speed up and slow down, so no steady tempo fits and note lengths come out wrong (the tempo line then usually says confidence low). Re-run with rubato: true: the beats follow the recording's local tempo and the tempo line gives the range (the song's tempo is the median). For a piece in a few steady sections at different tempos, transcribe each with start/end and its own bpm instead.
   * Rhythm: a "triplets" line counts the beats written as (3; check them by ear. A "swung eighths" line means long-short pairs are written as straight eighths: keep them straight and say "swing" in the notes. Swung tunes and tunes with many triplets often come out 6/8 without a meter: re-run with meter (e.g. 4/4) if the tune type is simple time.
   * Pickup and key: does the tune start on a pickup? Do the accidentals point to another key or mode (e.g. a steady C natural in D major = D mixolydian, minor vs dorian)? Fix K: in the ABC.
   * Range: if no octave keeps the notes in the instrument's range, the draft is transposed to the key that fits best (for the whistle also with the fewest half-holes) and the report's 'transposed' line says from which key. If the user wants the recording's key, re-run with transpose = 0 (notes out of range are then folded by an octave); transpose = N forces another shift.
@@ -104,7 +105,7 @@ static json toolList() {
            "sixteenth-note grid (eighth triplets where they fit, swing detected and written straight), key detection, octave fitted to the instrument's range (transposed to another key if no octave fits; see transpose). Works best on solo instruments/voice; on full mixes it "
            "follows the strongest pitched line. Returns a report and a draft ABC in the detected meter (4/4, 3/4, 6/8 or 9/8, scores in the report). "
            "Don't import it blindly: check the meter (do motifs fit the bars?), tempo (the report's tempo confidence; doubled/halved note lengths?), pickup, key/mode "
-           "and repeats, re-run with meter/bpm/start/end as needed, tidy the ABC, then import_abc, write song notes about what's "
+           "and repeats, re-run with meter/bpm/start/end (or rubato for a drifting tempo) as needed, tidy the ABC, then import_abc, write song notes about what's "
            "uncertain, and ask the user to compare it by ear (see the server instructions).",
            {{"path", {{"type", "string"}, {"description", "absolute path (or ~/...) to the audio file"}}},
             {"bpm", {{"type", "number"}, {"description", "quarter notes per minute; default: detect"}}},
@@ -125,7 +126,10 @@ static json toolList() {
                                           "fiddle, piano lead) and transcribe it. Needs Demucs installed (pip install demucs, or "
                                           "JOHN_DEMUCS); slow, so pass start/end, and only short sections of copyrighted recordings, "
                                           "for personal practice. Without Demucs the full mix is transcribed and the report says why. "
-                                          "Default: no separation"}}}},
+                                          "Default: no separation"}}},
+            {"rubato", {{"type", "boolean"},
+                        {"description", "the tempo drifts (slow airs, film music, free playing): beats follow the recording's "
+                                        "local tempo instead of a steady one; the report gives the tempo range. Default: false"}}}},
            {"path"}),
       tool("list_techniques", "List the technique catalog: id, GUI symbol, name, how to play it on the whistle.", json::object()),
       tool("define_technique", "Add or replace a technique in the catalog (for techniques the user wants documented).",
@@ -265,6 +269,8 @@ static std::string callTool(const std::string& name, const json& a) {
     o.separate = a.value("separate", "");
     if (!o.separate.empty() && o.separate != "vocals" && o.separate != "other")
       throw std::runtime_error("separate must be \"vocals\" or \"other\"");
+    if (a.contains("rubato") && !a["rubato"].is_boolean()) throw std::runtime_error("rubato must be true or false");
+    o.rubato = a.value("rubato", false);
     Transcription t = transcribeFile(path, a.value("start", 0.0), a.value("end", 0.0), o);
     return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name and instrument = " + o.instrument +
            "):\n" + toAbc(t.song);

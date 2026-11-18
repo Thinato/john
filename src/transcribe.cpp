@@ -84,6 +84,11 @@ struct QNote { int q0, q1, m; double conf; bool ring = false; std::string orn; }
 // second note at a median SWING_LO..SWING_HI of the beat, and under a quarter of them are even.
 constexpr double TRIPLET = 0.04, SWING_LO = 0.57, SWING_HI = 0.72;
 constexpr size_t SWING_PAIRS = 8;
+// Rubato (#11): the local beat period comes from the onset autocorrelation in windows of RUBATO_WIN seconds every
+// RUBATO_STEP, weighted towards the song's period (a log-normal prior RUBATO_SPREAD octaves wide), smoothed by a
+// Viterbi path that charges RUBATO_JUMP per squared octave of change between windows. The beat DP penalises steps off
+// that period with RUBATO_TIGHT instead of 100.
+constexpr double RUBATO_WIN = 4, RUBATO_STEP = 0.5, RUBATO_SPREAD = 1, RUBATO_JUMP = 50, RUBATO_TIGHT = 30;
 
 const int PC_FIFTHS[12] = {0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5};
 
@@ -506,12 +511,66 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       }
     return tp;
   };
+  // Rubato: onset autocorrelation per window (lag lo..hi frames, normalized by the number of products), computed once
+  const int rLo = (int)(60.0 / 220 / hopSec), rHi = (int)(60.0 / 40 / hopSec), rWin = (int)(RUBATO_WIN / hopSec),
+            rStep = std::max(1, (int)(RUBATO_STEP / hopSec));
+  std::vector<std::vector<double>> winR;  // window k is centred on frame k * rStep
+  if (o.rubato)
+    for (int c = 0; c < T; c += rStep) {
+      int a = std::max(0, c - rWin / 2), b = std::min(T, c + rWin / 2);
+      std::vector<double> r(rHi + 2, 0);
+      for (int L = rLo; L <= rHi + 1 && L < b - a; L++) {
+        for (int t = a; t + L < b; t++) r[L] += env[t] * env[t + L];
+        r[L] /= b - a - L;
+      }
+      winR.push_back(std::move(r));
+    }
+  // the beat period (frames) at each frame, around `period`
+  auto localPeriod = [&](double period) {
+    // the smoothest strong path through the windows' lags (Viterbi): each window scores a lag by its autocorrelation
+    // relative to the window's peak, weighted towards the song's period; a step between windows costs RUBATO_JUMP per
+    // squared octave, so a passage of eighths doesn't pull the beat to double tempo
+    const int K = (int)winR.size(), nL = rHi - rLo;  // lags rLo + 1 .. rHi
+    std::vector<double> acc(nL), next(nL);
+    std::vector<std::vector<int>> from(K, std::vector<int>(nL, 0));
+    for (int k = 0; k < K; k++) {
+      const auto& r = winR[k];
+      double mx = 1e-12;
+      for (int L = rLo + 1; L <= rHi; L++) mx = std::max(mx, r[L]);
+      for (int j = 0; j < nL; j++) {
+        const int L = rLo + 1 + j;
+        double obs = std::max(0.0, r[L]) / mx * std::exp(-0.5 * std::pow(std::log2(L / period) / RUBATO_SPREAD, 2)), best = 0;
+        if (k)
+          for (int i = 0; i < nL; i++)
+            if (double c = acc[i] - RUBATO_JUMP * std::pow(std::log2((double)L / (rLo + 1 + i)), 2); i == 0 || c > best) best = c, from[k][j] = i;
+        next[j] = obs + best;
+      }
+      std::swap(acc, next);
+    }
+    std::vector<double> sm(K);  // log period per window
+    int j = (int)(std::max_element(acc.begin(), acc.end()) - acc.begin());
+    for (int k = K - 1; k >= 0; k--) {
+      const auto& r = winR[k];
+      const int L = rLo + 1 + j;
+      double a = r[L - 1], b = r[L], c = r[L + 1];
+      sm[k] = std::log(L + (a - 2 * b + c < 0 ? std::clamp(0.5 * (a - c) / (a - 2 * b + c), -0.5, 0.5) : 0));
+      j = from[k][j];
+    }
+    std::vector<double> P(T);
+    for (int t = 0; t < T; t++) {
+      size_t k = std::min(sm.size() - 1, (size_t)(t / rStep));
+      double f = (double)(t - (int)k * rStep) / rStep, l = k + 1 < sm.size() ? sm[k] + f * (sm[k + 1] - sm[k]) : sm[k];
+      P[t] = std::exp(l);
+    }
+    return P;
+  };
   // Beats, grid and bars for one meter on a beat period. The meter sets the beat level: a quarter in 4/4 and 3/4,
   // a dotted quarter in 6/8 and 9/8 (6 sixteenths a beat).
   struct Fit {
     std::string meter;
     int bpm = 0, rivalBpm = 0, bar = 0, beat = 0, phase = 0;  // bar, beat: grid cells; rivalBpm: runner-up tempo
                                                               // (quarter notes per minute), 0 = none
+    int bpmLo = 0, bpmHi = 0;                                 // rubato: the tempo range
     double tempoConf = 0, rival = 0, score = 0;
     double swing = 0;    // swung eighths: where the second one starts in the beat (0.67 = 2:1), 0 = straight
     std::set<int> trip;  // beats written as eighth triplets (beat k is cells k * beat .. (k + 1) * beat)
@@ -535,20 +594,21 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     {
       std::vector<double> sc(T);
       std::vector<int> prev(T, -1);
-      const double TIGHT = 100;
+      const double TIGHT = o.rubato ? RUBATO_TIGHT : 100;
+      const std::vector<double> P = o.rubato ? localPeriod(period) : std::vector<double>(T, period);
       for (int t = 0; t < T; t++) {
         sc[t] = env[t];
         double best = -1e30;
-        for (int tau = t - (int)std::round(2 * period); tau <= t - (int)std::round(period / 2); tau++) {
+        for (int tau = t - (int)std::round(2 * P[t]); tau <= t - (int)std::round(P[t] / 2); tau++) {
           if (tau < 0) continue;
-          double l = std::log((t - tau) / period);
+          double l = std::log((t - tau) / P[t]);
           double c = sc[tau] - TIGHT * l * l;
           if (c > best) { best = c; prev[t] = tau; }
         }
         if (prev[t] >= 0) sc[t] += best;
       }
       int t = T - 1;
-      for (int u = std::max(0, T - (int)period); u < T; u++) if (sc[u] > sc[t]) t = u;
+      for (int u = std::max(0, T - (int)P[T - 1]); u < T; u++) if (sc[u] > sc[t]) t = u;
       for (; t >= 0; t = prev[t]) beats.push_back(t);
       std::reverse(beats.begin(), beats.end());
     }
@@ -561,6 +621,14 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     };
     double beatFrames = (beats.back() - beats.front()) / (beats.size() - 1);
     F.bpm = (int)std::lround(60.0 / (beatFrames * hopSec) * quarterPerBeat);
+    if (o.rubato) {  // the median beat, and the 10th..90th percentile of the beats as the range
+      std::vector<double> b;
+      for (size_t k = 1; k < beats.size(); k++) b.push_back(60.0 / ((beats[k] - beats[k - 1]) * hopSec) * quarterPerBeat);
+      std::sort(b.begin(), b.end());
+      F.bpm = (int)std::lround(b[b.size() / 2]);
+      F.bpmLo = (int)std::lround(b[b.size() / 10]);
+      F.bpmHi = (int)std::lround(b[b.size() * 9 / 10]);
+    }
 
     // Pitch onsets lag the beats (onset flux) by a steady amount: measure it on the notes near a beat
     std::vector<double> lag;
@@ -841,10 +909,14 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   for (auto& [b, v] : perBar) if (v.first / v.second < 0.35) weak += (weak.empty() ? "" : ", ") + std::to_string(b);
   char line[256];
   std::string r;
-  snprintf(line, sizeof line, "tempo: %d bpm (quarter notes)", bpm);
+  if (o.rubato)
+    snprintf(line, sizeof line, "tempo: %d bpm (quarter notes, the median); follows the recording: %d-%d bpm (rubato)%s", bpm,
+             F.bpmLo, F.bpmHi, o.bpm > 0 ? ", around the given bpm" : "");
+  else
+    snprintf(line, sizeof line, "tempo: %d bpm (quarter notes)", bpm);
   r += line;
-  if (o.bpm > 0) r += ", as given";
-  else {
+  if (!o.rubato && o.bpm > 0) r += ", as given";
+  else if (!o.rubato) {
     // a steady beat gives one clear autocorrelation peak; a near-equal rival (half, double, 3:2) or a weak peak
     // (irregular onsets, rubato) means the detected tempo may be wrong
     bool low = rival >= 0.85 || tempoConf < 0.3, high = rival < 0.6 && !low;
@@ -853,6 +925,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       snprintf(line, sizeof line, "; also plausible: ~%d bpm%s", rivalBpm, low ? ", re-run with bpm if the note lengths look wrong" : "");
       r += line;
     }
+    if (low) r += "; if the tempo drifts (slow air, film music, free playing), re-run with rubato: true";
   }
   r += "\nmeter: " + F.meter;
   if (!o.meter.empty()) r += ", as given";
