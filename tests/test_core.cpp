@@ -526,10 +526,18 @@ int main() {
     Song l = s;
     l.id = "lesson-test";
     { std::ofstream f(src / "lesson-test.json"); f << toJson(l).dump(); }
-    assert(installLessons(src) == 1 && loadSong("lesson-test"));
-    assert(installLessons(src) == 0);
+    assert(installSongs(src) == 1 && loadSong("lesson-test"));
+    assert(installSongs(src) == 0);
     fs::remove(dataDir() / "songs" / "lesson-test.json");
-    assert(installLessons(src) == 0 && !loadSong("lesson-test"));
+    assert(installSongs(src) == 0 && !loadSong("lesson-test"));
+    // each bundled folder has its own marker: a "demo" folder installs even though lesson-src was done
+    fs::path demo = home / "demo";
+    fs::create_directories(demo);
+    l.id = "demo-test";
+    { std::ofstream f(demo / "demo-test.json"); f << toJson(l).dump(); }
+    assert(installSongs(demo) == 1 && loadSong("demo-test") && fs::exists(dataDir() / "demo-installed.txt"));
+    fs::remove(dataDir() / "songs" / "demo-test.json");
+    assert(installSongs(demo) == 0 && !loadSong("demo-test"));
     int bundled = 0;
     for (auto& e : fs::directory_iterator(lessonsDir())) {
       std::ifstream f(e.path());
@@ -542,6 +550,18 @@ int main() {
     // release packages keep lessons/ and fonts/ next to the executable; dev builds use the build-time paths
     assert(john::bundled("john-tests", "/built") != "/built");  // this test binary sits next to itself
     assert(john::bundled("no-such-file", "/built") == "/built");
+    assert(lessonsDir().filename() == "lessons");  // installSongs keeps using lessons-installed.txt
+    // demo/ (web starter songs): every song loads, has notes, a source and a folder, and fits its instrument
+    int demos = 0;
+    for (auto& e : fs::directory_iterator(lessonsDir().parent_path() / "demo")) {
+      std::ifstream f(e.path());
+      Song b = fromJson(json::parse(f));
+      assert(!b.events.empty() && !b.notes.empty() && !b.source.empty() && !b.folder.empty());
+      assert(findInstrument(b.instrument, b.whistle));
+      for (auto& ev : b.events) assert(ev.kind != Kind::Note || instrumentOf(b).plays(ev.midi));
+      demos++;
+    }
+    assert(demos >= 12);
   }
 
   saveCustomTechnique({"bounce", "Bounce", "b", "test"});

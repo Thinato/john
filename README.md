@@ -37,7 +37,7 @@ ctest --test-dir build        # core checks + MCP smoke test
 
 ### Web version
 
-The viewer also runs in the browser, with no server: songs, techniques and settings are kept in the browser's storage (IndexedDB), and the lessons are bundled. There is no MCP server or audio-file transcription on the web. Needs [Emscripten](https://emscripten.org/) (`emcc` on the PATH):
+The viewer also runs in the browser, with no server: songs, techniques and settings are kept in the browser's storage (IndexedDB), and the lessons are bundled, plus a dozen starter songs from `demo/` (traditional and public-domain tunes in Beginner, Intermediate and Advanced, installed on the first visit). There is no MCP server or audio-file transcription on the web. Needs [Emscripten](https://emscripten.org/) (`emcc` on the PATH):
 
 ```sh
 emcmake cmake -S . -B build-web
