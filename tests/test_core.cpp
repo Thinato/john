@@ -185,6 +185,52 @@ int main() {
     assert(analyze(low).find("current: 0 out of range") != std::string::npos);
   }
 
+  // playback sounds: every voice keeps the song's pitch, struck/plucked voices decay, no NaN or clipping
+  {
+    const int sr = 48000, n = 2048;
+    Song v = importAbc("X:1\nT:v\nM:4/4\nL:1/4\nK:D\nA4|\n").song;  // 4 s whole note
+    v.instrument = "violin";                                         // written A4 sounds 440 Hz
+    auto window = [&](const std::vector<float>& x, double at) { return x.data() + (int)(at * sr); };
+    for (auto& id : INSTRUMENTS) {
+      Performance p = perform(v, 60, 0, false, id);
+      assert(p.sound == id && p.octave == 0);
+      Synth syn;
+      syn.metronome = false;
+      syn.volume = 1;
+      long long sp = 0;
+      std::vector<float> x(sr * 9 / 2);
+      syn.render(p, sp, x.data(), (int)x.size());
+      for (float f : x) assert(std::isfinite(f) && std::abs(f) < 1);
+      float hz = detectPitch(window(x, 0.15), n, sr, 100, 3000);
+      if (std::abs(hz - 440) >= 3) fprintf(stderr, "%s: %.1f Hz\n", id.c_str(), hz);
+      assert(std::abs(hz - 440) < 3);
+      float early = rms(window(x, 0.1), n), late = rms(window(x, 2.5), n);
+      bool decays = id == "piano" || id == "guitar" || id == "electric-guitar";
+      assert(early > 0.05f && (decays ? late < 0.6f * early : late > 0.8f * early));
+      assert(rms(window(x, 4.2), n) < 0.01f);  // silent after the note
+    }
+    Song w = v;  // the octave comes from the song's instrument, not the sound: a whistle song on guitar still sounds A5
+    w.instrument = "whistle";
+    Performance pg = perform(w, 60, 0, false, "guitar");
+    assert(pg.octave == 1 && perform(w, 60, 0, false, "kazoo").sound == "whistle" && perform(w, 60).sound == "whistle");
+    Synth syn;
+    syn.metronome = false;
+    long long sp = sr / 10;
+    std::vector<float> x(n);
+    syn.render(pg, sp, x.data(), n);
+    assert(std::abs(detectPitch(x.data(), n, sr) - 880) < 5);
+
+    // which ornaments each voice plays (kb/notes/playback-voice-ornaments.md)
+    Song o = importAbc("X:1\nT:o\nM:4/4\nL:1/4\nK:D\n{g}A !breath! B !slide!c !vibrato!d|\n").song;
+    auto on = [&](const char* id) { return perform(o, 60, 0, false, id).voices; };
+    auto wh = on("whistle"), vn = on("violin"), pn = on("piano"), gt = on("guitar"), hm = on("harmonica");
+    assert(wh[0].graces.size() == 1 && wh[0].gap > 0.1 && wh[2].graces.size() == 1 && wh[3].vibrato);
+    assert(vn[0].graces.size() == 1 && vn[0].gap == 0 && vn[2].graces.size() == 1 && vn[3].vibrato);  // no breaths on a bow
+    assert(pn[0].graces.empty() && pn[0].gap < 0.02 && pn[2].graces.empty() && !pn[3].vibrato);      // no ornaments on keys
+    assert(gt[0].graces.size() == 1 && gt[2].graces.size() == 1 && !gt[3].vibrato);                  // hammer-ons, slides
+    assert(hm[0].graces.empty() && hm[0].gap > 0.1 && hm[2].graces.size() == 1 && hm[3].vibrato);    // breaths, bends
+  }
+
   // transpose D major down a tone -> C major
   Song c = s;
   transpose(c, -2);

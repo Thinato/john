@@ -1,4 +1,4 @@
-// Performance order, backing whistle synth and microphone pitch detection. No audio device code here (see audio.cpp).
+// Performance order, backing synth (one simple voice per instrument) and microphone pitch detection. No audio device code here (see audio.cpp).
 #include "john.hpp"
 #include <algorithm>
 #include <cmath>
@@ -55,9 +55,19 @@ double writtenMidiFromFreq(double hz, int octave) { return 69 + 12 * std::log2(h
 
 static bool has(const Event& e, const char* t) { return std::find(e.techniques.begin(), e.techniques.end(), t) != e.techniques.end(); }
 
-Performance perform(const Song& s, double bpm, int fromOrder, bool countIn) {
+Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, const std::string& sound) {
   Performance p;
-  p.octave = instrumentOf(s).octave;
+  p.octave = instrumentOf(s).octave;  // pitch always follows the song's instrument, whatever the sound
+  p.sound = sound.empty() ? instrumentOf(s).id : sound;
+  if (std::find(INSTRUMENTS.begin(), INSTRUMENTS.end(), p.sound) == INSTRUMENTS.end()) p.sound = "whistle";
+  // What each voice plays (kb/notes/playback-voice-ornaments.md): finger ornaments on whistle, fiddle and guitars
+  // (as hammer-ons/pull-offs), slides on all but piano, vibrato on all but piano and guitar, breaths on the winds.
+  const std::string& snd = p.sound;
+  const bool fingered = snd != "piano" && snd != "harmonica";
+  const bool slides = snd != "piano";
+  const bool vibrato = snd != "piano" && snd != "guitar";
+  const bool breathes = snd == "whistle" || snd == "harmonica";
+  const bool plucked = snd == "piano" || snd == "guitar" || snd == "electric-guitar";  // every note is a new attack
   bpm = std::clamp(bpm, 20.0, 400.0);
   const double secPerTick = 60.0 / bpm / (WHOLE / 4);
   const int bar = meterTicks(s.meter);
@@ -89,17 +99,20 @@ Performance perform(const Song& s, double bpm, int fromOrder, bool countIn) {
         v.start = t;
         v.dur = dur;
         v.tongued = has(e, "tongue") || has(e, "accent") || p.voices.empty();
-        v.vibrato = has(e, "vibrato");
+        v.vibrato = vibrato && has(e, "vibrato");
         // ponytail: grace pitches are approximate (+4 / -2 semitones); real cuts depend on the finger used
-        if (has(e, "cut")) v.graces.push_back({0, 4});
-        if (has(e, "double_cut")) { v.graces.push_back({0, 4}); v.graces.push_back({0.05, 4}); }
-        if (has(e, "tap")) v.graces.push_back({0, -2});
-        if (has(e, "roll")) { v.graces.push_back({dur / 3, 4}); v.graces.push_back({dur * 2 / 3, -2}); }
-        if (has(e, "short_roll")) { v.graces.push_back({0, 4}); v.graces.push_back({dur / 2, -2}); }
-        if (has(e, "cran")) for (int i = 0; i < 3; i++) v.graces.push_back({dur * i / 4, 4 + (i == 1 ? 3 : 0)});
-        if (has(e, "slide")) v.graces.push_back({-1, -2});  // -1 marks a slide from 2 semitones below
+        if (fingered) {
+          if (has(e, "cut")) v.graces.push_back({0, 4});
+          if (has(e, "double_cut")) { v.graces.push_back({0, 4}); v.graces.push_back({0.05, 4}); }
+          if (has(e, "tap")) v.graces.push_back({0, -2});
+          if (has(e, "roll")) { v.graces.push_back({dur / 3, 4}); v.graces.push_back({dur * 2 / 3, -2}); }
+          if (has(e, "short_roll")) { v.graces.push_back({0, 4}); v.graces.push_back({dur / 2, -2}); }
+          if (has(e, "cran")) for (int i = 0; i < 3; i++) v.graces.push_back({dur * i / 4, 4 + (i == 1 ? 3 : 0)});
+        }
+        if (slides && has(e, "slide")) v.graces.push_back({-1, -2});  // -1 marks a slide from 2 semitones below
         if (has(e, "staccato")) v.gap = dur / 2;
-        if (has(e, "breath")) v.gap = std::max(v.gap, std::min(0.25, dur * 0.3));
+        if (breathes && has(e, "breath")) v.gap = std::max(v.gap, std::min(0.25, dur * 0.3));
+        if (plucked) v.gap = std::max(v.gap, std::min(0.012, dur / 4));  // short damp: the next note is a new attack
         if (!p.voices.empty()) {  // articulate the previous note if this one is tongued or repeats its pitch
           Voice& prev = p.voices.back();
           bool samePitch = prev.midi == v.midi && v.graces.empty();
@@ -126,16 +139,24 @@ Performance perform(const Song& s, double bpm, int fromOrder, bool countIn) {
 
 void Synth::render(const Performance& p, long long& pos, float* out, int frames) {
   const double dt = 1.0 / sampleRate;
+  const std::string& s = p.sound;
+  const bool violin = s == "violin", piano = s == "piano", guitar = s == "guitar", electric = s == "electric-guitar",
+             harmonica = s == "harmonica", whistle = !(violin || piano || guitar || electric || harmonica);
+  // envelope: attack/release time constants (s), decay time constant for struck/plucked voices (0 = sustained)
+  const double attack = violin ? 0.04 : harmonica ? 0.012 : whistle ? 0.004 : 0.002;
+  const double release = violin ? 0.01 : harmonica ? 0.004 : whistle ? 0.0015 : 0.003;
+  const double decay = piano ? 1.5 : guitar ? 0.9 : electric ? 2.5 : 0;
+  const double airNoise = whistle ? 0.06 : harmonica ? 0.03 : violin ? 0.02 : 0;  // breath / bow noise
   for (int i = 0; i < frames; i++, pos++) {
     double t = pos * dt;
     while (vi < p.voices.size() && p.voices[vi].start + p.voices[vi].dur <= t) vi++;  // forward only: new Synth per playback
     while (ci < p.clicks.size() && p.clicks[ci].first + 0.03 <= t) ci++;
-    double target = 0, freq = 0, breathNoise = 0;
+    double target = 0, freq = 0, breathNoise = 0, into = 0;
     if (vi < p.voices.size() && p.voices[vi].start <= t) {
       const Voice& v = p.voices[vi];
-      double into = t - v.start;
+      into = t - v.start;
       if (into < v.dur - v.gap) {
-        target = 1;
+        target = decay > 0 ? std::exp(-into / decay) : 1;
         double semis = 0;
         for (auto [at, g] : v.graces) {
           if (at < 0 && into < 0.12) semis = g * (1 - into / 0.12);  // slide up
@@ -143,19 +164,30 @@ void Synth::render(const Performance& p, long long& pos, float* out, int frames)
         }
         if (v.vibrato && into > 0.2) semis += 0.25 * std::sin(TAU * 5.5 * into);
         freq = soundingFreq(v.midi, p.octave) * std::pow(2.0, semis / 12);
-        if (v.tongued && into < 0.012) breathNoise = 0.5;
+        if (whistle && v.tongued && into < 0.012) breathNoise = 0.5;  // the whistle's chiff
       }
     }
-    // amplitude follows the target: fast attack, slower release; legato notes keep the amplitude
-    double rate = target > amp ? 0.004 : 0.0015;
+    // amplitude follows the target; legato notes keep the amplitude (plucked/struck voices damp briefly, see perform())
+    double rate = target > amp ? attack : release;
     amp += (target - amp) * std::min(1.0, dt / rate);
     if (freq > 0) phase += TAU * freq * dt;
     if (phase > TAU) phase = std::fmod(phase, TAU);
     rng = rng * 1664525u + 1013904223u;
     double white = (rng >> 8) / double(1 << 24) * 2 - 1;
     noise += (white - noise) * 0.2;  // softened breath noise
-    double tone = std::sin(phase) + 0.18 * std::sin(2 * phase) + 0.06 * std::sin(3 * phase);
-    double sample = melody ? amp * (0.8 * tone + 0.06 * noise) + breathNoise * noise : 0;
+    // ponytail: a few fixed harmonics per instrument, no samples or physical models; tune by ear
+    double tone = 0;
+    if (violin || guitar)  // sawtooth-like; a plucked string loses its upper harmonics first
+      for (int k = 1; k <= 8; k++) tone += 0.55 * std::sin(k * phase) / k * (guitar ? std::exp(-into * (k - 1) * 3) : 1);
+    else if (piano)
+      for (int k = 1; k <= 6; k++) tone += 0.9 * std::sin(k * phase) / (k * k) * std::exp(-into * (k - 1) * 1.5);
+    else if (harmonica)  // reed: strong low harmonics
+      tone = 0.5 * (std::sin(phase) + 0.6 * std::sin(2 * phase) + 0.45 * std::sin(3 * phase) + 0.3 * std::sin(4 * phase) + 0.2 * std::sin(5 * phase));
+    else if (electric)  // soft-clipped (overdriven) pluck
+      tone = 0.9 * std::tanh(2.5 * (std::sin(phase) + 0.5 * std::sin(2 * phase) + 0.25 * std::sin(3 * phase)));
+    else
+      tone = std::sin(phase) + 0.18 * std::sin(2 * phase) + 0.06 * std::sin(3 * phase);
+    double sample = melody ? amp * (0.8 * tone + airNoise * noise) + breathNoise * noise : 0;
     if (metronome && ci < p.clicks.size() && t >= p.clicks[ci].first) {
       double ct = t - p.clicks[ci].first;
       sample += 0.5 * std::exp(-ct * 150) * std::sin(TAU * (p.clicks[ci].second ? 2000 : 1400) * ct);

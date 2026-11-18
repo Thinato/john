@@ -110,7 +110,7 @@ std::vector<Pos> positions(const Song& s);
 // ---- sound: performance, synth, pitch detection ----
 std::vector<int> playOrder(const Song& s);   // note/rest event indices in performance order, repeats and endings unrolled
 
-struct Voice {                 // one note as played by the backing whistle
+struct Voice {                 // one note as played by the backing voice
   int ev = -1;                 // event index
   int ord = -1;                // index into playOrder()
   int midi = 0;                // written pitch (sounds an octave higher)
@@ -125,13 +125,16 @@ struct Performance {
   double length = 0;                            // seconds
   double countIn = 0;                           // seconds of clicks before the first note
   int octave = 1;                               // sounding = written + 12 * octave (the song's instrument)
+  std::string sound = "whistle";                // instrument id whose timbre plays the notes
 };
 // fromOrder: index into playOrder() to start at. bpm = quarter notes per minute.
-Performance perform(const Song& s, double bpm, int fromOrder = 0, bool countIn = true);
+// sound: an INSTRUMENTS id to play with, "" = the song's instrument. It changes the timbre and which
+// ornaments/breaths are played, never the pitch (the octave always comes from the song's instrument).
+Performance perform(const Song& s, double bpm, int fromOrder = 0, bool countIn = true, const std::string& sound = "");
 double soundingFreq(int writtenMidi, int octave);   // octave: Instrument::octave (whistle music sounds an octave up)
 double writtenMidiFromFreq(double hz, int octave);  // fractional written MIDI
 
-struct Synth {                // simple tin whistle voice + metronome; render() is called from the audio thread
+struct Synth {                // simple voice per instrument (Performance::sound) + metronome; render() runs on the audio thread
   int sampleRate = 48000;
   bool melody = true, metronome = true;
   float volume = 0.6f;

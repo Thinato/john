@@ -71,6 +71,7 @@ struct App {
   Audio audio;
   std::string practiceFor;      // song id the state below belongs to
   float bpm = 100;
+  std::string sound;            // playback sound for this session, "" = the song's instrument (not saved)
   bool listen = false;
   int mode = Wait;
   float tolerance = 40;         // cents
@@ -561,7 +562,14 @@ static void startPlayback(App& a, int fromOrder, bool countIn) {
   a.playFrom = fromOrder;
   a.gradeVi = 0;
   a.frames = a.hits = a.octs = 0;
-  a.audio.play(perform(*a.song, a.bpm, fromOrder, countIn));
+  a.audio.play(perform(*a.song, a.bpm, fromOrder, countIn, a.sound));
+}
+
+static void restartHere(App& a) {  // restart playback at the current note, e.g. with a new tempo or sound
+  double t = a.audio.playTime();
+  int from = a.playFrom;
+  for (auto& v : a.audio.performance().voices) if (v.start <= t) from = v.ord;
+  startPlayback(a, from, false);
 }
 
 static void practiceUpdate(App& a, float dt) {
@@ -656,17 +664,23 @@ static void transportBar(App& a) {
   ImGui::SameLine();
   ImGui::SetNextItemWidth(170);
   ImGui::SliderFloat("##bpm", &a.bpm, 40, 220, "tempo %.0f");
-  if (ImGui::IsItemDeactivatedAfterEdit() && playing) {  // restart at the current note with the new tempo
-    double t = a.audio.playTime();
-    int from = a.playFrom;
-    for (auto& v : a.audio.performance().voices) if (v.start <= t) from = v.ord;
-    startPlayback(a, from, false);
-  }
+  if (ImGui::IsItemDeactivatedAfterEdit() && playing) restartHere(a);  // with the new tempo
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("Quarter notes per minute (song tempo: %s)", a.song->tempo ? std::to_string(a.song->tempo).c_str() : "not set");
+  ImGui::SameLine();
+  auto soundName = [&](const std::string& id) { return findInstrument(id, a.song->whistle).value_or(*findInstrument(id)).name; };
+  std::string songSound = instrumentOf(*a.song).name + " (song)";
+  ImGui::SetNextItemWidth(170);
+  if (ImGui::BeginCombo("##sound", ("sound: " + (a.sound.empty() ? songSound : soundName(a.sound))).c_str())) {
+    if (ImGui::Selectable(songSound.c_str(), a.sound.empty())) { a.sound.clear(); if (playing) restartHere(a); }
+    for (auto& id : INSTRUMENTS)
+      if (ImGui::Selectable(soundName(id).c_str(), a.sound == id)) { a.sound = id; if (playing) restartHere(a); }
+    ImGui::EndCombo();
+  }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Which instrument plays the tune, for this session only. The notes keep the song's pitch.");
   ImGui::SameLine();
   bool melody = a.audio.melody, metro = a.audio.metronome;
   float vol = a.audio.volume;
-  if (ImGui::Checkbox("Whistle", &melody)) a.audio.melody = melody;
+  if (ImGui::Checkbox("Melody", &melody)) a.audio.melody = melody;
   ImGui::SameLine();
   if (ImGui::Checkbox("Metronome", &metro)) a.audio.metronome = metro;
   ImGui::SameLine();
@@ -685,7 +699,7 @@ static void transportBar(App& a) {
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("The cursor waits on each note until you play it in tune.");
   ImGui::SameLine();
   if (ImGui::RadioButton("Play along", a.mode == App::PlayAlong)) a.mode = App::PlayAlong;
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Press Play and play with the backing. Notes turn green (right), red (wrong) or orange (wrong octave).\nUse headphones, or untick Whistle and follow the metronome, so the mic doesn't hear the backing.");
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Press Play and play with the backing. Notes turn green (right), red (wrong) or orange (wrong octave).\nUse headphones, or untick Melody and follow the metronome, so the mic doesn't hear the backing.");
   ImGui::SameLine();
   ImGui::SetNextItemWidth(110);
   ImGui::SliderFloat("##tol", &a.tolerance, 10, 100, "tolerance %.0fc");
