@@ -229,6 +229,49 @@ int main() {
     assert(ls.find("instrument: Violin") != std::string::npos && ls.find("out-of-range") != std::string::npos);
     low.instrument = "piano";
     assert(analyze(low).find("current: 0 out of range") != std::string::npos);
+
+    // harmonica keys (#67): the C harp is unchanged; G..B harps sit below C, Db..F# above
+    Instrument ch = *findInstrument("harmonica");
+    assert(ch.name == "Harmonica" && ch.low == 60 && ch.high == 96 && ch.octave == 0);
+    assert(findInstrument("harmonica", "D", "C")->name == "Harmonica");
+    Instrument ah = *findInstrument("harmonica", "D", "A");
+    assert(ah.name == "A harmonica" && ah.low == 57 && ah.high == 93 && ah.octave == 0);  // starts on A3
+    assert(findInstrument("harmonica", "D", "G")->low == 55 && findInstrument("harmonica", "D", "B")->low == 59);
+    assert(findInstrument("harmonica", "D", "Db")->low == 61 && findInstrument("harmonica", "D", "F#")->low == 66);
+    for (auto& k : HARP_KEYS) assert(findInstrument("harmonica", "D", k));
+    assert(!findInstrument("harmonica", "D", "H") && !findInstrument("harmonica", "D", "C#"));
+    assert(findInstrument("violin", "D", "A")->name == "Violin");  // the harp key only matters for the harmonica
+    Song hs = v;
+    hs.instrument = "harmonica";
+    assert(!toJson(hs).contains("harp") && fromJson(toJson(hs)).harp == "C");  // C harp songs are saved as before
+    hs.harp = "A";
+    assert(toJson(hs)["harp"] == "A" && instrumentOf(fromJson(toJson(hs))).name == "A harmonica");
+    hs.harp = "H";
+    assert(instrumentOf(hs).name == "D whistle");  // unknown key: falls back like a bad whistle key
+  }
+
+  // play in another key (#67): smallest interval, then the octave that fits the instrument; back = the original
+  {
+    Song s = importAbc("X:1\nT:k\nM:4/4\nL:1/8\nK:D\nDEFG ABcd|\n").song;  // D4..D5 on a D whistle
+    const Song orig = s;
+    std::vector<int> before;
+    for (auto& e : s.events) if (e.kind == Kind::Note) before.push_back(e.midi);
+    assert(tonicPc(s.key) == 2 && tonicPc(*parseKey("Bm")) == 11 && tonicPc(*parseKey("Ador")) == 9);
+    assert(transposeToKey(s, 7, instrumentOf(s)) == 5 && keyName(s.key) == "G major");    // G4..G5: up a fourth
+    assert(transposeToKey(s, 9, instrumentOf(s)) == 2 && keyName(s.key) == "A major");
+    assert(transposeToKey(s, 2, instrumentOf(s)) == -7 && keyName(s.key) == "D major");   // +5 would reach D6
+    assert(toJson(s) == toJson(orig));
+    assert(transposeToKey(s, 2, instrumentOf(s)) == 0);
+    Song m = importAbc("X:1\nT:m\nM:4/4\nL:1/8\nK:Edor\nEFGA Bcde|\n").song;
+    transposeToKey(m, 2, instrumentOf(m));
+    assert(keyName(m.key) == "D dorian" && m.events[0].midi == 62);  // the mode stays
+    Song h = importAbc("X:1\nT:h\nM:4/4\nL:1/8\nK:A\nA,B,CD EFGA|\n").song;  // A3..A4: the bottom of an A harp
+    h.instrument = "harmonica";
+    h.harp = "A";
+    assert(transposeToKey(h, 7, instrumentOf(h)) == 10 && keyName(h.key) == "G major");  // down 2 would leave G3, G#3 out
+    assert(transposeToKey(h, 9, instrumentOf(h)) == -10 && h.events[0].midi == 57);
+    h.harp = "C";
+    assert(transposeToKey(h, 9, instrumentOf(h)) == 12);  // a C harp starts on C4: the octave up fits
   }
 
   // playback sounds: every voice keeps the song's pitch, struck/plucked voices decay, no NaN or clipping
@@ -1053,7 +1096,7 @@ int main() {
     Settings s;
     s.hints = false; s.zoom = 12; s.light = true; s.tempo = 90; s.countIn = false; s.metronome = false;
     s.volume = 0.3f; s.sound = "piano"; s.gate = 0.02f; s.latencyMs = 120; s.tolerance = 25; s.instrument = "violin"; s.songFilter = "piano";
-    s.language = "pt-BR"; s.solfege = true; s.solfegeKeys = false;
+    s.language = "pt-BR"; s.solfege = true; s.solfegeKeys = false; s.harp = "A";
     saveSettings(s);
     assert(loadSettings() == s);
     write(R"({"tempo": 80, "future_setting": 1})");
@@ -1064,9 +1107,9 @@ int main() {
     assert(loadSettings() == Settings{});
     write(R"({"hints": "yes"})");  // wrong type
     assert(loadSettings() == Settings{});
-    write(R"({"sound": "banjo", "instrument": "kazoo", "songFilter": "lute", "zoom": 0, "volume": 9})");  // values the GUI can't use
+    write(R"({"sound": "banjo", "instrument": "kazoo", "songFilter": "lute", "zoom": 0, "volume": 9, "harp": "H"})");  // values the GUI can't use
     Settings c = loadSettings();
-    assert(c.sound.empty() && c.instrument == "whistle" && c.songFilter.empty() && c.zoom == 6 && c.volume == 1);
+    assert(c.sound.empty() && c.instrument == "whistle" && c.songFilter.empty() && c.zoom == 6 && c.volume == 1 && c.harp == "C");
     fs::remove(home / "settings.json");
   }
 
