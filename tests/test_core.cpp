@@ -102,6 +102,9 @@ int main() {
   assert(!importAbc("|1 AB|").song.events.empty());
   assert(nth(importAbc("X:1\nK:D\nA/0 B|").song, 0).len > 0);
   assert(importAbc("X:1\nK:D\nZ3000000|").song.events.size() < 200);
+  assert(parseMeter("6/8") == "6/8" && parseMeter("C") == "4/4" && parseMeter("C|") == "2/2" && parseMeter("1/2") == "1/2");
+  for (const char* bad : {"", "4", "x", "4/", "/4", "0/4", "4/0", "4/3", "4/16", "4/4x", "33/4", "-3/4", "none"}) assert(parseMeter(bad).empty());
+  assert(importAbc("X:1\nM:C|\nK:D\nA|").song.meter == "C|" && importAbc("X:1\nM:none\nK:D\nA|").song.meter == "4/4");
   assert(meterTicks("1/256") > 0 && meterTicks("0/4") == WHOLE);
   assert(whistleBase("Dm") < 0 && whistleBase("Bb") == 70 && whistleBase("D") == 62);
   auto vt = importAbc("X:1\nT:v\nM:6/8\nL:1/8\nK:D\n|:A|d2d fed|1 d3 d2:|2 d3 d2e||f3 f2e|\n").song;

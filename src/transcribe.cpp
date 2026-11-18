@@ -104,7 +104,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   const double hopSec = (double)HOP / sr;
   if ((long long)x.size() < (long long)N * 4) throw std::runtime_error("audio is too short to transcribe");
   const int T = 1 + (int)((x.size() - N) / HOP);
-  if (!o.meter.empty() && (meterTicks(o.meter) <= 0 || meterTicks(o.meter) % 12))
+  if (!o.meter.empty() && parseMeter(o.meter) != o.meter)  // callers pass the normalized "N/D"
     throw std::runtime_error("unsupported meter '" + o.meter + "'");
   // pitch search range (semitone states): the recording's solo instrument sounding range, two semitones margin
   int sLo = 0, sHi = M - 1;

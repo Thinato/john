@@ -233,6 +233,10 @@ static std::string callTool(const std::string& name, const json& a) {
     if (!findInstrument(a.value("instrument", "whistle"))) throw std::runtime_error("unknown instrument '" + a.value("instrument", "") + "'");
     if (a.contains("recording_instrument") && !findInstrument(a.value("recording_instrument", "")))
       throw std::runtime_error("unknown recording_instrument '" + a.value("recording_instrument", "") + "'");
+    TranscribeOptions o;
+    o.meter = a.value("meter", o.meter);
+    if (!o.meter.empty() && (o.meter = parseMeter(o.meter)).empty())
+      throw std::runtime_error("meter must be N/D with D = 2, 4 or 8 (e.g. 4/4, 3/4, 6/8), or C or C|");
     if (path.rfind("~/", 0) == 0 && getenv("HOME")) path = std::string(getenv("HOME")) + path.substr(1);
     constexpr int SR = 22050;
     std::vector<float> x = decodeAudio(path, SR);
@@ -240,10 +244,7 @@ static std::string callTool(const std::string& name, const json& a) {
     size_t from = (size_t)std::clamp(start * SR, 0.0, (double)x.size());
     size_t to = end > 0 ? (size_t)std::clamp(end * SR, (double)from, (double)x.size()) : x.size();
     x = std::vector<float>(x.begin() + from, x.begin() + to);
-    TranscribeOptions o;
     o.bpm = a.value("bpm", 0.0);
-    o.meter = a.value("meter", o.meter);
-    if (!o.meter.empty() && meterTicks(o.meter) <= 0) throw std::runtime_error("meter must look like 4/4, 3/4 or 6/8");
     o.title = a.value("title", fs::path(path).stem().string());
     o.instrument = a.value("instrument", o.instrument);
     o.recordingInstrument = a.value("recording_instrument", "");
