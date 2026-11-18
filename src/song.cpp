@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <unistd.h>
 #ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
 #include <mach-o/dyld.h>
 #endif
 #ifdef __EMSCRIPTEN__
@@ -439,7 +440,21 @@ std::string systemLanguage() {
   const char* v = std::getenv("LC_ALL");
   if (!v || !*v) v = std::getenv("LANG");
   std::string want = v ? v : "";
+#ifdef __APPLE__
+  if (want.empty())  // started from Finder/Dock: no LANG, use System Settings > Language & Region
+    if (CFArrayRef pref = CFLocaleCopyPreferredLanguages()) {
+      char buf[64];
+      if (CFArrayGetCount(pref) > 0 &&
+          CFStringGetCString((CFStringRef)CFArrayGetValueAtIndex(pref, 0), buf, sizeof buf, kCFStringEncodingUTF8))
+        want = buf;  // "pt-BR", "en-US", "zh-Hans-CN"
+      CFRelease(pref);
+    }
 #endif
+#endif
+  return matchLanguage(want);
+}
+
+std::string matchLanguage(std::string want) {
   want = want.substr(0, want.find('.'));  // pt_BR.UTF-8 -> pt-BR
   std::replace(want.begin(), want.end(), '_', '-');
   auto langs = languages();

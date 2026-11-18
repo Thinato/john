@@ -66,7 +66,7 @@ Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`). Custo
 
 ## Languages
 
-The viewer speaks English and Brazilian Portuguese. By default it follows the system language (`LANG`/`LC_ALL`; the browser's language on the web); pick one in Settings. The MCP server and the agent's tools always answer in English. Translations are in `i18n/<language>.json`, one file per language, mapping each English text to its translation; to add a language, add a file (see `kb/notes/i18n-translate-viewer-text.md`).
+The viewer speaks English and Brazilian Portuguese. By default it follows the system language (`LANG`/`LC_ALL`; on macOS, when those are empty as for an app started from Finder, the first language in System Settings > Language & Region; the browser's language on the web); pick one in Settings. The MCP server and the agent's tools always answer in English. Translations are in `i18n/<language>.json`, one file per language, mapping each English text to its translation; to add a language, add a file (see `kb/notes/i18n-translate-viewer-text.md`).
 
 ## Lessons
 

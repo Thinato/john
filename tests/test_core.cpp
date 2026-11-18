@@ -603,6 +603,9 @@ int main() {
     auto sys = [](const char* v) { setenv("LC_ALL", v, 1); return systemLanguage(); };
     assert(sys("pt_BR.UTF-8") == "pt-BR" && sys("pt_PT") == "pt-BR" && sys("de_DE.UTF-8") == "en" && sys("C") == "en");
     unsetenv("LC_ALL");
+    // the matching behind it, also used for the macOS preferred language when LANG/LC_ALL are empty (#54)
+    assert(matchLanguage("pt-BR") == "pt-BR" && matchLanguage("pt_BR") == "pt-BR" && matchLanguage("pt-PT") == "pt-BR");
+    assert(matchLanguage("en-US") == "en" && matchLanguage("") == "en" && matchLanguage("zh-Hans-CN") == "en");
     bool listed = false;
     for (auto& [code, name] : languages()) listed |= code == "pt-BR" && name == "Português (Brasil)";
     assert(listed);

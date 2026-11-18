@@ -85,7 +85,9 @@ Instrument instrumentOf(const Song& s);           // the song's instrument; a D 
 // so the MCP server, which never calls them, stays English.
 fs::path i18nDir();                                 // i18n/ next to the executable, else the repo's: one <code>.json per language
 bool setLanguage(const std::string& code);          // "en" or a file in i18nDir(), e.g. "pt-BR"; false = English
-std::string systemLanguage();                       // LC_ALL/LANG (navigator.language on the web) matched to a file; "en" if none
+std::string systemLanguage();                       // LC_ALL/LANG (navigator.language on the web; on macOS, if both are empty,
+                                                    // the preferred system language) matched to a file; "en" if none
+std::string matchLanguage(std::string want);        // "pt_BR.UTF-8", "pt-PT" -> "pt-BR" (a file in i18nDir()); "en" if none
 std::vector<std::pair<std::string, std::string>> languages();  // (code, own name) of every file in i18nDir()
 const char* tr(const char* english);                // translation, or `english` when there is none
 std::string tr(const std::string& english);
