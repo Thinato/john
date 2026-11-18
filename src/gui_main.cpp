@@ -19,7 +19,7 @@ static float gMusicScale = 1.0f;  // ImGui sizes fonts by line height; Bravura's
 
 // SMuFL code points
 enum : unsigned {
-  GClef = 0xE050, TimeSig0 = 0xE080, TimeCommon = 0xE08A, TimeCut = 0xE08B,
+  Brace = 0xE000, GClef = 0xE050, FClef = 0xE062, TimeSig0 = 0xE080, TimeCommon = 0xE08A, TimeCut = 0xE08B,
   HeadWhole = 0xE0A2, HeadHalf = 0xE0A3, HeadBlack = 0xE0A4, Dot = 0xE1E7,
   Flag8Up = 0xE240, Flag8Down = 0xE241,  // +2 per extra flag
   Flat = 0xE260, Natural = 0xE261, Sharp = 0xE262,
@@ -177,7 +177,7 @@ struct Slot {      // one event placed on the page
   float headX = 0, cx = 0, y = 0;  // note head left, head center x, head y
   int step = 0;
   Value v;
-  bool up = true, beamed = false;
+  bool up = true, beamed = false, bass = false;  // bass: on the bass staff of a grand staff
   float stemX = 0, stemEnd = 0;
 };
 
@@ -213,7 +213,9 @@ static void drawScore(App& a, Song& s) {
   const float margin = sp * 2;
   const Instrument inst = instrumentOf(s);
   const bool whistle = inst.id == "whistle" && a.set.hints;  // fingering charts are whistle-only, and can be hidden
-  const float sysH = sp * (whistle ? 26 : 19);
+  const float sysH = sp * (whistle ? 26 : 19);  // a system with only near notes on one staff
+  const bool grand = grandStaff(s);
+  const float bassDy = grand ? sp * 10 : 0;  // treble top line to bass top line
   auto slotW = [&](const Event& e, int i) -> float {
     if (e.kind == Kind::Bar) return sp * (e.bar == "|" ? 1.4f : 2.4f);
     return sp * (1.7f + 1.7f * std::sqrt(e.len / 24.0f)) + (acc[i].shown ? accW : 0);
@@ -263,8 +265,16 @@ static void drawScore(App& a, Song& s) {
     }
   }
 
-  auto staffTop = [&](int sys) { return origin.y + sys * sysH + sp * 8; };
-  auto yOf = [&](int sys, int step) { return staffTop(sys) + sp * 4 - (step - 30) * sp / 2; };
+  // each system grows above and below for its far notes (and by a bass staff on a grand staff)
+  std::vector<Room> room;
+  std::vector<float> sysY{origin.y};  // system tops, then the end of the last one
+  for (auto [f, t] : lines) {
+    room.push_back(f < t ? systemRoom(s, slots[f].ev, slots[t - 1].ev + 1, whistle ? 4 : 6) : Room{});
+    sysY.push_back(sysY.back() + sysH + bassDy + (room.back().above + room.back().below) * sp / 2);
+  }
+  auto sysHOf = [&](int sys) { return sysY[sys + 1] - sysY[sys]; };
+  auto staffTop = [&](int sys) { return sysY[sys] + sp * 8 + room[sys].above * sp / 2; };  // treble staff top line
+  auto yOf = [&](int sys, int step, bool bass) { return staffTop(sys) + (bass ? bassDy - sp * 6 : 0) + sp * 4 - (step - 30) * sp / 2; };
   std::vector<int> slotOf(s.events.size(), -1);
   for (int k = 0; k < (int)slots.size(); k++) slotOf[slots[k].ev] = k;
 
@@ -277,8 +287,9 @@ static void drawScore(App& a, Song& s) {
     sl.cx = sl.headX + headW / 2;
     if (e.kind == Kind::Note) {
       sl.step = spell(s.key, e.midi).step();
-      sl.y = yOf(sl.sys, sl.step);
-      sl.up = sl.step < 34;
+      sl.bass = onBassStaff(s, e.midi);
+      sl.y = yOf(sl.sys, sl.step, sl.bass);
+      sl.up = sl.step < (sl.bass ? 22 : 34);  // stems up below the middle line
       sl.stemX = sl.up ? sl.headX + headW - sp * 0.06f : sl.headX + sp * 0.06f;
       sl.stemEnd = sl.y + (sl.up ? -1 : 1) * sp * 3.5f;
     }
@@ -294,14 +305,14 @@ static void drawScore(App& a, Song& s) {
       const Event& e = s.events[slots[k].ev];
       bool beamable = e.kind == Kind::Note && beamCount(slots[k].v.base) > 0;
       int key = pos[slots[k].ev].bar * 1000 + pos[slots[k].ev].tick / group;
-      bool newSys = !cur.empty() && slots[cur.back()].sys != slots[k].sys;
-      if (!beamable || key != curKey || newSys) flush();
+      bool split = !cur.empty() && (slots[cur.back()].sys != slots[k].sys || slots[cur.back()].bass != slots[k].bass);  // no cross-staff beams
+      if (!beamable || key != curKey || split) flush();
       if (beamable) { cur.push_back(k); curKey = key; }
     }
     flush();
     for (auto& g : beams) {
       int sum = 0;
-      for (int k : g) sum += slots[k].step - 34;
+      for (int k : g) sum += slots[k].step - (slots[k].bass ? 22 : 34);
       bool up = sum < 0;
       float end = up ? FLT_MAX : -FLT_MAX;
       for (int k : g) end = up ? std::min(end, slots[k].y - sp * 3.5f) : std::max(end, slots[k].y + sp * 3.5f);
@@ -316,24 +327,24 @@ static void drawScore(App& a, Song& s) {
   }
 
   // ---- paper, hover ----
-  float totalH = lines.size() * sysH + sp * 2;
+  float totalH = sysY.back() - origin.y + sp * 2;
   sc.dl->AddRectFilled(origin, {origin.x + width, origin.y + totalH}, IM_COL32(252, 250, 244, 255), 4);
   ImVec2 mouse = ImGui::GetIO().MousePos;
   int hovered = -1;
   for (auto& sl : slots) {
     if (s.events[sl.ev].kind != Kind::Note) continue;
-    float top = origin.y + sl.sys * sysH;
-    if (mouse.x >= sl.x && mouse.x < sl.x + sl.w && mouse.y >= top && mouse.y < top + sysH && ImGui::IsWindowHovered())
+    float top = sysY[sl.sys], h = sysHOf(sl.sys);
+    if (mouse.x >= sl.x && mouse.x < sl.x + sl.w && mouse.y >= top && mouse.y < top + h && ImGui::IsWindowHovered())
       hovered = sl.ev;
     if (sl.ev == a.sel || sl.ev == hovered)
-      sc.dl->AddRectFilled({sl.x, top + sp}, {sl.x + sl.w, top + sysH - sp},
+      sc.dl->AddRectFilled({sl.x, top + sp}, {sl.x + sl.w, top + h - sp},
                            sl.ev == a.sel ? IM_COL32(120, 170, 255, 70) : IM_COL32(0, 0, 0, 18), 3);
     if (sl.ev == a.cursor) {
-      sc.dl->AddRectFilled({sl.x, top + sp}, {sl.x + sl.w, top + sysH - sp}, IM_COL32(60, 200, 90, 70), 3);
+      sc.dl->AddRectFilled({sl.x, top + sp}, {sl.x + sl.w, top + h - sp}, IM_COL32(60, 200, 90, 70), 3);
       if (sl.sys != a.cursorSys) {  // keep the cursor's line in view, without fighting manual scrolling
         a.cursorSys = sl.sys;
         float contentY = top - (ImGui::GetWindowPos().y - ImGui::GetScrollY());
-        if (contentY < ImGui::GetScrollY() || contentY + sysH > ImGui::GetScrollY() + ImGui::GetWindowHeight())
+        if (contentY < ImGui::GetScrollY() || contentY + h > ImGui::GetScrollY() + ImGui::GetWindowHeight())
           ImGui::SetScrollY(std::max(0.0f, contentY - sp * 2));
       }
     }
@@ -350,28 +361,38 @@ static void drawScore(App& a, Song& s) {
   for (int sys = 0; sys < (int)lines.size(); sys++) {
     if (lines[sys].first == lines[sys].second) continue;
     const Slot& last = slots[lines[sys].second - 1];
-    float x0 = origin.x + margin, x1 = last.x + last.w, top = staffTop(sys);
-    for (int l = 0; l < 5; l++) sc.line(x0, top + l * sp, x1, top + l * sp, thin, ink);
-    sc.glyph(GClef, x0 + sp * 0.5f, yOf(sys, 32), ink);
-    static const int SHARP_STEPS[7] = {38, 35, 39, 36, 33, 37, 34}, FLAT_STEPS[7] = {34, 37, 33, 36, 32, 35, 31};
-    float kx = x0 + sp * 3.4f;
-    for (int i = 0; i < absF; i++, kx += sp)
-      sc.glyph(s.key.fifths > 0 ? Sharp : Flat, kx, yOf(sys, s.key.fifths > 0 ? SHARP_STEPS[i] : FLAT_STEPS[i]), ink);
-    if (sys == 0) {
-      float tx = kx + sp * 0.4f;
-      int n = 0, d = 0;
-      if (s.meter == "C") sc.glyph(TimeCommon, tx, top + sp * 2, ink);
-      else if (s.meter == "C|") sc.glyph(TimeCut, tx, top + sp * 2, ink);
-      else if (sscanf(s.meter.c_str(), "%d/%d", &n, &d) == 2) {
-        auto digits = [&](int v, float y) {
-          std::string t = std::to_string(v);
-          float w = 0;
-          for (char c : t) w += sc.glyphW(TimeSig0 + (c - '0'));
-          float x = tx + sp * 0.9f - w / 2;
-          for (char c : t) { sc.glyph(TimeSig0 + (c - '0'), x, y, ink); x += sc.glyphW(TimeSig0 + (c - '0')); }
-        };
-        digits(n, top + sp);
-        digits(d, top + sp * 3);
+    float x0 = origin.x + margin, x1 = last.x + last.w;
+    if (grand) {  // brace (1 em = its height) and the line joining the staves
+      float h = bassDy + sp * 4, size = h * gMusicScale, top = staffTop(sys);
+      sc.dl->AddText(gMusic, size, ImVec2(x0 - sp * 1.5f, top + h - gMusic->GetFontBaked(size)->Ascent), ink, utf8(Brace).c_str());
+      sc.line(x0, top, x0, top + h, thin, ink);
+    }
+    for (int st = 0; st < (grand ? 2 : 1); st++) {  // treble staff, then the bass staff of a grand staff
+      const bool bass = st == 1;
+      const float top = staffTop(sys) + (bass ? bassDy : 0);
+      const int down = bass ? 14 : 0;  // bass clef: key signature two octaves lower
+      for (int l = 0; l < 5; l++) sc.line(x0, top + l * sp, x1, top + l * sp, thin, ink);
+      sc.glyph(bass ? FClef : GClef, x0 + sp * 0.5f, yOf(sys, bass ? 24 : 32, bass), ink);
+      static const int SHARP_STEPS[7] = {38, 35, 39, 36, 33, 37, 34}, FLAT_STEPS[7] = {34, 37, 33, 36, 32, 35, 31};
+      float kx = x0 + sp * 3.4f;
+      for (int i = 0; i < absF; i++, kx += sp)
+        sc.glyph(s.key.fifths > 0 ? Sharp : Flat, kx, yOf(sys, (s.key.fifths > 0 ? SHARP_STEPS[i] : FLAT_STEPS[i]) - down, bass), ink);
+      if (sys == 0) {
+        float tx = kx + sp * 0.4f;
+        int n = 0, d = 0;
+        if (s.meter == "C") sc.glyph(TimeCommon, tx, top + sp * 2, ink);
+        else if (s.meter == "C|") sc.glyph(TimeCut, tx, top + sp * 2, ink);
+        else if (sscanf(s.meter.c_str(), "%d/%d", &n, &d) == 2) {
+          auto digits = [&](int v, float y) {
+            std::string t = std::to_string(v);
+            float w = 0;
+            for (char c : t) w += sc.glyphW(TimeSig0 + (c - '0'));
+            float x = tx + sp * 0.9f - w / 2;
+            for (char c : t) { sc.glyph(TimeSig0 + (c - '0'), x, y, ink); x += sc.glyphW(TimeSig0 + (c - '0')); }
+          };
+          digits(n, top + sp);
+          digits(d, top + sp * 3);
+        }
       }
     }
   }
@@ -380,12 +401,15 @@ static void drawScore(App& a, Song& s) {
   for (int k = 0; k < (int)slots.size(); k++) {
     Slot& sl = slots[k];
     const Event& e = s.events[sl.ev];
-    float top = staffTop(sl.sys), bottom = top + sp * 4;
+    float top = staffTop(sl.sys), bottom = top + bassDy + sp * 4;  // bottom: lowest staff's bottom line
     if (e.kind == Kind::Bar) {
       float x = sl.x + sl.w / 2;
       auto dots = [&](float dx) {
-        sc.dl->AddCircleFilled({x + dx, top + sp * 1.5f}, sp * 0.22f, ink);
-        sc.dl->AddCircleFilled({x + dx, top + sp * 2.5f}, sp * 0.22f, ink);
+        for (int st = 0; st < (grand ? 2 : 1); st++) {  // on each staff
+          float t = top + st * bassDy;
+          sc.dl->AddCircleFilled({x + dx, t + sp * 1.5f}, sp * 0.22f, ink);
+          sc.dl->AddCircleFilled({x + dx, t + sp * 2.5f}, sp * 0.22f, ink);
+        }
       };
       if (e.bar == "|") sc.line(x, top, x, bottom, thin, ink);
       else if (e.bar == "||") { sc.line(x - sp * 0.25f, top, x - sp * 0.25f, bottom, thin, ink); sc.line(x + sp * 0.25f, top, x + sp * 0.25f, bottom, thin, ink); }
@@ -397,7 +421,7 @@ static void drawScore(App& a, Song& s) {
         int vk = k + 1 < (int)slots.size() && slots[k + 1].sys != sl.sys ? k + 1 : k;
         if (vk != k) x = slots[vk].x;
         float ex = x1Of(slots, vk, s);
-        float by = origin.y + slots[vk].sys * sysH + sp * 1.2f;
+        float by = sysY[slots[vk].sys] + sp * 1.2f;
         sc.line(x, by + sp * 1.5f, x, by, thin, ink);
         sc.line(x, by, ex, by, thin, ink);
         sc.text(e.ending + ".", x + sp * 1.0f, by + sp * 0.1f, sp * 1.5f, ink);
@@ -422,8 +446,9 @@ static void drawScore(App& a, Song& s) {
                 : g == App::Octave ? IM_COL32(225, 140, 0, 255)
                 : sl.ev == a.sel ? IM_COL32(30, 90, 220, 255) : ink;
     float lx0 = sl.headX - sp * 0.45f, lx1 = sl.headX + headW + sp * 0.45f;
-    for (int L = 28; L >= std::max(sl.step, 12); L -= 2) sc.line(lx0, yOf(sl.sys, L), lx1, yOf(sl.sys, L), thin, ink);
-    for (int L = 40; L <= std::min(sl.step, 56); L += 2) sc.line(lx0, yOf(sl.sys, L), lx1, yOf(sl.sys, L), thin, ink);
+    const int b0 = sl.bass ? 18 : 30;  // bottom line of the note's staff
+    for (int L = b0 - 2; L >= sl.step; L -= 2) sc.line(lx0, yOf(sl.sys, L, sl.bass), lx1, yOf(sl.sys, L, sl.bass), thin, ink);
+    for (int L = b0 + 10; L <= sl.step; L += 2) sc.line(lx0, yOf(sl.sys, L, sl.bass), lx1, yOf(sl.sys, L, sl.bass), thin, ink);
     if (acc[sl.ev].shown)
       sc.glyph(acc[sl.ev].alter > 0 ? Sharp : acc[sl.ev].alter < 0 ? Flat : Natural, sl.headX - sp * 1.2f, sl.y, col);
     sc.glyph(sl.v.base >= WHOLE ? HeadWhole : sl.v.base == WHOLE / 2 ? HeadHalf : HeadBlack, sl.headX, sl.y, col);
@@ -462,7 +487,7 @@ static void drawScore(App& a, Song& s) {
       sc.text(sym, sl.cx, tTop, sp * 2.2f, techCol);
     }
     // fingering chart: six holes, top hand first
-    float chartTop = bottom + sp * 3.5f, r = sp * 0.42f;
+    float chartTop = bottom + sp * 3.5f + room[sl.sys].below * sp / 2, r = sp * 0.42f;  // below the lowest note
     if (whistle && f.ok) {
       for (int h = 0; h < 6; h++) {
         ImVec2 c{sl.cx, chartTop + sp * (0.5f + h * 1.05f + (h >= 3 ? 0.5f : 0))};

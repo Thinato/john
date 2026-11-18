@@ -68,6 +68,23 @@ int main() {
   auto acc = accidentals(a);
   assert(acc[0].shown && acc[0].alter == 0 && !acc[1].shown);
 
+  // score layout: grand staff for piano (below middle C on the bass staff), room grows only for far notes
+  auto pn = importAbc("X:1\nT:p\nM:4/4\nL:1/4\nK:C\nA,,,, C c''' B,|\n").song;  // A0 C4 C8 B3
+  assert(!grandStaff(pn));
+  pn.instrument = "piano";
+  assert(grandStaff(pn) && onBassStaff(pn, 59) && !onBassStaff(pn, 60));
+  Room rm = systemRoom(pn, 0, (int)pn.events.size(), 6);
+  assert(rm.above == 56 - 44 && rm.below == 18 - 6 - 5);    // C8 above the treble staff, A0 below the bass staff
+  rm = systemRoom(pn, 1, 2, 6);                             // C4 alone: treble staff, no room needed
+  assert(rm.above == 0 && rm.below == 0);
+  auto gt = importAbc("X:1\nT:g\nM:4/4\nL:1/4\nK:Em\nE, G B e|\n").song;
+  gt.instrument = "guitar";
+  rm = systemRoom(gt, 0, (int)gt.events.size(), 6);
+  assert(!grandStaff(gt) && rm.above == 0 && rm.below == 1);  // low E3 one step past the note-name room
+  auto wh = importAbc("X:1\nT:w\nM:4/4\nL:1/4\nK:D\nD F b c'|\n").song;  // whistle D4..C#6: normal spacing
+  rm = systemRoom(wh, 0, (int)wh.events.size(), 4);
+  assert(rm.above == 0 && rm.below == 0);
+
   // thesession.org bare body: no headers, "!" line breaks
   auto t = importAbc("A2FA A2dB|A2FA BEE2|! A2FA A2Bd|egfd edBd|");
   assert(t.warnings == std::vector<std::string>{"no K: field, assumed D major"} && nth(t.song, 1).midi == 66 && t.song.title == "Untitled");
