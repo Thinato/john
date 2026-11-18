@@ -329,13 +329,14 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   }
   // Struck and plucked notes (piano, guitar) fade under the voicing threshold long before the next note while their
   // pitch is still the strongest one: sustain each note through that tail instead of leaving a rest (#6). A note
-  // released into a real rest stops at once (its tail is a few frames of release); one that rings on for at least
-  // minF was held, so the quantizer also closes what is left of its gap when that is a beat or less.
+  // released into a real rest stops at once (its tail is a few frames of release, left as it is); one that rings on
+  // for at least minF was held, so the quantizer also closes what is left of its gap when that is a beat or less.
   for (size_t i = 0; i < split.size(); i++) {
     RawNote& n = split[i];
-    const int end = i + 1 < split.size() ? split[i + 1].a : T, from = n.b;
-    while (n.b < end && frameMax[n.b] > 0 && S[(size_t)n.b * M + n.m] == frameMax[n.b]) n.b++;
-    n.ring = n.b - from >= minF;
+    const int end = i + 1 < split.size() ? split[i + 1].a : T;
+    int b = n.b;
+    while (b < end && frameMax[b] > 0 && S[(size_t)b * M + n.m] == frameMax[b]) b++;
+    if (b - n.b >= minF) n.b = b, n.ring = true;
   }
 
   // ---- beats: onset envelope, tempo by autocorrelation, beat times by dynamic programming ----
