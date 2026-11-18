@@ -496,6 +496,50 @@ int main() {
         assert(written(transcribe(x, sr, o).song) == written(importAbc(abcOf(meter, want)).song));
       }
     }
+    {  // eighth triplets come back as (3 groups among straight eighths and sixteenths; swung eighths (2:1) come back
+       // straight, with a report line (#2)
+      auto written = [](const Song& s) {
+        std::vector<std::tuple<int, int, bool, int, bool>> out;  // pitch, length, tie, tuplet, tuplet start
+        for (auto& e : s.events) if (e.kind == Kind::Note) out.push_back({e.midi, e.len, e.tie, e.tuplet, e.tupletStart});
+        return out;
+      };
+      auto render = [&](const Song& t, double bpm) {
+        Performance p = perform(t, bpm, 0, false);
+        std::vector<float> x((size_t)((p.length + 1) * sr), 0.f);
+        Synth sy;
+        sy.sampleRate = sr;
+        sy.metronome = false;
+        long long at = 0;
+        sy.render(p, at, x.data(), (int)x.size());
+        return x;
+      };
+      Song trip = importAbc("X:1\nT:t\nM:4/4\nL:1/8\nK:D\nD2 (3EFG A2 (3GFE|D2 F2 (3GAB A2|(3BAG (3FED E4|D E F/G/A (3Bcd e2|]\n").song;
+      TranscribeOptions o;
+      o.bpm = 100;
+      o.meter = "4/4";
+      Transcription tr = transcribe(render(trip, 100), sr, o);
+      std::string r = tr.report;
+      size_t at = r.find("triplets: 6 beat(s) written as eighth triplets (3\n");
+      assert(at != std::string::npos && r.find("rhythm:") == std::string::npos);
+      printf("transcribe (triplets): %s", r.substr(at, r.find('\n', at) + 1 - at).c_str());
+      assert(written(tr.song) == written(trip));
+      std::string abc = toAbc(tr.song);  // written lengths in the group: (3E2 F2 G2
+      assert(std::regex_search(abc, std::regex(R"(\(3=?[A-Ga-g]2 =?[A-Ga-g]2 =?[A-Ga-g]2 )")));
+      assert(written(importAbc(abc).song) == written(tr.song));
+
+      // the same straight eighths played long-short
+      Song even = importAbc("X:1\nT:s\nM:4/4\nL:1/8\nK:D\nD E F G A B c d|e d c B A G F E|D F A d c A F D|E G B d e4|]\n").song;
+      Song swung = even;
+      for (size_t i = 0, tick = 0; i + 1 < swung.events.size(); tick += swung.events[i++].len)
+        if (swung.events[i].len == 24 && tick % 48 == 0 && swung.events[i + 1].len == 24) swung.events[i].len = 32, swung.events[i + 1].len = 16;
+      tr = transcribe(render(swung, 100), sr, o);
+      r = tr.report;
+      at = r.find("rhythm: swung eighths, about ");
+      assert(at != std::string::npos);
+      printf("transcribe (swing): %s", r.substr(at, r.find('\n', at) + 1 - at).c_str());
+      double ratio = std::atof(r.c_str() + at + 29);
+      assert(ratio > 1.7 && ratio < 2.3 && written(tr.song) == written(even) && r.find("triplets:") == std::string::npos);
+    }
     {  // a short low note that starts a wide leap (D up a tenth) is melody, not accompaniment: keep it (#7)
       Song leap = importAbc("X:1\nT:l\nM:4/4\nL:1/8\nK:D\nD f a f b a f a|D f g a b2 a2|D f a f g f e f|D f a g f4|]\n").song;
       Performance pl = perform(leap, 120, 0, false);
@@ -594,6 +638,7 @@ int main() {
       assert(tr.report.find(bpm > 0 ? "bpm (quarter notes), as given\n" : "bpm (quarter notes), confidence high\n") != std::string::npos);
       assert(tr.song.key.fifths == 1);
       assert(tr.song.meter == "4/4" && tr.report.find("\nmeter: 4/4 (detected; 4/4 ") != std::string::npos);
+      assert(tr.report.find("triplets:") == std::string::npos && tr.report.find("rhythm:") == std::string::npos);  // straight (#2)
       // the per-frame pitch track comes back too, and its beat times put it under the right notes
       assert(tr.track.points.size() > mix.size() / 300 && tr.track.sync.size() > 20);
       for (auto& [tick, sec] : tr.track.sync) assert(std::abs(trackTick(tr.track, sec) - tick) < 1e-6);

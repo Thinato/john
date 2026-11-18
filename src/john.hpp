@@ -258,7 +258,7 @@ struct PitchTrack { std::vector<TrackPoint> points; std::vector<std::pair<int, d
 struct Transcription { Song song; std::string report; PitchTrack track; };
 // Melody of a recording as a song for o.instrument (octave fitted to its range). Throws if no melody is found.
 Transcription transcribe(const std::vector<float>& audio, int sampleRate, const TranscribeOptions& o = {});
-std::string toAbc(const Song& s);            // ABC with L:1/16 (no tuplets), readable by importAbc
+std::string toAbc(const Song& s);            // ABC with L:1/16 (tuplets as (3), readable by importAbc
 double trackTick(const PitchTrack& t, double seconds);  // song tick at a time of the recording (extrapolated at the ends)
 // Decode `path` (~/ allowed), keep start..end seconds (end <= 0: to the end) and transcribe it: transcribe_audio and
 // the viewer's Import audio. o.meter must be "" or normalized by parseMeter. Throws on unreadable audio or no melody.
