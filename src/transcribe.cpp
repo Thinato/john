@@ -88,12 +88,26 @@ Key detectKey(const std::vector<QNote>& notes, double* corrOut) {
   return best;
 }
 
-// Split a length in sixteenths into note values a learner can read (whole .. sixteenth, dotted allowed).
-std::vector<int> pieces(int n) {
+// Split a span of one bar into note values a learner can read (whole .. sixteenth, dotted allowed), tied in the draft,
+// so the beats stay visible (#3): a value starting off the beat stops at the next beat; one on a beat may span whole
+// beats (or a beat and a half in simple time: the dotted quarter), but not across the middle of a 4-beat bar unless
+// it starts the bar. pos = sixteenths into the bar, beat and bar in sixteenths.
+std::vector<int> pieces(int pos, int len, int beat, int bar, bool compound) {
   static const int V[] = {16, 12, 8, 6, 4, 3, 2, 1};
+  const int mid = bar / beat >= 4 && bar / beat % 2 == 0 ? bar / 2 : 0;
   std::vector<int> out;
-  while (n > 0)
-    for (int v : V) if (v <= n) { out.push_back(v); n -= v; break; }
+  for (const int end = pos + len; pos < end;) {
+    const bool onBeat = pos % beat == 0;
+    const int room = onBeat ? end - pos : std::min(end - pos, beat - pos % beat);
+    for (int v : V) {
+      if (v > room) continue;
+      if (onBeat && v > beat && ((v % beat && (compound || 2 * v != 3 * beat)) || (pos && pos < mid && pos + v > mid)))
+        continue;
+      out.push_back(v);
+      pos += v;
+      break;
+    }
+  }
   return out;
 }
 }  // namespace
@@ -387,7 +401,8 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   // a dotted quarter in 6/8 and 9/8 (6 sixteenths a beat).
   struct Fit {
     std::string meter;
-    int bpm = 0, rivalBpm = 0, bar = 0, phase = 0;  // rivalBpm: runner-up tempo (quarter notes per minute), 0 = none
+    int bpm = 0, rivalBpm = 0, bar = 0, beat = 0, phase = 0;  // bar, beat: grid cells; rivalBpm: runner-up tempo
+                                                              // (quarter notes per minute), 0 = none
     double tempoConf = 0, rival = 0, score = 0;
     std::vector<QNote> clean;
   };
@@ -397,7 +412,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     const bool compound = compoundMeter(meter);
     const int den = std::atoi(meter.c_str() + meter.find('/') + 1);
     const int beatTicks = compound ? 3 * WHOLE / den : WHOLE / den;
-    const int g = beatTicks / 12;  // grid cells (sixteenths) per beat
+    const int g = F.beat = beatTicks / 12;  // grid cells (sixteenths) per beat
     const double quarterPerBeat = beatTicks / 48.0;
     const double period = o.bpm > 0 ? 60.0 / (o.bpm / quarterPerBeat) / hopSec : tp.period;  // frames per beat
     F.tempoConf = tp.conf;
@@ -549,7 +564,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       if (c != clean.front().q0 && isBarStart(c)) { Event b; b.kind = Kind::Bar; b.bar = "|"; s.events.push_back(b); }
       int end = c + 1;
       while (end < to && !isBarStart(end)) end++;
-      for (int len : pieces(end - c)) {
+      for (int len : pieces((((c - phase) % bar) + bar) % bar, end - c, F.beat, bar, compoundMeter(F.meter))) {
         Event e;
         e.kind = note ? Kind::Note : Kind::Rest;
         e.midi = note ? midi : 0;

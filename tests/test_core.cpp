@@ -395,6 +395,36 @@ int main() {
         assert(tr.song.meter == "4/4" && tr.report.find("\nmeter: 4/4, as given\n") != std::string::npos);
       }
     }
+    {  // notes that cross a beat are split into tied values, the middle of a 4/4 bar stays visible; notes on a beat
+       // spanning whole beats (half on beat 1 or 3, dotted half, whole, dotted quarter in 6/8) stay single (#3)
+      auto written = [](const Song& s) {
+        std::vector<std::tuple<int, int, bool>> out;  // pitch, length, tie
+        for (auto& e : s.events) if (e.kind == Kind::Note) out.push_back({e.midi, e.len, e.tie});
+        return out;
+      };
+      auto abcOf = [](const std::string& meter, const char* body) { return "X:1\nT:s\nL:1/8\nM:" + meter + "\nK:D\n" + body; };
+      // 6 eighths a bar, read as 6/8 and as 3/4; narrow, so the whistle takes the low octave
+      const char* jig = "d2 e2 f2|g3 a3|b2 a4|f6|d e2 f2 g|a3 g2 e|d6|]\n";
+      const std::tuple<const char*, const char*, const char*> tunes[] = {
+          {"4/4", "A2 d4 A2|d3 e3 f2|g8|f4 e4|d e2 f2 g2 a|b6 g2|e2 d6|f8|]\n",
+           "A2 d2- d2 A2|d3 e- e2 f2|g8|f4 e4|d e- e f- f g- g a|b6 g2|e2 d2- d4|f8|]\n"},
+          {"6/8", jig, "D2 E- E F2|G3 A3|B2 A- A3|F6|D E2 F2 G|A3 G2 E|D6|]\n"},
+          {"3/4", jig, "D2 E2 F2|G3 A- A2|B2 A4|F6|D E- E F- F G|A3 G- G E|D6|]\n"}};
+      for (auto [meter, abc, want] : tunes) {
+        Song t = importAbc(abcOf(meter, abc)).song;
+        Performance ps = perform(t, 100, 0, false);
+        std::vector<float> x((size_t)((ps.length + 1) * sr), 0.f);
+        Synth ss;
+        ss.sampleRate = sr;
+        ss.metronome = false;
+        long long at = 0;
+        ss.render(ps, at, x.data(), (int)x.size());
+        TranscribeOptions o;
+        o.bpm = 100;
+        o.meter = meter;
+        assert(written(transcribe(x, sr, o).song) == written(importAbc(abcOf(meter, want)).song));
+      }
+    }
     {  // a short low note that starts a wide leap (D up a tenth) is melody, not accompaniment: keep it (#7)
       Song leap = importAbc("X:1\nT:l\nM:4/4\nL:1/8\nK:D\nD f a f b a f a|D f g a b2 a2|D f a f g f e f|D f a g f4|]\n").song;
       Performance pl = perform(leap, 120, 0, false);
