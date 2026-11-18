@@ -51,7 +51,7 @@ static void fft(std::vector<std::complex<float>>& a) {
 }
 
 namespace {
-constexpr int LO = 48, HI = 96;  // melody search range, sounding MIDI (C3..C7)
+constexpr int LO = 48, HI = 100;  // melody search range, sounding MIDI (C3..E7; a D whistle reaches D7)
 constexpr int M = HI - LO + 1;   // semitone states
 constexpr int CENTS = 10;        // fine salience resolution
 constexpr int NB = (HI - LO) * 100 / CENTS + 1;
@@ -188,12 +188,13 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   fine.clear();
   fine.shrink_to_fit();
   // A note's lower octave collects ~0.8 of its salience through the even harmonics; subtract part of the octave
-  // above so accompaniment can't tip the melody down an octave.
+  // above so accompaniment can't tip the melody down an octave. Only up to C6, as when the search stopped at C7:
+  // suppressing C#6..E6 by the D7..E7 states (their own 2nd harmonics) put whistle notes an octave off (#40).
   for (int t = 0; t < T; t++) {
     float* row = &S[(size_t)t * M];
     frameMax[t] = 0;
     for (int m = 0; m < M; m++) {
-      if (m + 12 < M) row[m] = std::max(0.f, row[m] - 0.5f * row[m + 12]);
+      if (m + 12 <= 96 - LO) row[m] = std::max(0.f, row[m] - 0.5f * row[m + 12]);
       if (m < sLo || m > sHi) row[m] = 0;  // outside the recording instrument's range
       frameMax[t] = std::max(frameMax[t], row[m]);
     }
