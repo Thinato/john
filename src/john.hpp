@@ -94,7 +94,12 @@ std::string matchLanguage(std::string want);        // "pt_BR.UTF-8", "pt-PT" ->
 std::vector<std::pair<std::string, std::string>> languages();  // (code, own name) of every file in i18nDir()
 const char* tr(const char* english);                // translation, or `english` when there is none
 std::string tr(const std::string& english);
-std::string trf(const char* english, ...) __attribute__((format(printf, 1, 2)));  // tr() then printf
+#ifdef __GNUC__
+#define JOHN_PRINTF_ARGS __attribute__((format(printf, 1, 2)))  // GCC/Clang check trf()'s arguments
+#else
+#define JOHN_PRINTF_ARGS  // MSVC
+#endif
+std::string trf(const char* english, ...) JOHN_PRINTF_ARGS;  // tr() then printf
 std::string songText(const Song& s, const std::string& english);  // s.i18n entry for the current language, else english
 // notes: noteName() says Do Re Mi instead of C D E. keys: keyName() does ("Ré maior"), but only in a language other
 // than English; English keys are always letters ("D major").
