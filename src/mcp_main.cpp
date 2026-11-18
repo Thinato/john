@@ -12,7 +12,7 @@ static const char* GUIDE = R"(John turns tunes into tin whistle tab sheets with 
 
 Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica). Pass it to import_abc / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts and the technique candidates are for the tin whistle. Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch.
 
-Getting a tune into John (always via ABC -> import_abc):
+Getting a tune into John (always via ABC -> import_abc, with instrument = what the user will play it on; the song list shows it and list_songs filters by it):
 - Photo/PDF of sheet music: read the image and transcribe it to ABC carefully (K: key signature, M: meter, L: unit, every bar). After importing, compare get_song bar by bar against the image.
 - thesession.org: curl -s 'https://thesession.org/tunes/search?q=NAME&format=json', then curl -s 'https://thesession.org/tunes/ID?format=json'. Each settings[] item has an "abc" body (a lone "!" is a line break) and "key" like "Dmajor". Add headers yourself: X:1, T:name, M: from the tune type (reel/hornpipe/barndance/strathspey 4/4, jig 6/8, slip jig 9/8, slide 12/8, polka 2/4, waltz/mazurka 3/4, three-two 3/2), L:1/8, K:key. Pass source = the setting URL.
 - Audio file (mp3/wav/flac): transcribe_audio gives a draft ABC plus a report. The draft is a machine guess (4/4, straight sixteenths, the loudest pitched line); you are the musician who turns it into a sheet. Review it before importing:
@@ -53,7 +53,8 @@ static json toolList() {
   json strArr = {{"type", "array"}, {"items", str}};
   json instrumentSchema = {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "instrument the song is for, default whistle"}};
   return json::array({
-      tool("list_songs", "List saved songs by folder (id, title, key, meter).", json::object()),
+      tool("list_songs", "List saved songs by folder (id, title, key, meter, instrument).",
+           {{"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "only songs for this instrument (any whistle key); default all"}}}}),
       tool("import_abc",
            "Create a song from ABC notation (full tune with X/T/M/L/K headers). Returns warnings and the note listing. "
            "Techniques in the ABC (~, {g}A grace cuts, !id! decorations) are kept.",
@@ -134,11 +135,15 @@ static Song mustLoad(const json& a) {
 
 static std::string callTool(const std::string& name, const json& a) {
   if (name == "list_songs") {
+    std::string inst = a.value("instrument", "");
+    if (!inst.empty() && !findInstrument(inst)) throw std::runtime_error("unknown instrument '" + inst + "'");
     std::map<std::string, std::string, decltype(&folderBefore)> byFolder(&folderBefore);
     for (auto& id : listSongs())
-      if (auto s = loadSong(id)) byFolder[s->folder] += "  " + id + " - " + s->title + " (" + keyName(s->key) + ", " + s->meter + ")\n";
+      if (auto s = loadSong(id); s && (inst.empty() || instrumentOf(*s).id == inst))
+        byFolder[s->folder] += "  " + id + " - " + s->title + " (" + keyName(s->key) + ", " + s->meter + ", " + instrumentOf(*s).name + ")\n";
     std::string r;
     for (auto& [f, lines] : byFolder) r += (f.empty() ? "Unsorted" : f) + ":\n" + lines;
+    if (r.empty() && !inst.empty()) return "No songs for instrument '" + inst + "'.";
     return r.empty() ? "No songs yet. Data folder: " + dataDir().string() : r;
   }
   if (name == "import_abc") {
