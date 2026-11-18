@@ -1,6 +1,6 @@
 // Audio -> melody: predominant pitch (harmonic summation + Viterbi), beat tracking (Ellis DP), quantization to
-// a sixteenth grid, key detection (Krumhansl), octave fit to the instrument. Works on solo lines and on mixes where the
-// melody is the strongest pitched voice.
+// a sixteenth grid (eighth triplets where they fit, swung eighths straightened), key detection (Krumhansl), octave fit
+// to the instrument. Works on solo lines and on mixes where the melody is the strongest pitched voice.
 #include "john.hpp"
 #include "miniaudio.h"
 #include <algorithm>
@@ -9,6 +9,7 @@
 #include <complex>
 #include <map>
 #include <numeric>
+#include <set>
 #include <stdexcept>
 
 namespace john {
@@ -61,6 +62,13 @@ constexpr int HARMONICS = 8;
 struct RawNote { int a, b, m; double conf; bool ring = false; };  // frames [a, b), sounding MIDI, mean salience;
                                                                    // ring: sustained through its decay tail (#6)
 struct QNote { int q0, q1, m; double conf; bool ring = false; };  // grid units [q0, q1)
+
+// Triplets and swing (#2), tuned on the synthetic tests and the recordings in tmp/ (kb note transcription-triplets-swing).
+// A beat is a triplet when it has at least 2 off-beat note starts and each lies within TRIPLET of a beat of 1/3 or 2/3
+// (sixteenths are 1/12 away from those). A tune swings when at least SWING_PAIRS beats of an eighth pair have their
+// second note at a median SWING_LO..SWING_HI of the beat, and under a quarter of them are even.
+constexpr double TRIPLET = 0.04, SWING_LO = 0.57, SWING_HI = 0.72;
+constexpr size_t SWING_PAIRS = 8;
 
 const int PC_FIFTHS[12] = {0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5};
 
@@ -409,6 +417,8 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     int bpm = 0, rivalBpm = 0, bar = 0, beat = 0, phase = 0;  // bar, beat: grid cells; rivalBpm: runner-up tempo
                                                               // (quarter notes per minute), 0 = none
     double tempoConf = 0, rival = 0, score = 0;
+    double swing = 0;    // swung eighths: where the second one starts in the beat (0.67 = 2:1), 0 = straight
+    std::set<int> trip;  // beats written as eighth triplets (beat k is cells k * beat .. (k + 1) * beat)
     std::vector<QNote> clean;
     std::vector<std::pair<int, double>> sync;  // PitchTrack::sync: (song tick, seconds) of each beat
   };
@@ -418,7 +428,8 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     const bool compound = compoundMeter(meter);
     const int den = std::atoi(meter.c_str() + meter.find('/') + 1);
     const int beatTicks = compound ? 3 * WHOLE / den : WHOLE / den;
-    const int g = F.beat = beatTicks / 12;  // grid cells (sixteenths) per beat
+    const int g = F.beat = beatTicks / 4;  // grid cells per beat. A cell is 4 ticks, a third of a sixteenth: sixteenths
+                                           // are 3 cells, eighth triplets 4
     const double quarterPerBeat = beatTicks / 48.0;
     const double period = o.bpm > 0 ? 60.0 / (o.bpm / quarterPerBeat) / hopSec : tp.period;  // frames per beat
     F.tempoConf = tp.conf;
@@ -455,31 +466,81 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     double beatFrames = (beats.back() - beats.front()) / (beats.size() - 1);
     F.bpm = (int)std::lround(60.0 / (beatFrames * hopSec) * quarterPerBeat);
 
+    // Pitch onsets lag the beats (onset flux) by a steady amount: measure it on the notes near a beat
+    std::vector<double> lag;
+    for (auto& n : split)
+      if (double d = beatPos(n.a) - std::round(beatPos(n.a)); std::abs(d) < 0.15) lag.push_back(d);
+    std::nth_element(lag.begin(), lag.begin() + lag.size() / 2, lag.end());
+    const double shift = lag.empty() ? 0 : lag[lag.size() / 2];
+
     // ---- quantize to the grid ----
-    std::vector<QNote> q;
-    for (auto& n : split) {
-      int q0 = (int)std::lround(beatPos(n.a) * g), q1 = (int)std::lround(beatPos(n.b) * g);
-      q.push_back({q0, std::max(q0 + 1, q1), n.m + LO, n.conf, n.ring});
-    }
-    std::vector<QNote>& clean = F.clean;
-    for (auto& n : q) {
-      if (!clean.empty()) {
-        QNote& p = clean.back();
-        if (n.q0 <= p.q0) {  // two notes on one grid point: keep the longer
-          if (n.q1 - n.q0 > p.q1 - p.q0) p = n;
-          continue;
-        }
-        // overlaps cut, sixteenth gaps closed (legato reads better), gaps up to a beat after a ringing note closed
-        if (p.q1 > n.q0 || n.q0 - p.q1 <= (p.ring ? g : 1)) p.q1 = n.q0;
+    // Simple meters only (#2): a beat whose off-beat note starts all sit close to its thirds is written as a triplet; a
+    // tune whose eighth pairs are mostly long-short is swung, and its beats are warped so the swing point lands on the
+    // half beat (written straight). Other beats round to sixteenths as before #2. The meter fit below scores the plain
+    // sixteenth quantization, so triplets and swing change the notation, not the meter choice.
+    auto where = [&](double x) {  // beat and fraction (-1/12 .. 11/12) of a position, lag removed
+      double y = x - shift;
+      int k = (int)std::floor(y + 1.0 / 12);
+      return std::pair<int, double>{k, y - k};
+    };
+    if (!compound) {
+      std::map<int, std::vector<double>> off;  // beat -> fractions of its off-beat note starts
+      for (auto& n : split) if (auto [k, f] = where(beatPos(n.a)); f >= 1.0 / 12) off[k].push_back(f);
+      auto third = [](double f) { return std::min(std::abs(f - 1.0 / 3), std::abs(f - 2.0 / 3)) <= TRIPLET; };
+      std::vector<double> pairs;  // where the second note starts in beats of one on-beat and one off-beat start
+      for (auto& [k, fs] : off) {
+        if (fs.size() >= 2 && std::all_of(fs.begin(), fs.end(), third)) F.trip.insert(k);
+        else if (fs.size() == 1 && fs[0] > 0.4 && fs[0] < 0.8) pairs.push_back(fs[0]);
       }
-      clean.push_back(n);
+      // a pickup starting inside a triplet beat would leave the triplet incomplete
+      if (auto [k, f] = where(beatPos(split.front().a)); f >= 1.0 / 12) F.trip.erase(k);
+      std::sort(pairs.begin(), pairs.end());
+      const size_t n = pairs.size();
+      if (n >= SWING_PAIRS) {
+        double m = pairs[n / 2], even = (double)(std::lower_bound(pairs.begin(), pairs.end(), 0.55) - pairs.begin()) / n;
+        if (m >= SWING_LO && m <= SWING_HI && even < 0.25) F.swing = m;
+      }
     }
-    // the song starts at grid cell clean.front().q0; beat k is cell k * g, a cell is a sixteenth (12 ticks)
+    auto quantize = [&](bool rhythm) {  // rhythm: with the triplets and swing found above
+      auto cellOf = [&](double x) {
+        auto [k, f] = where(x);
+        if (rhythm && F.trip.count(k)) return k * g + (int)std::lround(f * 3) * 4;
+        if (rhythm && F.swing > 0) {
+          const double s = F.swing;
+          return k * g + (int)std::lround((f < s ? f / s / 2 : 0.5 + (f - s) / (1 - s) / 2) * 4) * 3;
+        }
+        int c = (int)std::lround(x * (g / 3)) * 3;  // as before #2, without the lag
+        // an early note can round past the beat line; keep it out of a triplet beat's grid
+        if (rhythm && F.trip.count((int)std::floor((double)c / g))) c = std::clamp(c, k * g, (k + 1) * g);
+        return c;
+      };
+      std::vector<QNote> out;
+      for (auto& r : split) {
+        int q0 = cellOf(beatPos(r.a)), q1 = cellOf(beatPos(r.b));
+        int step = rhythm && F.trip.count((int)std::floor((double)q0 / g)) ? 4 : 3;  // shortest note: a triplet or sixteenth
+        QNote n{q0, std::max(q0 + step, q1), r.m + LO, r.conf, r.ring};
+        if (!out.empty()) {
+          QNote& p = out.back();
+          if (n.q0 <= p.q0) {  // two notes on one grid point: keep the longer
+            if (n.q1 - n.q0 > p.q1 - p.q0) p = n;
+            continue;
+          }
+          // overlaps cut, sixteenth (or triplet) gaps closed (legato reads better), gaps up to a beat after a ringing
+          // note closed
+          if (p.q1 > n.q0 || n.q0 - p.q1 <= (p.ring ? g : 4)) p.q1 = n.q0;
+        }
+        out.push_back(n);
+      }
+      return out;
+    };
+    const std::vector<QNote> clean = quantize(false);
+    F.clean = quantize(true);
+    // the song starts at grid cell F.clean.front().q0; beat k is cell k * g, a cell is 4 ticks
     for (size_t k = 0; k < beats.size(); k++)
-      F.sync.push_back({((int)k * g - clean.front().q0) * 12, (beats[k] * HOP + N / 2.0) / sr});
+      F.sync.push_back({((int)k * g - F.clean.front().q0) * 4, (beats[k] * HOP + N / 2.0) / sr});
 
     // ---- bars: downbeat phase where the most note time starts ----
-    const int bar = F.bar = meterTicks(meter) / 12;  // grid cells per bar
+    const int bar = F.bar = meterTicks(meter) / 4;  // grid cells per bar
     int& phase = F.phase;
     std::vector<double> sc(bar, 0);
     for (auto& n : clean) sc[((n.q0 % bar) + bar) % bar] += n.q1 - n.q0;
@@ -487,12 +548,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
 
     // ---- how well the meter fits, each part 0..1 ----
     // subdivision: of the note starts between beats, the share on halves/quarters (simple) or on thirds (compound).
-    // Pitch onsets lag the beats (onset flux) by a steady amount: measure it on the notes near a beat first.
-    std::vector<double> lag;
-    for (auto& n : split)
-      if (double d = beatPos(n.a) - std::round(beatPos(n.a)); std::abs(d) < 0.15) lag.push_back(d);
-    std::nth_element(lag.begin(), lag.begin() + lag.size() / 2, lag.end());
-    const double shift = lag.empty() ? 0 : lag[lag.size() / 2];
+    // The onset lag (shift, above) is removed first.
     double duple = 0, triple = 0;
     for (auto& n : split) {
       double x = beatPos(n.a) - shift, f = x - std::floor(x);
@@ -601,12 +657,27 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   s.key = key;
   s.tempo = bpm;
   auto isBarStart = [&](int c) { return (((c - phase) % bar) + bar) % bar == 0; };
+  auto isTrip = [&](int c) { return F.trip.count((int)std::floor((double)c / F.beat)) > 0; };
   auto emitSpan = [&](int from, int to, int midi, bool note) {
     for (int c = from; c < to;) {
       if (c != clean.front().q0 && isBarStart(c)) { Event b; b.kind = Kind::Bar; b.bar = "|"; s.events.push_back(b); }
+      if (isTrip(c)) {  // a triplet beat is always three triplet eighths (tied), so pieces() never splits the group
+        Event e;
+        e.kind = note ? Kind::Note : Kind::Rest;
+        e.midi = note ? midi : 0;
+        e.len = 16;
+        e.tie = note;
+        e.tuplet = 3;
+        e.tupletQ = 2;
+        e.tupletStart = (c % F.beat + F.beat) % F.beat == 0;
+        s.events.push_back(e);
+        c += 4;
+        continue;
+      }
       int end = c + 1;
-      while (end < to && !isBarStart(end)) end++;
-      for (int len : pieces((((c - phase) % bar) + bar) % bar, end - c, F.beat, bar, compoundMeter(F.meter))) {
+      while (end < to && !isBarStart(end) && !isTrip(end)) end++;
+      const int pos = (((c - phase) % bar) + bar) % bar;
+      for (int len : pieces(pos / 3, (end - c) / 3, F.beat / 3, bar / 3, compoundMeter(F.meter))) {  // in sixteenths
         Event e;
         e.kind = note ? Kind::Note : Kind::Rest;
         e.midi = note ? midi : 0;
@@ -671,6 +742,15 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     r += ")";
   }
   r += "\n";
+  if (!F.trip.empty()) {
+    snprintf(line, sizeof line, "triplets: %zu beat(s) written as eighth triplets (3\n", F.trip.size());
+    r += line;
+  }
+  if (F.swing > 0) {
+    snprintf(line, sizeof line, "rhythm: swung eighths, about %.1f:1 (written as straight eighths; play them long-short)\n",
+             F.swing / (1 - F.swing));
+    r += line;
+  }
   snprintf(line, sizeof line, "key: %s (fit %.2f)\ntuning: %+.0f cents from A440\n", keyName(heard).c_str(), keyCorr, tune);
   r += line;
   if (semis) {
@@ -716,6 +796,8 @@ std::string toAbc(const Song& s) {
       out += ++bars % 4 == 0 && i + 1 < s.events.size() ? "\n" : " ";
       continue;
     }
+    if (e.tupletStart)
+      out += e.tuplet == 3 && e.tupletQ == 2 ? "(3" : "(" + std::to_string(e.tuplet) + ":" + std::to_string(e.tupletQ);
     for (auto& t : e.techniques) out += "!" + t + "!";
     if (e.kind == Kind::Rest) out += "z";
     else {
@@ -725,7 +807,7 @@ std::string toAbc(const Song& s) {
       if (sp.octave >= 5) out += (char)tolower(letter), out += std::string(sp.octave - 5, '\'');
       else out += letter, out += std::string(std::max(0, 4 - sp.octave), ',');
     }
-    int num = e.len, dn = 12;  // L:1/16 = 12 ticks
+    int num = e.tuplet && e.tupletQ ? e.len * e.tuplet / e.tupletQ : e.len, dn = 12;  // written length; L:1/16 = 12 ticks
     int gcd = std::gcd(num, dn);
     num /= gcd, dn /= gcd;
     if (num != 1) out += std::to_string(num);
