@@ -835,7 +835,9 @@ static void detailsPanel(App& a) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.description.c_str());
     }
     ImGui::InputTextMultiline("##comment", a.comment, sizeof a.comment, {-1, ImGui::GetTextLineHeight() * 4});
-    if (ImGui::Button(L("Save comment").c_str())) editSelected(a, [&](Event& n) { n.comment = a.comment; });
+    // unchanged box = the translation it was filled with: don't overwrite the English with it
+    if (ImGui::Button(L("Save comment").c_str()) && a.comment != songText(s, e.comment))
+      editSelected(a, [&](Event& n) { n.comment = a.comment; });
   } else ImGui::TextDisabled("%s", tr("Click a note to see and edit its techniques."));
 
   ImGui::Separator();
