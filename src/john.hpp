@@ -98,6 +98,16 @@ void transpose(Song& s, int semitones);
 // throws std::invalid_argument if the range matches nothing or would empty the song.
 int deleteBars(Song& s, int first, int last);
 
+// Score layout (drawn by the GUI). Steps are Spelled::step(), C4 = 28; the treble staff's lines are steps 30..38.
+// Piano songs get a grand staff: notes below middle C go on the bass staff (lines 18..26). Drawing only, the song
+// stays one melody line.
+bool grandStaff(const Song& s);
+bool onBassStaff(const Song& s, int midi);
+// Extra room, in steps (half staff spaces), the notes of events [from, to) need above the top staff and below the
+// bottom staff. 6 steps above the top line and `free` steps below the bottom line fit the normal spacing.
+struct Room { int above = 0, below = 0; };
+Room systemRoom(const Song& s, int from, int to, int free);
+
 // Displayed accidental for each note (0 = none, else -1/0/+1 via `shown`), recomputed per bar.
 struct Accidental { bool shown = false; int alter = 0; };
 std::vector<Accidental> accidentals(const Song& s);
@@ -195,11 +205,11 @@ std::string analyze(const Song& s);          // deterministic technique candidat
 std::vector<float> decodeAudio(const std::string& path, int sampleRate);  // mono; mp3/wav/flac; throws on failure
 struct TranscribeOptions {
   double bpm = 0;             // quarter notes per minute; 0 = detect
-  std::string meter = "4/4";
+  std::string meter;          // "" = detect (4/4, 3/4, 6/8 or 9/8)
   std::string title = "Transcription";
   std::string instrument = "whistle";  // the song is written for this instrument (D whistle) and fitted to its range
   std::string recordingInstrument;     // plays the melody in the recording (D whistle); limits the pitch search to its
-                                       // sounding range. "" = search C3..C7
+                                       // sounding range. "" = search C3..E7
 };
 struct Transcription { Song song; std::string report; };
 // Melody of a recording as a song for o.instrument (octave fitted to its range). Throws if no melody is found.

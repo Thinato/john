@@ -51,7 +51,7 @@ static void fft(std::vector<std::complex<float>>& a) {
 }
 
 namespace {
-constexpr int LO = 48, HI = 96;  // melody search range, sounding MIDI (C3..C7)
+constexpr int LO = 48, HI = 100;  // melody search range, sounding MIDI (C3..E7; a D whistle reaches D7)
 constexpr int M = HI - LO + 1;   // semitone states
 constexpr int CENTS = 10;        // fine salience resolution
 constexpr int NB = (HI - LO) * 100 / CENTS + 1;
@@ -104,8 +104,8 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   const double hopSec = (double)HOP / sr;
   if ((long long)x.size() < (long long)N * 4) throw std::runtime_error("audio is too short to transcribe");
   const int T = 1 + (int)((x.size() - N) / HOP);
-  const int bpb = meterTicks(o.meter);
-  if (bpb <= 0 || bpb % 12) throw std::runtime_error("unsupported meter '" + o.meter + "'");
+  if (!o.meter.empty() && (meterTicks(o.meter) <= 0 || meterTicks(o.meter) % 12))
+    throw std::runtime_error("unsupported meter '" + o.meter + "'");
   // pitch search range (semitone states): the recording's solo instrument sounding range, two semitones margin
   int sLo = 0, sHi = M - 1;
   std::optional<Instrument> rec;
@@ -188,12 +188,13 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   fine.clear();
   fine.shrink_to_fit();
   // A note's lower octave collects ~0.8 of its salience through the even harmonics; subtract part of the octave
-  // above so accompaniment can't tip the melody down an octave.
+  // above so accompaniment can't tip the melody down an octave. Only up to C6, as when the search stopped at C7:
+  // suppressing C#6..E6 by the D7..E7 states (their own 2nd harmonics) put whistle notes an octave off (#40).
   for (int t = 0; t < T; t++) {
     float* row = &S[(size_t)t * M];
     frameMax[t] = 0;
     for (int m = 0; m < M; m++) {
-      if (m + 12 < M) row[m] = std::max(0.f, row[m] - 0.5f * row[m + 12]);
+      if (m + 12 <= 96 - LO) row[m] = std::max(0.f, row[m] - 0.5f * row[m + 12]);
       if (m < sLo || m > sHi) row[m] = 0;  // outside the recording instrument's range
       frameMax[t] = std::max(frameMax[t], row[m]);
     }
@@ -327,11 +328,6 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   }
 
   // ---- beats: onset envelope, tempo by autocorrelation, beat times by dynamic programming ----
-  const bool compound = compoundMeter(o.meter);
-  const int den = std::atoi(o.meter.c_str() + o.meter.find('/') + 1);
-  const int beatTicks = compound ? 3 * WHOLE / den : WHOLE / den;
-  const int g = beatTicks / 12;  // grid cells (sixteenths) per beat
-  const double quarterPerBeat = beatTicks / 48.0;
   std::vector<double> env(T, 0);
   {
     int w = std::max(1, (int)(0.2 / hopSec));
@@ -347,11 +343,10 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     double sd = std::sqrt(std::max(1e-12, sq / T - (sum / T) * (sum / T)));
     for (auto& e : env) e /= sd;
   }
-  double period;  // frames per beat
-  double tempoConf = 0, rival = 0;  // peak strength; runner-up peak / best peak
-  int rivalBpm = 0;                 // runner-up tempo (quarter notes per minute), 0 = none
-  if (o.bpm > 0) period = 60.0 / (o.bpm / quarterPerBeat) / hopSec;
-  else {
+  // Beat period (frames) by autocorrelation, centred on 110 beats a minute, or 80 for the dotted-quarter beat of 6/8
+  struct Tempo { double period = 0, conf = 0, rival = 0, rivalPeriod = 0; };  // peak strength; runner-up peak / best
+  auto tempoOf = [&](bool compound) {
+    Tempo tp;
     int lo = (int)(60.0 / 220 / hopSec), hi = std::min(T / 2, (int)(60.0 / 40 / hopSec));
     std::vector<double> r(hi + 2, 0), sc(hi + 2, 0);
     for (int L = lo; L <= hi + 1; L++)
@@ -366,74 +361,146 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       if (sc[L] > best) { best = sc[L]; arg = L; }
     }
     double a = r[arg - 1], b = r[arg], c = r[arg + 1];
-    period = arg + (a - 2 * b + c != 0 ? 0.5 * (a - c) / (a - 2 * b + c) : 0);
-    tempoConf = r0 > 0 ? b / r0 : 0;
+    tp.period = arg + (a - 2 * b + c != 0 ? 0.5 * (a - c) / (a - 2 * b + c) : 0);
+    tp.conf = r0 > 0 ? b / r0 : 0;
     // runner-up: the strongest other peak more than ~15% away (often half or double the tempo)
     for (int L = lo + 2; L < hi; L++)
-      if (sc[L] >= sc[L - 1] && sc[L] >= sc[L + 1] && std::abs(std::log2((double)L / arg)) > 0.2 && sc[L] > rival * best) {
-        rival = best > 0 ? sc[L] / best : 0;
-        rivalBpm = (int)std::lround(60.0 / (L * hopSec) * quarterPerBeat);
+      if (sc[L] >= sc[L - 1] && sc[L] >= sc[L + 1] && std::abs(std::log2((double)L / arg)) > 0.2 && sc[L] > tp.rival * best) {
+        tp.rival = best > 0 ? sc[L] / best : 0;
+        tp.rivalPeriod = L;
       }
-  }
-  std::vector<double> beats;
-  {
-    std::vector<double> sc(T);
-    std::vector<int> prev(T, -1);
-    const double TIGHT = 100;
-    for (int t = 0; t < T; t++) {
-      sc[t] = env[t];
-      double best = -1e30;
-      for (int tau = t - (int)std::round(2 * period); tau <= t - (int)std::round(period / 2); tau++) {
-        if (tau < 0) continue;
-        double l = std::log((t - tau) / period);
-        double c = sc[tau] - TIGHT * l * l;
-        if (c > best) { best = c; prev[t] = tau; }
-      }
-      if (prev[t] >= 0) sc[t] += best;
-    }
-    int t = T - 1;
-    for (int u = std::max(0, T - (int)period); u < T; u++) if (sc[u] > sc[t]) t = u;
-    for (; t >= 0; t = prev[t]) beats.push_back(t);
-    std::reverse(beats.begin(), beats.end());
-  }
-  if (beats.size() < 2) beats = {0, period};
-  auto beatPos = [&](double f) {
-    size_t k = std::upper_bound(beats.begin(), beats.end(), f) - beats.begin();
-    if (k == 0) return (f - beats[0]) / (beats[1] - beats[0]);
-    if (k >= beats.size()) { size_t n = beats.size(); return n - 1 + (f - beats[n - 1]) / (beats[n - 1] - beats[n - 2]); }
-    return k - 1 + (f - beats[k - 1]) / (beats[k] - beats[k - 1]);
+    return tp;
   };
-  double beatFrames = (beats.back() - beats.front()) / (beats.size() - 1);
-  int bpm = (int)std::lround(60.0 / (beatFrames * hopSec) * quarterPerBeat);
-
-  // ---- quantize to the grid ----
-  std::vector<QNote> q;
-  for (auto& n : split) {
-    int q0 = (int)std::lround(beatPos(n.a) * g), q1 = (int)std::lround(beatPos(n.b) * g);
-    q.push_back({q0, std::max(q0 + 1, q1), n.m + LO, n.conf});
-  }
-  std::vector<QNote> clean;
-  for (auto& n : q) {
-    if (!clean.empty()) {
-      QNote& p = clean.back();
-      if (n.q0 <= p.q0) {  // two notes on one grid point: keep the longer
-        if (n.q1 - n.q0 > p.q1 - p.q0) p = n;
-        continue;
+  // Beats, grid and bars for one meter on a beat period. The meter sets the beat level: a quarter in 4/4 and 3/4,
+  // a dotted quarter in 6/8 and 9/8 (6 sixteenths a beat).
+  struct Fit {
+    std::string meter;
+    int bpm = 0, rivalBpm = 0, bar = 0, phase = 0;  // rivalBpm: runner-up tempo (quarter notes per minute), 0 = none
+    double tempoConf = 0, rival = 0, score = 0;
+    std::vector<QNote> clean;
+  };
+  auto fitMeter = [&](const std::string& meter, const Tempo& tp) {
+    Fit F;
+    F.meter = meter;
+    const bool compound = compoundMeter(meter);
+    const int den = std::atoi(meter.c_str() + meter.find('/') + 1);
+    const int beatTicks = compound ? 3 * WHOLE / den : WHOLE / den;
+    const int g = beatTicks / 12;  // grid cells (sixteenths) per beat
+    const double quarterPerBeat = beatTicks / 48.0;
+    const double period = o.bpm > 0 ? 60.0 / (o.bpm / quarterPerBeat) / hopSec : tp.period;  // frames per beat
+    F.tempoConf = tp.conf;
+    F.rival = tp.rival;
+    if (tp.rivalPeriod > 0) F.rivalBpm = (int)std::lround(60.0 / (tp.rivalPeriod * hopSec) * quarterPerBeat);
+    std::vector<double> beats;
+    {
+      std::vector<double> sc(T);
+      std::vector<int> prev(T, -1);
+      const double TIGHT = 100;
+      for (int t = 0; t < T; t++) {
+        sc[t] = env[t];
+        double best = -1e30;
+        for (int tau = t - (int)std::round(2 * period); tau <= t - (int)std::round(period / 2); tau++) {
+          if (tau < 0) continue;
+          double l = std::log((t - tau) / period);
+          double c = sc[tau] - TIGHT * l * l;
+          if (c > best) { best = c; prev[t] = tau; }
+        }
+        if (prev[t] >= 0) sc[t] += best;
       }
-      if (p.q1 > n.q0 || n.q0 - p.q1 <= 1) p.q1 = n.q0;  // overlaps cut, sixteenth gaps closed (legato reads better)
+      int t = T - 1;
+      for (int u = std::max(0, T - (int)period); u < T; u++) if (sc[u] > sc[t]) t = u;
+      for (; t >= 0; t = prev[t]) beats.push_back(t);
+      std::reverse(beats.begin(), beats.end());
     }
-    clean.push_back(n);
-  }
+    if (beats.size() < 2) beats = {0, period};
+    auto beatPos = [&](double f) {
+      size_t k = std::upper_bound(beats.begin(), beats.end(), f) - beats.begin();
+      if (k == 0) return (f - beats[0]) / (beats[1] - beats[0]);
+      if (k >= beats.size()) { size_t n = beats.size(); return n - 1 + (f - beats[n - 1]) / (beats[n - 1] - beats[n - 2]); }
+      return k - 1 + (f - beats[k - 1]) / (beats[k] - beats[k - 1]);
+    };
+    double beatFrames = (beats.back() - beats.front()) / (beats.size() - 1);
+    F.bpm = (int)std::lround(60.0 / (beatFrames * hopSec) * quarterPerBeat);
 
-  // ---- bars: downbeat phase where the most note time starts ----
-  const int bar = bpb / 12;  // grid cells per bar
-  int phase = 0;
-  {
+    // ---- quantize to the grid ----
+    std::vector<QNote> q;
+    for (auto& n : split) {
+      int q0 = (int)std::lround(beatPos(n.a) * g), q1 = (int)std::lround(beatPos(n.b) * g);
+      q.push_back({q0, std::max(q0 + 1, q1), n.m + LO, n.conf});
+    }
+    std::vector<QNote>& clean = F.clean;
+    for (auto& n : q) {
+      if (!clean.empty()) {
+        QNote& p = clean.back();
+        if (n.q0 <= p.q0) {  // two notes on one grid point: keep the longer
+          if (n.q1 - n.q0 > p.q1 - p.q0) p = n;
+          continue;
+        }
+        if (p.q1 > n.q0 || n.q0 - p.q1 <= 1) p.q1 = n.q0;  // overlaps cut, sixteenth gaps closed (legato reads better)
+      }
+      clean.push_back(n);
+    }
+
+    // ---- bars: downbeat phase where the most note time starts ----
+    const int bar = F.bar = meterTicks(meter) / 12;  // grid cells per bar
+    int& phase = F.phase;
     std::vector<double> sc(bar, 0);
     for (auto& n : clean) sc[((n.q0 % bar) + bar) % bar] += n.q1 - n.q0;
     for (int p = 0; p < bar; p += g) if (sc[p] > sc[phase]) phase = p;
-  }
 
+    // ---- how well the meter fits, each part 0..1 ----
+    // subdivision: of the note starts between beats, the share on halves/quarters (simple) or on thirds (compound).
+    // Pitch onsets lag the beats (onset flux) by a steady amount: measure it on the notes near a beat first.
+    std::vector<double> lag;
+    for (auto& n : split)
+      if (double d = beatPos(n.a) - std::round(beatPos(n.a)); std::abs(d) < 0.15) lag.push_back(d);
+    std::nth_element(lag.begin(), lag.begin() + lag.size() / 2, lag.end());
+    const double shift = lag.empty() ? 0 : lag[lag.size() / 2];
+    double duple = 0, triple = 0;
+    for (auto& n : split) {
+      double x = beatPos(n.a) - shift, f = x - std::floor(x);
+      if (f < 1.0 / 12 || f > 11.0 / 12) continue;  // on the beat: says nothing about the subdivision
+      double d3 = std::min({std::abs(f - 1.0 / 3), std::abs(f - 2.0 / 3)});
+      double d4 = std::min({std::abs(f - 0.25), std::abs(f - 0.5), std::abs(f - 0.75)});
+      (d3 < d4 ? triple : duple)++;
+    }
+    double subdiv = duple + triple > 0 ? (compound ? triple : duple) / (duple + triple) : compound ? 0 : 1;
+    // long notes on the beats, and on beat 1 of the bar more than on the other beats
+    double len = 0, onBeat = 0;
+    for (int p = 0; p < bar; p++) len += sc[p], onBeat += p % g ? 0 : sc[p];
+    const int B = bar / g;  // beats per bar
+    double accent = onBeat > 0 && B > 1 ? (sc[phase] / onBeat - 1.0 / B) / (1 - 1.0 / B) * onBeat / len : 0;
+    // repeated motifs: the same pitch one, two or four bars later
+    std::vector<int> cell(clean.back().q1 - clean.front().q0, 0);
+    for (auto& n : clean) std::fill(cell.begin() + n.q0 - clean.front().q0, cell.begin() + n.q1 - clean.front().q0, n.m);
+    double motif = 0;
+    for (int k : {1, 2, 4}) {
+      int L = k * bar, same = 0, both = 0;
+      for (size_t t = 0; t + L < cell.size(); t++)
+        if (cell[t] && cell[t + L]) both++, same += cell[t] == cell[t + L];
+      if (both) motif = std::max(motif, (double)same / both);
+    }
+    F.score = (subdiv + onBeat / len + accent + motif) / 4;
+    return F;
+  };
+  // Without a meter, try each one on both tempo searches' beats: the quarter-centred search often locks onto a jig's
+  // dotted quarter, the dotted-quarter one onto a waltz's quarter. Keep each meter's better fit.
+  std::vector<Fit> fits;
+  const Tempo simpleTp = o.bpm > 0 ? Tempo{} : tempoOf(false), compoundTp = o.bpm > 0 ? Tempo{} : tempoOf(true);
+  if (!o.meter.empty()) fits.push_back(fitMeter(o.meter, compoundMeter(o.meter) ? compoundTp : simpleTp));
+  else
+    for (const char* m : {"4/4", "3/4", "6/8", "9/8"}) {
+      bool c = compoundMeter(m);
+      fits.push_back(fitMeter(m, c ? compoundTp : simpleTp));
+      if (o.bpm > 0) continue;
+      Fit other = fitMeter(m, c ? simpleTp : compoundTp);
+      if (other.score > fits.back().score) fits.back() = std::move(other);
+    }
+  std::stable_sort(fits.begin(), fits.end(), [](const Fit& a, const Fit& b) { return a.score > b.score; });
+  const Fit& F = fits[0];
+  std::vector<QNote> clean = F.clean;
+  const int bar = F.bar, phase = F.phase, bpm = F.bpm, rivalBpm = F.rivalBpm;
+  const double tempoConf = F.tempoConf, rival = F.rival;
   // ---- key, octave fit, events ----
   double keyCorr = 0;
   Key key = detectKey(clean, &keyCorr);
@@ -460,7 +527,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   Song s;
   s.title = o.title;
   s.instrument = inst->id;
-  s.meter = o.meter;
+  s.meter = F.meter;
   s.key = key;
   s.tempo = bpm;
   auto isBarStart = [&](int c) { return (((c - phase) % bar) + bar) % bar == 0; };
@@ -522,6 +589,16 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       snprintf(line, sizeof line, "; also plausible: ~%d bpm%s", rivalBpm, low ? ", re-run with bpm if the note lengths look wrong" : "");
       r += line;
     }
+  }
+  r += "\nmeter: " + F.meter;
+  if (!o.meter.empty()) r += ", as given";
+  else {
+    r += " (detected;";
+    for (size_t i = 0; i < fits.size(); i++) {
+      snprintf(line, sizeof line, "%s %s %.2f", i ? "," : "", fits[i].meter.c_str(), fits[i].score);
+      r += line;
+    }
+    r += ")";
   }
   r += "\n";
   snprintf(line, sizeof line, "key: %s (fit %.2f)\ntuning: %+.0f cents from A440\n", keyName(key).c_str(), keyCorr, tune);

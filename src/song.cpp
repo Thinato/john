@@ -60,6 +60,23 @@ Spelled spell(const Key& k, int midi) {
   return s;
 }
 
+bool grandStaff(const Song& s) { return s.instrument == "piano"; }
+bool onBassStaff(const Song& s, int midi) { return grandStaff(s) && midi < 60; }
+
+Room systemRoom(const Song& s, int from, int to, int free) {
+  Room r;
+  const bool grand = grandStaff(s);
+  for (int i = std::max(from, 0); i < to && i < (int)s.events.size(); i++) {
+    const Event& e = s.events[i];
+    if (e.kind != Kind::Note) continue;
+    int st = spell(s.key, e.midi).step();
+    bool bass = onBassStaff(s, e.midi);
+    if (!bass) r.above = std::max(r.above, st - 44);                             // top staff: treble
+    if (bass == grand) r.below = std::max(r.below, (grand ? 18 : 30) - free - st);  // bottom staff
+  }
+  return r;
+}
+
 std::string noteName(const Spelled& s) {
   std::string r(1, LETTERS[s.letter]);
   if (s.alter > 0) r += "#";
