@@ -71,4 +71,6 @@ Lessons 5 and 7 are public-domain tunes; the rest are original exercises.
 Notes are stored at written pitch: whistle music is written an octave below how it sounds, so a D whistle's bottom note is D4.
 Durations are in ticks (192 per whole note).
 
+Contributors: see [CONTRIBUTING.md](CONTRIBUTING.md). Lessons learned about the code are in the searchable knowledge base, [`kb/`](kb/README.md).
+
 Dev aid: `JOHN_SNAPSHOT=out.tga ./build/john` renders a few frames, writes the window to a TGA file and exits.

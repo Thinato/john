@@ -6,3 +6,6 @@ build/
 tmp/
 # macOS Finder metadata
 .DS_Store
+# knowledge base index (local cache, rebuilt from notes + code)
+kb/.cache/
+__pycache__/
