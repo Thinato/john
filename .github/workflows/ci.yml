@@ -41,3 +41,20 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  # Web build of the viewer (emscripten, see README). Not a required check.
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: 6.0.13
+
+      - name: Configure
+        run: emcmake cmake -S . -B build-web
+
+      - name: Build
+        run: cmake --build build-web --parallel

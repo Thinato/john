@@ -10,6 +10,10 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdlib>
+#ifdef __EMSCRIPTEN__
+#include <GLFW/emscripten_glfw3.h>
+#include <emscripten.h>
+#endif
 
 using namespace john;
 
@@ -853,12 +857,17 @@ static void settingsWindow(App& a) {
 int main() {
   try { installLessons(lessonsDir()); } catch (...) {}
   if (!glfwInit()) return 1;
+#ifndef __EMSCRIPTEN__  // the web gets WebGL and imgui's default "#version 100" shaders
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
   GLFWwindow* win = glfwCreateWindow(1400, 900, "John", nullptr, nullptr);
   if (!win) return 1;
+#ifdef __EMSCRIPTEN__
+  emscripten_glfw_make_canvas_resizable(win, "window", nullptr);  // the canvas fills the browser window
+#endif
   glfwMakeContextCurrent(win);
   glfwSwapInterval(1);
 
@@ -868,22 +877,29 @@ int main() {
   io.IniFilename = nullptr;
   ImGui::StyleColorsDark();
   ImGui::GetStyle().FontSizeBase = 16.0f;
-  for (const char* p : {"/System/Library/Fonts/Supplemental/Arial Unicode.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"})
-    if (fs::exists(p) && (gText = io.Fonts->AddFontFromFileTTF(p, 16.0f))) break;
+  if (fs::exists(JOHN_TEXT_FONT)) gText = io.Fonts->AddFontFromFileTTF(JOHN_TEXT_FONT, 16.0f);
   if (!gText) gText = io.Fonts->AddFontDefault();
   if (fs::exists(JOHN_FONT)) gMusic = io.Fonts->AddFontFromFileTTF(JOHN_FONT, 36.0f);
   ImGui_ImplGlfw_InitForOpenGL(win, true);
+#ifdef __EMSCRIPTEN__
+  ImGui_ImplOpenGL3_Init(nullptr);
+#else
   ImGui_ImplOpenGL3_Init("#version 150");
+#endif
 
   App a;
   const char* snapshot = std::getenv("JOHN_SNAPSHOT");  // dev aid: write the window to a .tga after a few frames and exit
   bool light = false;  // theme currently applied
-  for (int frame = 0; !glfwWindowShouldClose(win); frame++) {
+  int frame = 0;
+  auto step = [&]() -> bool {  // one frame; false = stop
     if (gMusic && frame == 1) {  // measure a notehead (1.18 staff spaces = 0.295 em) once the font is usable
       float w = gMusic->CalcTextSizeA(100, FLT_MAX, 0, utf8(HeadBlack).c_str()).x;
       if (w > 0) gMusicScale = 29.5f / w;
     }
     bool live = snapshot || a.audio.playing() || a.listen;
+#ifdef __EMSCRIPTEN__
+    live = true;  // the browser paces the frames; the GLFW port has no glfwWaitEventsTimeout
+#endif
     if (live) glfwPollEvents(); else glfwWaitEventsTimeout(0.5);  // idle cheaply, still notice agent edits
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -983,10 +999,18 @@ int main() {
       unsigned char hdr[18] = {0, 0, 2};
       hdr[12] = w & 255; hdr[13] = w >> 8; hdr[14] = h & 255; hdr[15] = h >> 8; hdr[16] = 32;
       if (f) { fwrite(hdr, 1, 18, f); fwrite(px.data(), 1, px.size(), f); fclose(f); }
-      break;
+      return false;
     }
     glfwSwapBuffers(win);
-  }
+    frame++;
+    return true;
+  };
+#ifdef __EMSCRIPTEN__
+  // the browser drives the frames; main() never returns, so App and the window stay alive
+  emscripten_set_main_loop_arg([](void* f) { (*static_cast<decltype(step)*>(f))(); }, &step, 0, true);
+#else
+  while (!glfwWindowShouldClose(win) && step()) {}
+#endif
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();

@@ -11,6 +11,9 @@
 #include <sstream>
 #include <stdexcept>
 #include <unistd.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace john {
 
@@ -278,10 +281,21 @@ std::vector<Technique> defaultTechniques() {
 }
 
 fs::path dataDir() {
+#ifdef __EMSCRIPTEN__
+  fs::path p = "/john";  // IndexedDB-backed folder (IDBFS), mounted and loaded by web/pre.js before main()
+#else
   const char* h = std::getenv("JOHN_HOME");
   fs::path p = h && *h ? fs::path(h) : fs::path(std::getenv("HOME") ? std::getenv("HOME") : ".") / "Documents" / "John";
+#endif
   fs::create_directories(p / "songs");
   return p;
+}
+
+// Web: copy the data folder to IndexedDB after every save, so it survives a reload. Desktop: nothing to do.
+static void persist() {
+#ifdef __EMSCRIPTEN__
+  EM_ASM(FS.syncfs(false, function(e) { if (e) console.error("John: saving to IndexedDB failed", e); }););
+#endif
 }
 
 static json readJson(const fs::path& p) {
@@ -296,6 +310,7 @@ static void writeJson(const fs::path& p, const json& j) {
   tmp += ".tmp" + std::to_string(getpid());
   { std::ofstream f(tmp); f << j.dump(1) << "\n"; }
   fs::rename(tmp, p);
+  persist();
 }
 
 std::vector<Technique> loadTechniques() {
@@ -464,6 +479,8 @@ int installLessons(const fs::path& from) {
     if (!fs::exists(to) && fs::copy_file(e.path(), to, ec)) n++;
     out << id << "\n";
   }
+  out.close();
+  persist();
   return n;
 }
 
