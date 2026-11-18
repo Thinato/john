@@ -120,6 +120,10 @@ Fingering finger(const std::string& whistle, int midi);
 std::string fingeringText(const Fingering& f);     // "XXX XXO +"
 std::string durationName(const Event& e);          // "dotted quarter", "eighth (3-tuplet)"; translated by tr()
 void transpose(Song& s, int semitones);
+// Notes out of range, half-holed and C-natural cross-fingered (whistle only) if s were transposed by semis.
+// hard() weighs the fingerings as analyze()'s ranking of transpositions does.
+struct RangeCost { int out = 0, half = 0, cross = 0; int hard() const { return half * 10 + cross * 2; } };
+RangeCost rangeCost(const Song& s, const Instrument& in, int semis);
 // Remove bars first..last (numbers from positions(), as get_song shows them) and the bar lines that close them.
 // A closing repeat/end sign or volta mark moves onto the previous plain bar line. Returns notes/rests removed;
 // throws std::invalid_argument if the range matches nothing or would empty the song.
@@ -242,6 +246,10 @@ struct TranscribeOptions {
   std::string instrument = "whistle";  // the song is written for this instrument (D whistle) and fitted to its range
   std::string recordingInstrument;     // plays the melody in the recording (D whistle); limits the pitch search to its
                                        // sounding range. "" = search C3..E7
+  // semitones to transpose the melody by before the octave fit (K: follows). Unset = automatic: when the best octave
+  // still folds more than 10% of the note time, the shift in -5..+6 with the fewest notes out of range and hard
+  // fingerings (see transcribe()); otherwise none.
+  std::optional<int> transpose;
 };
 struct TrackPoint { float time = 0; int midi = 0; float conf = 0; };  // seconds, sounding MIDI (0 = no melody), salience
 // The melody line frame by frame (what JOHN_TRANSCRIBE_DEBUG dumps) and, per detected beat, (song tick, seconds): the

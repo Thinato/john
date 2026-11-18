@@ -648,7 +648,7 @@ Song importAudio(const std::string& path, double start, double end, const Transc
   s.notes = tr("Automatic transcription");
   std::istringstream report(t.report);
   for (std::string l; std::getline(report, l);)
-    if (l.rfind("tempo:", 0) == 0 || l.rfind("meter:", 0) == 0 || l.rfind("key:", 0) == 0) s.notes += "\n" + l;
+    if (l.rfind("tempo:", 0) == 0 || l.rfind("meter:", 0) == 0 || l.rfind("key:", 0) == 0 || l.rfind("transposed", 0) == 0) s.notes += "\n" + l;
   // mean salience of each note (tied notes together) from the pitch track; below 0.35, as the report's unclear bars
   std::vector<int> at(s.events.size() + 1, 0), head(s.events.size(), -1);
   for (size_t i = 0, h = 0; i < s.events.size(); i++) {

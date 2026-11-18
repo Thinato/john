@@ -394,6 +394,41 @@ int main() {
       auto got = melodyOf(transcribe(x, sr, o).song);
       assert(common(low, got) >= (int)low.size() - 1);
     }
+    {  // D minor from low C to high A fits no octave of the D whistle (low C is 19% of the time): transposed +2 to
+       // E minor before folding (#9). transpose = 0 keeps the key and folds low C up; transpose = 4 is used as given.
+      Song dm = importAbc("X:1\nT:m\nM:4/4\nL:1/4\nK:Dm\nC D F A|d f a f|e c A F|C4|D F A d|f e d c|A F E C|D4|]\n").song;
+      Performance pm = perform(dm, 100, 0, false);
+      std::vector<float> x((size_t)((pm.length + 1) * sr), 0.f);
+      Synth sm;
+      sm.sampleRate = sr;
+      sm.metronome = false;
+      long long at = 0;
+      sm.render(pm, at, x.data(), (int)x.size());
+      auto shifted = [&](int semis, bool foldC) {
+        std::vector<int> v = melodyOf(dm);
+        for (int& m : v) m += m == 60 && foldC ? 12 : semis;
+        return v;
+      };
+      TranscribeOptions o;
+      o.bpm = 100;
+      Transcription tr = transcribe(x, sr, o);
+      Song heard = tr.song;
+      transpose(heard, -2);
+      std::string line = tr.report.substr(tr.report.find("transposed"));
+      printf("transcribe (D minor, low C to high A): %s", line.substr(0, line.find('\n') + 1).c_str());
+      assert(melodyOf(tr.song) == shifted(2, false));
+      assert(tr.report.find("\ntransposed +2 semitones (" + keyName(heard.key) + " -> " + keyName(tr.song.key) +
+                            ") to fit the D whistle: no octave kept the notes in range\n") != std::string::npos);
+      assert(tr.report.find("\nkey: " + keyName(heard.key) + " (fit") != std::string::npos && tr.report.find("moved an octave") == std::string::npos);
+      o.transpose = 0;
+      tr = transcribe(x, sr, o);
+      assert(melodyOf(tr.song) == shifted(0, true) && tr.report.find("transposed") == std::string::npos);
+      assert(tr.report.find("\n3 note(s) moved an octave") != std::string::npos);
+      o.transpose = 4;
+      tr = transcribe(x, sr, o);
+      assert(melodyOf(tr.song) == shifted(4, false) && tr.report.find("\ntransposed +4 semitones (") != std::string::npos &&
+             tr.report.find("), as given\n") != std::string::npos);
+    }
     {  // notes of irregular lengths have no steady beat: the tempo is flagged as uncertain, with a runner-up
       Song odd = importAbc("X:1\nT:o\nM:4/4\nL:1/16\nK:D\nd3 e5 f2 g7 a3 b6 a2 g5 f3 e7 d2 e4 f9 g3 a5 b2 a6 g3 f7 e2 d5|]\n").song;
       Performance po = perform(odd, 100, 0, false);
