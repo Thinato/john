@@ -23,6 +23,7 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Fiddle\nM:4/4\nL:1/4\nK:G\nG,A,B,C|","instrument":"violin"}}}' \
 '{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"update_song","arguments":{"id":"fiddle","instrument":"kazoo"}}}' \
 '{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"analyze_song","arguments":{"id":"fiddle"}}}' \
+'{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","recording_instrument":"kazoo"}}}' \
 | "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -42,5 +43,6 @@ check 'instrument: Violin'
 check "unknown instrument 'kazoo'"
 check 'Range on the Violin'
 check '"enum":\["whistle","violin"'
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 17 ] || { echo "expected 17 replies"; exit 1; }
+check "unknown recording_instrument 'kazoo'"
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 18 ] || { echo "expected 18 replies"; exit 1; }
 echo "mcp smoke passed"

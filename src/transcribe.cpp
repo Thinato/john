@@ -106,6 +106,15 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   const int T = 1 + (int)((x.size() - N) / HOP);
   const int bpb = meterTicks(o.meter);
   if (bpb <= 0 || bpb % 12) throw std::runtime_error("unsupported meter '" + o.meter + "'");
+  // pitch search range (semitone states): the recording's solo instrument sounding range, two semitones margin
+  int sLo = 0, sHi = M - 1;
+  std::optional<Instrument> rec;
+  if (!o.recordingInstrument.empty()) {
+    rec = findInstrument(o.recordingInstrument, "D");
+    if (!rec) throw std::runtime_error("unknown recording instrument '" + o.recordingInstrument + "'");
+    sLo = std::clamp(rec->low + 12 * rec->octave - 2 - LO, 0, M - 1);
+    sHi = std::clamp(rec->high + 12 * rec->octave + 2 - LO, 0, M - 1);
+  }
 
   // ---- spectrum: onset envelope + fine harmonic salience ----
   std::vector<float> win(N), flux(T, 0.f), prevLog(N / 2 + 1, 0.f);
@@ -185,6 +194,7 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
     frameMax[t] = 0;
     for (int m = 0; m < M; m++) {
       if (m + 12 < M) row[m] = std::max(0.f, row[m] - 0.5f * row[m + 12]);
+      if (m < sLo || m > sHi) row[m] = 0;  // outside the recording instrument's range
       frameMax[t] = std::max(frameMax[t], row[m]);
     }
   }
@@ -527,6 +537,11 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   if (folded) {
     snprintf(line, sizeof line, "%d note(s) moved an octave to fit the %s (or octave errors)\n", folded, inst->name.c_str());
     r += line;
+  }
+  if (rec) {
+    Key c{0, "maj"};
+    r += "pitch search: limited to the " + rec->name + "'s sounding range, " + noteName(spell(c, sLo + LO)) + ".." +
+         noteName(spell(c, sHi + LO)) + "\n";
   }
   if (!weak.empty()) r += "unclear bars (check by ear): " + weak + "\n";
   return {s, r};
