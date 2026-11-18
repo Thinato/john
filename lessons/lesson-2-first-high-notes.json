@@ -231,5 +231,19 @@
  "tempo": 70,
  "title": "Lesson 2: First high notes - G, A and B",
  "whistle": "D",
- "folder": "Lessons"
+ "folder": "Lessons",
+ "i18n": {
+  "pt-BR": {
+   "Lesson 2: First high notes - G, A and B": "Lição 2: Primeiras notas agudas - G, A e B",
+   "Your first second-octave notes, on G, A and B, where they come easiest. Same fingering as the low note, just faster air and a crisp tongue. Think 'faster', not 'harder': blowing too hard makes it shrill. Repeat each pair until the high note pops out every time, then try the last four bars without the low notes.": "Suas primeiras notas da segunda oitava, em G, A e B, onde elas saem mais fácil. A digitação é a mesma da nota grave; só o ar é mais rápido e a língua mais precisa. Pense em ar 'mais rápido', não 'mais forte': soprar forte demais deixa o som estridente. Repita cada par até a nota aguda sair sempre, depois tente os últimos quatro compassos sem as notas graves.",
+   "Low G first, steady and relaxed.": "Primeiro o G grave, firme e relaxado.",
+   "Same fingering, faster air: tongue a crisp 'too' and blow a little faster (not harder) to jump up an octave. Still getting low G? A bit more air. Squealing? A bit less.": "Mesma digitação, ar mais rápido: dê um 'tu' bem definido com a língua e sopre um pouco mais rápido (não mais forte) para subir uma oitava. Ainda sai o G grave? Um pouco mais de ar. Está guinchando? Um pouco menos.",
+   "Back down: relax the air again for the low G.": "Descendo de novo: relaxe o ar outra vez para o G grave.",
+   "A and high A, the same idea. The top-hand notes are the easiest high notes, which is why we start here.": "A e A agudo, a mesma ideia. As notas da mão de cima são as notas agudas mais fáceis, por isso começamos por elas.",
+   "B and high B: only one finger down, so this is the easiest jump of all.": "B e B agudo: só um dedo tampando, então este é o salto mais fácil de todos.",
+   "Now stay up high: keep the faster air steady across G, A and B without dropping down.": "Agora fique no agudo: mantenha o ar rápido e firme em G, A e B sem cair para a oitava de baixo.",
+   "Long high notes: keep the air steady for the full two beats.": "Notas agudas longas: mantenha o ar firme durante os dois tempos inteiros.",
+   "Hold the high G to the end, then rest.": "Segure o G agudo até o fim, depois a pausa."
+  }
+ }
 }

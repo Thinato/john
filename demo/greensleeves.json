@@ -508,6 +508,18 @@
   }
  ],
  "folder": "Intermediate",
+ "i18n": {
+  "pt-BR": {
+   "An English tune from the 16th century, here in A minor for the guitar, melody only. Play it slowly and let each note ring into the next. The long-short pattern in many bars (dotted quarter and eighth) gives it its swaying feel, and the G sharps lean back to A.": "Uma melodia inglesa do século XVI, aqui em Lá menor para o violão, só a melodia. Toque devagar e deixe cada nota soar até a próxima. O padrão longa-curta de muitos compassos (semínima pontuada e colcheia) dá o seu balanço, e os G sustenidos puxam de volta para o A.",
+   "Chorus: it starts high on G.": "Refrão: começa no agudo, no G.",
+   "F sharp here, an old modal touch, then G sharp again.": "Aqui F sustenido, um toque modal antigo, depois G sustenido de novo.",
+   "G sharp: it leans back up to A.": "G sustenido: puxa de volta para o A.",
+   "Greensleeves": "Greensleeves",
+   "Pickup: the tune starts on beat 3.": "Anacruse: a melodia começa no tempo 3.",
+   "Slide into E, as in bar 2.": "Deslize até o E, como no compasso 2.",
+   "Slide up into E from D on the same string.": "Deslize (slide) do D até o E na mesma corda."
+  }
+ },
  "id": "greensleeves",
  "instrument": "guitar",
  "key": {

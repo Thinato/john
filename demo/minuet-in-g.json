@@ -783,6 +783,18 @@
   }
  ],
  "folder": "Beginner",
+ "i18n": {
+  "pt-BR": {
+   "C sharp: the music visits D major for a few bars.": "C sustenido: a música passa por Ré maior durante alguns compassos.",
+   "Christian Petzold's Minuet in G, long credited to Bach, from the 1725 notebook Bach kept for Anna Magdalena. Only the right-hand melody is written here. Play the eighth notes smoothly and the quarter notes after them light and detached, with a gentle accent on beat 1 of every bar. It is a dance: keep the tempo steady rather than fast.": "O Minueto em Sol de Christian Petzold, por muito tempo atribuído a Bach, do caderno de 1725 que Bach preparou para Anna Magdalena. Aqui está escrita só a melodia da mão direita. Toque as colcheias ligadas e as semínimas que vêm depois leves e destacadas, com um leve acento no tempo 1 de cada compasso. É uma dança: mantenha o andamento constante, sem correr.",
+   "Minuet in G": "Minueto em Sol",
+   "Right-hand melody only. A minuet is a dance in 3: lean a little on beat 1 of each bar.": "Só a melodia da mão direita. O minueto é uma dança em 3: apoie um pouco o tempo 1 de cada compasso.",
+   "Second part: it starts on high B and moves toward D major.": "Segunda parte: começa no B agudo e caminha para Ré maior.",
+   "Short and light, as in bar 2.": "Curtas e leves, como no compasso 2.",
+   "Short and light, like dance steps.": "Curtas e leves, como passos de dança.",
+   "Short and light.": "Curtas e leves."
+  }
+ },
  "id": "minuet-in-g",
  "instrument": "piano",
  "key": {

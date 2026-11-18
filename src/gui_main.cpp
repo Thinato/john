@@ -115,7 +115,7 @@ static void open(App& a, const std::string& id) {
   std::error_code ec;
   a.songMtime = fs::last_write_time(songPath(id), ec);
   if (!a.song || a.sel >= (int)a.song->events.size()) a.sel = -1;
-  snprintf(a.comment, sizeof a.comment, "%s", a.sel >= 0 ? a.song->events[a.sel].comment.c_str() : "");
+  snprintf(a.comment, sizeof a.comment, "%s", a.sel >= 0 ? songText(*a.song, a.song->events[a.sel].comment).c_str() : "");
 }
 
 // Apply a user edit to the selected note on top of the latest file, so concurrent agent edits are not lost.
@@ -153,7 +153,7 @@ static void poll(App& a) {
     if (!ec && m.mtime != t) {
       auto s = loadSong(id);
       Instrument in = s ? instrumentOf(*s) : *findInstrument("whistle");
-      m = {t, s ? s->folder : "", s && !s->title.empty() ? s->title : id, in};
+      m = {t, s ? s->folder : "", s && !s->title.empty() ? songText(*s, s->title) : id, in};
     }
   }
   std::erase_if(a.meta, [&](auto& kv) { return std::find(a.ids.begin(), a.ids.end(), kv.first) == a.ids.end(); });
@@ -366,7 +366,7 @@ static void drawScore(App& a, Song& s) {
   }
   if (hovered >= 0 && ImGui::IsMouseClicked(0)) {
     a.sel = hovered;
-    snprintf(a.comment, sizeof a.comment, "%s", s.events[hovered].comment.c_str());
+    snprintf(a.comment, sizeof a.comment, "%s", songText(s, s.events[hovered].comment).c_str());
   }
 
   const ImU32 ink = sc.ink, red = IM_COL32(200, 40, 40, 255), techCol = IM_COL32(205, 95, 0, 255);
@@ -555,7 +555,7 @@ static void drawScore(App& a, Song& s) {
     }
     if (!e.comment.empty()) {
       ImGui::PushTextWrapPos(ImGui::GetFontSize() * 25);
-      ImGui::TextWrapped("%s", e.comment.c_str());
+      ImGui::TextWrapped("%s", songText(s, e.comment).c_str());
       ImGui::PopTextWrapPos();
     }
     ImGui::EndTooltip();
@@ -779,7 +779,7 @@ static void transportBar(App& a) {
 static void detailsPanel(App& a) {
   Song& s = *a.song;
   ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.4f);
-  ImGui::TextWrapped("%s", s.title.c_str());
+  ImGui::TextWrapped("%s", songText(s, s.title).c_str());
   ImGui::PopFont();
   const Instrument inst = instrumentOf(s);
   const bool whistle = inst.id == "whistle" && a.set.hints;
@@ -815,7 +815,7 @@ static void detailsPanel(App& a) {
     ImGui::EndCombo();
   }
   if (edited) return;
-  if (!s.notes.empty()) { ImGui::Separator(); ImGui::TextWrapped("%s", s.notes.c_str()); }
+  if (!s.notes.empty()) { ImGui::Separator(); ImGui::TextWrapped("%s", songText(s, s.notes).c_str()); }
   ImGui::Separator();
 
   if (a.sel >= 0 && a.sel < (int)s.events.size() && s.events[a.sel].kind == Kind::Note) {
@@ -835,7 +835,9 @@ static void detailsPanel(App& a) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.description.c_str());
     }
     ImGui::InputTextMultiline("##comment", a.comment, sizeof a.comment, {-1, ImGui::GetTextLineHeight() * 4});
-    if (ImGui::Button(L("Save comment").c_str())) editSelected(a, [&](Event& n) { n.comment = a.comment; });
+    // unchanged box = the translation it was filled with: don't overwrite the English with it
+    if (ImGui::Button(L("Save comment").c_str()) && a.comment != songText(s, e.comment))
+      editSelected(a, [&](Event& n) { n.comment = a.comment; });
   } else ImGui::TextDisabled("%s", tr("Click a note to see and edit its techniques."));
 
   ImGui::Separator();
@@ -946,7 +948,11 @@ int main() {
 #endif
 
   App a;
-  auto applyLanguage = [&a](const std::string& code) { a.english = !setLanguage(code.empty() ? systemLanguage() : code); };
+  auto applyLanguage = [&a](const std::string& code) {
+    a.english = !setLanguage(code.empty() ? systemLanguage() : code);
+    for (auto& [id, m] : a.meta) m.mtime = {};  // reload the song list's titles in the new language
+    a.lastPoll = -1;
+  };
   std::string lang = a.set.language;  // language currently applied
   applyLanguage(lang);
   const char* snapshot = std::getenv("JOHN_SNAPSHOT");  // dev aid: write the window to a .tga after a few frames and exit

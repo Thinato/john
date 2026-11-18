@@ -600,11 +600,23 @@ int main() {
     assert(installSongs(demo) == 1 && loadSong("demo-test") && fs::exists(dataDir() / "demo-installed.txt"));
     fs::remove(dataDir() / "songs" / "demo-test.json");
     assert(installSongs(demo) == 0 && !loadSong("demo-test"));
+    // #47: the title, notes and every comment have a pt-BR translation (re-translate after editing the English)
+    auto translated = [](const Song& b) {
+      auto has = [&](const std::string& t) {
+        auto l = b.i18n.find("pt-BR");
+        bool ok = l != b.i18n.end() && l->second.count(t) && !l->second.at(t).empty();
+        if (!ok) fprintf(stderr, "%s: no pt-BR for \"%s\"\n", b.id.c_str(), t.c_str());
+        return ok;
+      };
+      bool ok = has(b.title) && has(b.notes);
+      for (auto& ev : b.events) ok &= ev.comment.empty() || has(ev.comment);
+      return ok;
+    };
     int bundled = 0;
     for (auto& e : fs::directory_iterator(lessonsDir())) {
       std::ifstream f(e.path());
       Song b = fromJson(json::parse(f));
-      assert(!b.events.empty() && !b.notes.empty());
+      assert(!b.events.empty() && !b.notes.empty() && translated(b));
       for (auto& ev : b.events) assert(ev.kind != Kind::Note || finger(b.whistle, ev.midi).ok);  // all playable
       bundled++;
     }
@@ -618,7 +630,7 @@ int main() {
     for (auto& e : fs::directory_iterator(lessonsDir().parent_path() / "demo")) {
       std::ifstream f(e.path());
       Song b = fromJson(json::parse(f));
-      assert(!b.events.empty() && !b.notes.empty() && !b.source.empty() && !b.folder.empty());
+      assert(!b.events.empty() && !b.notes.empty() && !b.source.empty() && !b.folder.empty() && translated(b));
       assert(findInstrument(b.instrument, b.whistle));
       for (auto& ev : b.events) assert(ev.kind != Kind::Note || instrumentOf(b).plays(ev.midi));
       demos++;
@@ -636,7 +648,14 @@ int main() {
     Event dq{Kind::Note, 62, WHOLE * 3 / 8}, trip{Kind::Note, 62, WHOLE / 12, false, 3, 2};
     assert(!strcmp(tr("Play"), "Play") && keyName({2, "maj"}) == "D major" && durationName(dq) == "dotted quarter");
     assert(defaultTechniques()[0].name == "Cut");
+    // song translations (#47): s.i18n round-trips, English until a language is set, exact-English match only
+    Song ts = s;
+    ts.title = "Hello";
+    ts.i18n["pt-BR"]["Hello"] = "Olá";
+    assert(fromJson(toJson(ts)).i18n == ts.i18n && fromJson(toJson(s)).i18n.empty());
+    assert(songText(ts, ts.title) == "Hello");
     assert(setLanguage("pt-BR"));
+    assert(songText(ts, ts.title) == "Olá" && songText(ts, "Hello!") == "Hello!");  // edited English: shown as is
     assert(!strcmp(tr("Play"), "Tocar") && tr(std::string("Settings")) == "Configurações");
     const char* missing = "No such text";
     assert(tr(missing) == missing);  // fallback: the English itself
@@ -657,7 +676,7 @@ int main() {
     setSolfege(false, false);
     assert(!strcmp(tr("Play"), "Play") && keyName({2, "maj"}) == "D major");
     assert(!setLanguage("xx"));  // no such file: English
-    assert(!strcmp(tr("Play"), "Play"));
+    assert(!strcmp(tr("Play"), "Play") && songText(ts, ts.title) == "Hello");
 
     // automatic language: LC_ALL/LANG matched to a file in i18n/, else English
     auto sys = [](const char* v) { setenv("LC_ALL", v, 1); return systemLanguage(); };

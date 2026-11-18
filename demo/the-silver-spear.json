@@ -914,6 +914,20 @@
   }
  ],
  "folder": "Advanced",
+ "i18n": {
+  "pt-BR": {
+   "A popular Irish reel. Reels count in four with a gentle swing; lean on beats 1 and 3. The triplets in bars 1, 3 and 5 are the tune's signature. Start around the given tempo and only speed up when the breaths at the phrase ends feel easy.": "Um reel irlandês popular. O reel se conta em quatro, com um leve balanço (swing); apoie-se nos tempos 1 e 3. As tercinas dos compassos 1, 3 e 5 são a marca registrada da música. Comece perto do andamento indicado e só acelere quando as respirações nos fins de frase ficarem fáceis.",
+   "End of part A: shorten this D and breathe.": "Fim da parte A: encurte este D e respire.",
+   "End of the phrase: breathe here.": "Fim da frase: respire aqui.",
+   "End of the phrase: drop or shorten this G to breathe.": "Fim da frase: omita ou encurte este G para respirar.",
+   "Long F#: roll (~).": "F# longo: rolo (roll, ~).",
+   "Long G: roll (~).": "G longo: rolo (roll, ~).",
+   "Repeated D: cut it.": "D repetido: faça um corte.",
+   "The Silver Spear": "The Silver Spear",
+   "Tongue the pickup to start the reel.": "Use a língua na anacruse para começar o reel.",
+   "Triplet: three As in the time of two eighths. Tongue them or use cuts, and keep the beat even.": "Tercina: três As no tempo de duas colcheias. Use a língua ou cortes, e mantenha o pulso regular."
+  }
+ },
  "id": "the-silver-spear",
  "instrument": "whistle",
  "key": {

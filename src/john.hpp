@@ -1,6 +1,7 @@
 // John: tin whistle tab toolkit. Shared core used by the MCP server and the GUI.
 #pragma once
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -46,6 +47,8 @@ struct Song {
   std::string instrument = "whistle";  // one of INSTRUMENTS
   std::string whistle = "D";           // whistle key (used when instrument is "whistle")
   std::vector<Event> events;
+  // translations of the title, notes and comments: language -> English text -> translation ("pt-BR" -> ...)
+  std::map<std::string, std::map<std::string, std::string>> i18n;
 };
 
 struct Technique {
@@ -92,6 +95,7 @@ std::vector<std::pair<std::string, std::string>> languages();  // (code, own nam
 const char* tr(const char* english);                // translation, or `english` when there is none
 std::string tr(const std::string& english);
 std::string trf(const char* english, ...) __attribute__((format(printf, 1, 2)));  // tr() then printf
+std::string songText(const Song& s, const std::string& english);  // s.i18n entry for the current language, else english
 // notes: noteName() says Do Re Mi instead of C D E. keys: keyName() does ("Ré maior"), but only in a language other
 // than English; English keys are always letters ("D major").
 void setSolfege(bool notes, bool keys);

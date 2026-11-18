@@ -368,6 +368,19 @@
   }
  ],
  "folder": "Beginner",
+ "i18n": {
+  "pt-BR": {
+   "C harmonica: start on hole 4 blow (C). The whole song stays in holes 4 to 6.": "Gaita em Dó: comece no furo 4 soprado (C). A música toda fica nos furos 4 a 6.",
+   "Chorus: hole 5 draw (F).": "Refrão: furo 5 aspirado (F).",
+   "End of the line: a short pause to breathe.": "Fim da linha: uma pausa curta para respirar.",
+   "End of the phrase: breathe here.": "Fim da frase: respire aqui.",
+   "Hole 6 blow (G). Tongue the repeated G ('tu-tu') so the two notes are clear.": "Furo 6 soprado (G). Use a língua no G repetido ('tu-tu') para que as duas notas fiquem claras.",
+   "Hole 6 draw (A): the only draw note on hole 6.": "Furo 6 aspirado (A): a única nota aspirada no furo 6.",
+   "Last note: let it ring with a little hand vibrato (open and close your cupped hands).": "Última nota: deixe soar com um pouco de vibrato de mão (abra e feche as mãos em concha).",
+   "Oh! Susanna": "Oh! Susanna",
+   "Stephen Foster's 1848 song, a bright and bouncy tune for the harmonica in C. It uses only holes 4 to 6: 4 blow C, 4 draw D, 5 blow E, 5 draw F, 6 blow G, 6 draw A. Keep the rhythm steady and tongue repeated notes. Start slowly and speed up when the hole changes feel easy.": "A canção de Stephen Foster de 1848, uma melodia alegre e saltitante para a gaita em Dó. Usa só os furos 4 a 6: 4 soprado C, 4 aspirado D, 5 soprado E, 5 aspirado F, 6 soprado G, 6 aspirado A. Mantenha o ritmo constante e use a língua nas notas repetidas. Comece devagar e acelere quando as trocas de furo ficarem fáceis."
+  }
+ },
  "id": "oh-susanna",
  "instrument": "harmonica",
  "key": {

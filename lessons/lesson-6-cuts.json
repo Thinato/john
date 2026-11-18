@@ -421,5 +421,18 @@
  "tempo": 80,
  "title": "Lesson 6: Cuts",
  "whistle": "D",
- "folder": "Lessons"
+ "folder": "Lessons",
+ "i18n": {
+  "pt-BR": {
+   "Lesson 6: Cuts": "Lição 6: Cortes",
+   "Cuts: the most important Irish whistle ornament. A cut is a finger flicked off a hole above the note for an instant, which separates repeated notes without tonguing. The first half practises it in the low octave and the second half in the high octave. Go slowly; the flick should be quick, not loud.": "Cortes (cuts): o ornamento mais importante da flauta irlandesa. Um corte é um dedo levantado por um instante de um furo acima da nota, o que separa notas repetidas sem usar a língua. A primeira metade pratica o corte na oitava grave e a segunda metade na oitava aguda. Vá devagar; o movimento deve ser rápido, não forte.",
+   "A cut is a tiny flick of a finger above the note: lift it and put it back so fast you barely hear a blip. It separates repeated notes without the tongue, which is the Irish way.": "Um corte (cut) é um toque rapidíssimo de um dedo acima da nota: levante-o e recoloque-o tão rápido que mal se ouve um estalo. Ele separa notas repetidas sem a língua, que é o jeito irlandês.",
+   "Cut on A: flick your top finger (the B finger) up and straight back down as the note starts.": "Corte no A: levante rapidamente o dedo de cima (o dedo do B) e recoloque-o assim que a nota começa.",
+   "Cut on G: flick the 2nd finger (the A finger).": "Corte no G: levante rapidamente o 2º dedo (o dedo do A).",
+   "Cut on F#: flick the 3rd finger (the G finger). E and D use the same finger.": "Corte no F#: levante rapidamente o 3º dedo (o dedo do G). O E e o D usam o mesmo dedo.",
+   "Cut on E: the G finger again.": "Corte no E: o dedo do G de novo.",
+   "A cut can also separate a note from itself after a different note: D, F#, (cut) F#, E.": "Um corte também separa uma nota repetida depois de uma nota diferente: D, F#, (corte) F#, E.",
+   "The same exercise in the high octave. The cut fingers are the same; just keep the air fast so the notes don't drop down.": "O mesmo exercício na oitava aguda. Os dedos do corte são os mesmos; só mantenha o ar rápido para as notas não caírem para a oitava de baixo."
+  }
+ }
 }
