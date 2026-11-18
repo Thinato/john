@@ -736,26 +736,32 @@ static void detailsPanel(App& a) {
   std::vector<std::string> choices = FOLDERS;
   if (!s.folder.empty() && std::find(choices.begin(), choices.end(), s.folder) == choices.end()) choices.push_back(s.folder);
   choices.push_back("");
+  bool edited = false;  // editSong may reload the song or empty a.song: don't use `s` after an edit this frame
   ImGui::SetNextItemWidth(200);
   if (ImGui::BeginCombo("Folder", s.folder.empty() ? "Unsorted" : s.folder.c_str())) {
     for (auto& f : choices)
       if (ImGui::Selectable(f.empty() ? "Unsorted" : f.c_str(), f == s.folder)) {
-        std::string pick = f;  // editSong may reload the song, invalidating references into it
+        std::string pick = f;
         editSong(a, [&](Song& x) { x.folder = pick; });
+        edited = true;
+        break;
       }
     ImGui::EndCombo();
   }
+  if (edited) return;  // redraw from the fresh song next frame
   ImGui::SetNextItemWidth(200);
   if (ImGui::BeginCombo("Instrument", inst.name.c_str())) {
     for (auto& id : INSTRUMENTS) {
       std::string pick = id;
       if (ImGui::Selectable(findInstrument(id, s.whistle).value_or(*findInstrument(id)).name.c_str(), id == inst.id)) {
         editSong(a, [&](Song& x) { x.instrument = pick; });
-        break;  // the song may have been reloaded
+        edited = true;
+        break;
       }
     }
     ImGui::EndCombo();
   }
+  if (edited) return;
   if (!s.notes.empty()) { ImGui::Separator(); ImGui::TextWrapped("%s", s.notes.c_str()); }
   ImGui::Separator();
 
