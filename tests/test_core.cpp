@@ -7,10 +7,14 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <random>
 #include <regex>
 #include <set>
 #include <stdexcept>
-#include <unistd.h>
+#ifdef _WIN32
+#define setenv(k, v, overwrite) _putenv_s(k, v)
+#define unsetenv(k) _putenv_s(k, "")
+#endif
 
 using namespace john;
 
@@ -21,7 +25,7 @@ static const Event& nth(const Song& s, int n) {  // n-th note/rest (skipping bar
 }
 
 static void writeWav(const fs::path& path, const std::vector<float>& x, int rate) {  // 16-bit mono PCM
-  FILE* f = fopen(path.c_str(), "wb");
+  FILE* f = fopen(path.string().c_str(), "wb");
   auto u32 = [&](unsigned v) { fwrite(&v, 4, 1, f); };
   auto u16 = [&](unsigned short v) { fwrite(&v, 2, 1, f); };
   const unsigned n = (unsigned)x.size();
@@ -51,8 +55,8 @@ static double aligned(const Song& s, const PitchTrack& t) {
 }
 
 int main() {
-  fs::path home = fs::temp_directory_path() / ("john-test-" + std::to_string(getpid()));
-  setenv("JOHN_HOME", home.c_str(), 1);
+  fs::path home = fs::temp_directory_path() / ("john-test-" + std::to_string(std::random_device{}()));
+  setenv("JOHN_HOME", home.string().c_str(), 1);
 
   assert(parseKey("D")->fifths == 2);
   assert(parseKey("Ador")->fifths == 1 && parseKey("Ador")->mode == "dor");
@@ -622,6 +626,9 @@ int main() {
     auto x = decodeAudio(wav.string(), 22050);
     assert(std::abs((int)x.size() - 22050 / 2) < 100);
     assert(std::abs(detectPitch(x.data() + 2000, 2048, 22050) - 880) < 5);
+    // a non-ASCII path arrives as UTF-8 (JSON); Windows reads it as UTF-8 only with src/utf8.manifest
+    fs::copy_file(wav, home / fs::path(u8"l\u00e1.wav"));
+    assert(decodeAudio(home.string() + "/l\xc3\xa1.wav", 22050).size() == x.size());
     bool threw = false;
     try { decodeAudio((home / "missing.mp3").string(), 22050); } catch (const std::runtime_error&) { threw = true; }
     assert(threw);
@@ -696,7 +703,11 @@ int main() {
     }
     assert(bundled >= 8);
     // release packages keep lessons/ and fonts/ next to the executable; dev builds use the build-time paths
+#ifdef _WIN32
+    assert(john::bundled("john-tests.exe", "/built") != "/built");  // this test binary sits next to itself
+#else
     assert(john::bundled("john-tests", "/built") != "/built");  // this test binary sits next to itself
+#endif
     assert(john::bundled("no-such-file", "/built") == "/built");
     assert(lessonsDir().filename() == "lessons");  // installSongs keeps using lessons-installed.txt
     // demo/ (web starter songs): every song loads, has notes, a source and a folder, and fits its instrument

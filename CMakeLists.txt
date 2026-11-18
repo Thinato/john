@@ -10,6 +10,10 @@ if(EMSCRIPTEN)  # web build (emcmake): the viewer only, see the john target belo
   add_compile_options(-fexceptions)
   add_link_options(-fexceptions)
 endif()
+if(MSVC)  # Windows: UTF-8 source files (symbols in strings), M_PI, no "use fopen_s" warnings
+  add_compile_options(/utf-8)
+  add_compile_definitions(_USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
+endif()
 
 include(FetchContent)
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz)
@@ -41,7 +45,7 @@ add_library(john_core STATIC src/song.cpp src/abc.cpp src/analyze.cpp src/sound.
 target_include_directories(john_core PUBLIC src ${miniaudio_SOURCE_DIR})
 target_compile_definitions(john_core PUBLIC MA_NO_ENCODING MA_NO_RESOURCE_MANAGER MA_NO_NODE_GRAPH MA_NO_ENGINE MA_NO_GENERATION)
 # transcription crunches minutes of audio; keep it fast in Debug builds too
-set_source_files_properties(src/transcribe.cpp src/miniaudio.cpp PROPERTIES COMPILE_OPTIONS -O2)
+set_source_files_properties(src/transcribe.cpp src/miniaudio.cpp PROPERTIES COMPILE_OPTIONS $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O2>)  # MSVC: /O2 clashes with Debug /RTC1
 target_link_libraries(john_core PUBLIC nlohmann_json::nlohmann_json)
 if(APPLE)
   target_link_libraries(john_core PUBLIC "-framework CoreFoundation")  # systemLanguage(): CFLocaleCopyPreferredLanguages
@@ -76,12 +80,22 @@ target_link_libraries(john PRIVATE glfw OpenGL::GL)
 
 add_executable(john-mcp src/mcp_main.cpp)
 target_link_libraries(john-mcp PRIVATE john_core)
+if(WIN32)  # char strings and paths are UTF-8, as on macOS/Linux; john.exe opens no console window
+  target_sources(john PRIVATE src/utf8.manifest)
+  target_sources(john-mcp PRIVATE src/utf8.manifest)
+  set_target_properties(john PROPERTIES WIN32_EXECUTABLE ON)
+  target_link_options(john PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/ENTRY:mainCRTStartup>)
+endif()
 
 enable_testing()
 add_executable(john-tests tests/test_core.cpp)
 target_link_libraries(john-tests PRIVATE john_core)
 add_test(NAME core COMMAND john-tests)
-add_test(NAME mcp COMMAND ${CMAKE_SOURCE_DIR}/tests/mcp_smoke.sh $<TARGET_FILE:john-mcp>)
+if(WIN32)  # Git for Windows' sh runs the script
+  target_sources(john-tests PRIVATE src/utf8.manifest)
+  find_program(SH sh REQUIRED)
+endif()
+add_test(NAME mcp COMMAND ${SH} ${CMAKE_SOURCE_DIR}/tests/mcp_smoke.sh $<TARGET_FILE:john-mcp>)
 # knowledge base (kb/): offline checks and the notes' format; no API key needed
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)

@@ -183,6 +183,7 @@ float detectPitch(const float* x, int n, int sampleRate, float fmin = 400, float
 
 // ---- catalog & storage ----
 std::vector<Technique> defaultTechniques();       // names and descriptions translated by tr()
+std::string homeDir();                            // $HOME, or %USERPROFILE% on Windows
 fs::path dataDir();                         // $JOHN_HOME or ~/Documents/John
 std::vector<Technique> loadTechniques();    // defaults merged with dataDir()/techniques.json
 void saveCustomTechnique(const Technique& t);

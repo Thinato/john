@@ -1180,7 +1180,7 @@ int main() {
       else openImport(a);
     }
     ImGui::TextDisabled("%s", tr("Data folder:"));
-    ImGui::TextWrapped("%s", dataDir().c_str());
+    ImGui::TextWrapped("%s", dataDir().string().c_str());
 #endif
     ImGui::EndChild();
     ImGui::SameLine();

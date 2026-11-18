@@ -8,13 +8,18 @@
 #include <cstdlib>
 #include <fstream>
 #include <map>
+#include <random>
 #include <set>
 #include <sstream>
 #include <stdexcept>
-#include <unistd.h>
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach-o/dyld.h>
+#endif
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>  // GetModuleFileNameW
 #endif
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -319,12 +324,21 @@ std::vector<Technique> defaultTechniques() {
   return r;
 }
 
+std::string homeDir() {
+#ifdef _WIN32
+  const char* h = std::getenv("USERPROFILE");  // Windows usually has no HOME
+#else
+  const char* h = std::getenv("HOME");
+#endif
+  return h ? h : ".";
+}
+
 fs::path dataDir() {
 #ifdef __EMSCRIPTEN__
   fs::path p = "/john";  // IndexedDB-backed folder (IDBFS), mounted and loaded by web/pre.js before main()
 #else
   const char* h = std::getenv("JOHN_HOME");
-  fs::path p = h && *h ? fs::path(h) : fs::path(std::getenv("HOME") ? std::getenv("HOME") : ".") / "Documents" / "John";
+  fs::path p = h && *h ? fs::path(h) : fs::path(homeDir()) / "Documents" / "John";
 #endif
   fs::create_directories(p / "songs");
   return p;
@@ -346,7 +360,7 @@ static json readJson(const fs::path& p) {
 static void writeJson(const fs::path& p, const json& j, int indent = 1) {
   // write-then-rename so the GUI never reads a half-written file
   fs::path tmp = p;
-  tmp += ".tmp" + std::to_string(getpid());
+  tmp += ".tmp" + std::to_string(std::random_device{}());  // unique per writer (GUI, MCP server)
   { std::ofstream f(tmp); f << j.dump(indent) << "\n"; }
   fs::rename(tmp, p);
   persist();
@@ -451,6 +465,10 @@ std::string systemLanguage() {
         want = buf;  // "pt-BR", "en-US", "zh-Hans-CN"
       CFRelease(pref);
     }
+#elif defined(_WIN32)
+  ULONG n = 0, size = 64;
+  wchar_t buf[64];  // "pt-BR\0en-US\0\0": the display languages, first is the one in use
+  if (want.empty() && GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &n, buf, &size) && n) want = fs::path(buf).string();
 #endif
 #endif
   return matchLanguage(want);
@@ -601,7 +619,7 @@ std::string uniqueId(const std::string& title) {
 // ---------------- audio import ----------------
 
 Transcription transcribeFile(std::string path, double start, double end, TranscribeOptions o) {
-  if (path.rfind("~/", 0) == 0 && getenv("HOME")) path = std::string(getenv("HOME")) + path.substr(1);
+  if (path.rfind("~/", 0) == 0) path = homeDir() + path.substr(1);
   constexpr int SR = 22050;
   std::vector<float> x = decodeAudio(path, SR);
   size_t from = (size_t)std::clamp(start * SR, 0.0, (double)x.size());
@@ -683,6 +701,10 @@ fs::path bundled(const fs::path& rel, const fs::path& built) {
   if (_NSGetExecutablePath(buf, &n) == 0) dir = fs::canonical(buf, ec).parent_path();
 #elif defined(__linux__)
   dir = fs::canonical("/proc/self/exe", ec).parent_path();
+#elif defined(_WIN32)
+  wchar_t buf[32768];
+  DWORD n = GetModuleFileNameW(nullptr, buf, 32768);
+  if (n && n < 32768) dir = fs::path(buf).parent_path();
 #endif
   return !dir.empty() && fs::exists(dir / rel, ec) ? dir / rel : built;
 }
