@@ -303,6 +303,21 @@ int main() {
       printf("transcribe (irregular): %s", r.substr(0, r.find('\n') + 1).c_str());
       assert(r.find("confidence high") == std::string::npos && r.find("also plausible: ~") != std::string::npos);
     }
+    {  // a short low note that starts a wide leap (D up a tenth) is melody, not accompaniment: keep it (#7)
+      Song leap = importAbc("X:1\nT:l\nM:4/4\nL:1/8\nK:D\nD f a f b a f a|D f g a b2 a2|D f a f g f e f|D f a g f4|]\n").song;
+      Performance pl = perform(leap, 120, 0, false);
+      std::vector<float> x((size_t)((pl.length + 1) * sr), 0.f);
+      Synth sl;
+      sl.sampleRate = sr;
+      sl.metronome = false;
+      long long at = 0;
+      sl.render(pl, at, x.data(), (int)x.size());
+      TranscribeOptions o;
+      o.bpm = 120;
+      auto got = melodyOf(transcribe(x, sr, o).song), want = melodyOf(leap);
+      assert(std::count(got.begin(), got.end(), 62) == 4);
+      assert(common(want, got) == (int)want.size() && got.size() == want.size());
+    }
     for (double bpm : {100.0, 0.0}) {
       TranscribeOptions o;
       o.bpm = bpm;

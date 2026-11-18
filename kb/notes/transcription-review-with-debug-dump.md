@@ -1,5 +1,5 @@
 ---
-title: Audio transcriptions need checking against the pitch-track dump; known misses are quiet notes and wide leaps
+title: Audio transcriptions need checking against the pitch-track dump; known miss is quiet notes
 tags: [transcription, audio, mp3, debugging, continuity-filter]
 ---
 
@@ -9,7 +9,7 @@ tags: [transcription, audio, mp3, debugging, continuity-filter]
 Fixing or tuning `transcribe_audio` output (`src/transcribe.cpp`) on real recordings in `tmp/`.
 
 ## Rule
-Don't trust the draft for individual notes. Run with `JOHN_TRANSCRIBE_DEBUG=<file>` and inspect the per-frame track (time, chosen MIDI, confidence, top 3 candidates) around doubtful spots. The dump's MIDI numbers are the recording's sounding pitch: for a whistle subtract 12 (for a guitar add 12) to compare with `get_song`, and add any octave shift the report mentions. Two known misses: quiet notes (salience around 0.27) are dropped, and the continuity filter can delete a real note at the start of a wide leap (#7).
+Don't trust the draft for individual notes. Run with `JOHN_TRANSCRIBE_DEBUG=<file>` and inspect the per-frame track (time, chosen MIDI, confidence, top 3 candidates) around doubtful spots. The dump's MIDI numbers are the recording's sounding pitch: for a whistle subtract 12 (for a guitar add 12) to compare with `get_song`, and add any octave shift the report mentions. Known miss: quiet notes (salience around 0.27) are dropped. A short low note at the start of a wide leap used to be dropped too; since #7 it is kept (see continuity-filter-melody-vs-accompaniment.md).
 
 ## Why
 On the fuze piano intro the user heard two missing D's that the draft didn't show; both were visible in the dump. The detected tempo was also wrong without a hint (125 instead of 70); since #8 the report's tempo line says so (confidence low, with an "also plausible" tempo).
