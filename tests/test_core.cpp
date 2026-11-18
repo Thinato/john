@@ -536,6 +536,9 @@ int main() {
       bundled++;
     }
     assert(bundled >= 8);
+    // release packages keep lessons/ and fonts/ next to the executable; dev builds use the build-time paths
+    assert(john::bundled("john-tests", "/built") != "/built");  // this test binary sits next to itself
+    assert(john::bundled("no-such-file", "/built") == "/built");
   }
 
   saveCustomTechnique({"bounce", "Bounce", "b", "test"});
