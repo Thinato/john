@@ -23,7 +23,7 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
   - **Linux** (x86-64, X11 or XWayland): `tar xzf john-linux.tar.gz && cd john-linux && ./john`.
   - **Windows** (10 version 1903 or later, 64-bit): download `john-windows.zip`, right-click it, *Extract All*, then double-click `john.exe` in the `john-windows` folder. The app isn't signed, so Windows may say it protected your PC: click *More info*, then *Run anyway*.
 
-  Keep `lessons/` and `fonts/` next to `john` and `john-mcp`. To connect the agent, run `claude mcp add --scope user john -- "$PWD/john-mcp"` in that folder (see [Use](#use)); on Windows, in PowerShell: `claude mcp add --scope user john -- "$PWD\john-mcp.exe"`.
+  Keep `lessons/`, `i18n/` and `fonts/` next to `john` and `john-mcp`. To connect the agent, run `claude mcp add --scope user john -- "$PWD/john-mcp"` in that folder (see [Use](#use)); on Windows, in PowerShell: `claude mcp add --scope user john -- "$PWD\john-mcp.exe"`.
 
 ## Build
 
