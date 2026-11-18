@@ -89,5 +89,5 @@ reply 29 | grep -q 'rubato must be true or false' || { echo "rubato yes not reje
 case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 30 ] || { echo "expected 30 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 33 ] || { echo "expected 33 replies"; exit 1; }
 echo "mcp smoke passed"

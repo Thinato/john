@@ -260,16 +260,25 @@ int main() {
     assert(transposeToKey(s, 7, instrumentOf(s)) == 5 && keyName(s.key) == "G major");    // G4..G5: up a fourth
     assert(transposeToKey(s, 9, instrumentOf(s)) == 2 && keyName(s.key) == "A major");
     assert(transposeToKey(s, 2, instrumentOf(s)) == -7 && keyName(s.key) == "D major");   // +5 would reach D6
-    assert(toJson(s) == toJson(orig));
+    assert(toJson(s) == toJson(orig) && !toJson(s).contains("transposed"));
     assert(transposeToKey(s, 2, instrumentOf(s)) == 0);
+    transposeToKey(s, 11, instrumentOf(s));  // B: -3 (B3 is out) or +9
+    assert(s.transposed == 9 && toJson(s)["transposed"] == 9 && fromJson(toJson(s)).transposed == 9);
+    transpose(s, -12);  // a manual transposition (update_song) adds to it too
+    assert(s.transposed == -3);
     Song m = importAbc("X:1\nT:m\nM:4/4\nL:1/8\nK:Edor\nEFGA Bcde|\n").song;
     transposeToKey(m, 2, instrumentOf(m));
     assert(keyName(m.key) == "D dorian" && m.events[0].midi == 62);  // the mode stays
     Song h = importAbc("X:1\nT:h\nM:4/4\nL:1/8\nK:A\nA,B,CD EFGA|\n").song;  // A3..A4: the bottom of an A harp
     h.instrument = "harmonica";
     h.harp = "A";
+    const Song hOrig = h;
     assert(transposeToKey(h, 7, instrumentOf(h)) == 10 && keyName(h.key) == "G major");  // down 2 would leave G3, G#3 out
-    assert(transposeToKey(h, 9, instrumentOf(h)) == -10 && h.events[0].midi == 57);
+    // back to A: +2 and -10 both fit; the tie goes to the original octave, so the sheet is exactly the original
+    assert(transposeToKey(h, 9, instrumentOf(h)) == -10 && toJson(h) == toJson(hOrig));
+    for (int k = 0; k < 12; k++) transposeToKey(h, k, instrumentOf(h));  // a walk through every key and back
+    transposeToKey(h, 9, instrumentOf(h));
+    assert(toJson(h) == toJson(hOrig));
     h.harp = "C";
     assert(transposeToKey(h, 9, instrumentOf(h)) == 12);  // a C harp starts on C4: the octave up fits
   }

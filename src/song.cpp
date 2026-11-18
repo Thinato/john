@@ -241,6 +241,7 @@ void transpose(Song& s, int semis) {
   int tonic = mod12(s.key.fifths * 7 + MODE_SEMIS[mi] + semis);
   int f = PC_FIFTHS[mod12(tonic - MODE_SEMIS[mi])];
   s.key.fifths = f;
+  s.transposed += semis;
 }
 
 int deleteBars(Song& s, int first, int last) {
@@ -559,6 +560,7 @@ json toJson(const Song& s) {
           {"tempo", s.tempo}, {"instrument", s.instrument}, {"whistle", s.whistle}, {"events", ev}};
   if (!s.folder.empty()) j["folder"] = s.folder;
   if (s.harp != "C") j["harp"] = s.harp;  // C harp songs stay as before
+  if (s.transposed) j["transposed"] = s.transposed;
   if (!s.i18n.empty()) j["i18n"] = s.i18n;
   return j;
 }
@@ -584,6 +586,7 @@ Song fromJson(const json& j) {
   s.instrument = j.value("instrument", "whistle");
   s.whistle = j.value("whistle", "D");
   s.harp = j.value("harp", "C");
+  s.transposed = j.value("transposed", 0);
   for (auto& x : j.value("events", json::array())) {
     Event e;
     std::string t = x.value("type", "note");

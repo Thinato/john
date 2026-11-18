@@ -32,7 +32,7 @@ RangeCost rangeCost(const Song& s, const Instrument& in, int semis) {
 int transposeToKey(Song& s, int tonic, const Instrument& in) {
   int d = ((tonic - tonicPc(s.key)) % 12 + 12) % 12;
   if (d > 6) d -= 12;  // smallest interval: -5..+6
-  auto score = [&](int t) { RangeCost c = rangeCost(s, in, t); return std::tuple(c.out, c.hard(), std::abs(t)); };
+  auto score = [&](int t) { RangeCost c = rangeCost(s, in, t); return std::tuple(c.out, c.hard(), std::abs(s.transposed + t), std::abs(t)); };
   int best = d;
   for (int t = d - 24; t <= d + 24; t += 12) {
     bool midi = true;  // stays inside 0..127
