@@ -43,6 +43,9 @@ target_compile_definitions(john_core PUBLIC MA_NO_ENCODING MA_NO_RESOURCE_MANAGE
 # transcription crunches minutes of audio; keep it fast in Debug builds too
 set_source_files_properties(src/transcribe.cpp src/miniaudio.cpp PROPERTIES COMPILE_OPTIONS -O2)
 target_link_libraries(john_core PUBLIC nlohmann_json::nlohmann_json)
+if(APPLE)
+  target_link_libraries(john_core PUBLIC "-framework CoreFoundation")  # systemLanguage(): CFLocaleCopyPreferredLanguages
+endif()
 
 add_executable(john src/gui_main.cpp src/audio.cpp
   ${imgui_SOURCE_DIR}/imgui.cpp ${imgui_SOURCE_DIR}/imgui_draw.cpp
