@@ -8,6 +8,7 @@
 #include <cstring>
 #include <fstream>
 #include <regex>
+#include <set>
 #include <stdexcept>
 #include <unistd.h>
 
@@ -577,13 +578,20 @@ int main() {
       assert(saved->notes.rfind("Automatic transcription\ntempo: ", 0) == 0 && saved->notes.find("\nmeter: 4/4") != std::string::npos &&
              saved->notes.find("\nkey: G major") != std::string::npos);
       assert(common(want, melodyOf(*saved)) >= (int)want.size() * 9 / 10);
-      int unclear = 0, notes = 0;
-      for (auto& e : saved->events) notes += e.kind == Kind::Note, unclear += e.comment == "unclear in the recording, check by ear";
+      // notes the recording is unclear about: only the tune's rest in bar 4 (beats 3-4), which the transcription fills
+      // with the accompaniment's G, and in the second import below also the faint bars 7 and 8
+      auto unclearBars = [](const Song& x, int firstBar) {
+        std::set<std::pair<int, bool>> r;  // (bar of the tune, in its second half)
+        auto p = positions(x);
+        for (size_t i = 0; i < x.events.size(); i++)
+          if (x.events[i].comment == "unclear in the recording, check by ear") r.insert({p[i].bar + firstBar, p[i].tick >= 96});
+        return r;
+      };
       auto t = loadTrack(s.id);
       assert(t && t->points.size() > mix.size() / 300 && t->sync.size() > 20);
-      printf("import audio: '%s', %d notes (%d unclear), pitch track %.0f%% on its notes\n", s.id.c_str(), notes, unclear,
-             aligned(*saved, *t) * 100);
-      assert(aligned(*saved, *t) >= 0.85 && unclear <= notes / 10);
+      printf("import audio: '%s', %zu notes, pitch track %.0f%% on its notes\n", s.id.c_str(), melodyOf(*saved).size(), aligned(*saved, *t) * 100);
+      assert(aligned(*saved, *t) >= 0.85);
+      for (auto [bar, late] : unclearBars(*saved, 0)) assert(bar == 4 && late);
       // a second import gets its own id; start/end trim the recording (here: the first two bars, 4.8 s, are left out).
       // The last two bars are made faint: their notes get the "check by ear" comment.
       std::vector<float> faint = mix;
@@ -591,11 +599,9 @@ int main() {
       writeWav(wav, faint, sr);
       Song s2 = importAudio(wav.string(), 4.8, 0, {});
       assert(s2.id == "my-tune-2" && loadTrack("my-tune-2") && melodyOf(s2).size() < melodyOf(*saved).size());
-      auto pos2 = positions(s2);
-      int faintUnclear = 0;
-      for (size_t i = 0; i < s2.events.size(); i++)
-        if (!s2.events[i].comment.empty()) faintUnclear++, assert(pos2[i].bar >= 5);  // bars 7 and 8 of the tune
-      assert(faintUnclear >= 3);
+      auto u2 = unclearBars(s2, 2);
+      for (auto [bar, late] : u2) assert(bar >= 7 || (bar == 4 && late));
+      assert(u2.count({7, false}) && u2.count({7, true}) && u2.count({8, false}));
       bool threw = false;
       try { importAudio((home / "missing.wav").string(), 0, 0, {}); } catch (const std::runtime_error&) { threw = true; }
       assert(threw && !loadTrack("missing") && !loadSong("missing"));
