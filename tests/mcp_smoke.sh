@@ -4,6 +4,13 @@ set -e
 BIN="$1"
 export JOHN_HOME="$(mktemp -d)"
 trap 'rm -rf "$JOHN_HOME"' EXIT
+# separate (#5): a Demucs stub that only makes noise, and 1 s of silence (8 kHz 16-bit mono WAV) to run it on
+STUB="$JOHN_HOME/demucs stub"
+printf '#!/bin/sh\necho stub noise on stdout; echo stub noise on stderr >&2; exit 1\n' > "$STUB"
+chmod +x "$STUB"
+SILENCE="$JOHN_HOME/silence.wav"
+{ printf 'RIFF\244\076\000\000WAVEfmt \020\000\000\000\001\000\001\000\100\037\000\000\200\076\000\000\002\000\020\000data\200\076\000\000'
+  head -c 16000 /dev/zero; } > "$SILENCE"
 OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' \
 '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
@@ -32,7 +39,9 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","meter":"4"}}}' \
 '{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","transpose":13}}}' \
 '{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","transpose":0}}}' \
-| "$BIN")
+'{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","separate":"drums"}}}' \
+"{\"jsonrpc\":\"2.0\",\"id\":28,\"method\":\"tools/call\",\"params\":{\"name\":\"transcribe_audio\",\"arguments\":{\"path\":\"$SILENCE\",\"separate\":\"vocals\"}}}" \
+| JOHN_DEMUCS="$STUB" "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
 check '"name":"define_technique"'
@@ -63,7 +72,11 @@ reply 24 | grep -q 'meter must be N/D' || { echo "bad meter not rejected"; exit 
 reply 2 | grep -q '0 keeps the recording' || { echo "transcribe_audio has no transpose option"; exit 1; }
 reply 25 | grep -q 'transpose must be a whole number within -12..12' || { echo "transpose 13 not rejected"; exit 1; }
 ! reply 26 | grep -q 'transpose must' || { echo "transpose 0 rejected"; exit 1; }
+reply 2 | grep -q 'only short sections of copyrighted recordings' || { echo "transcribe_audio has no separate option"; exit 1; }
+reply 27 | grep -q 'separate must be' || { echo "separate drums not rejected"; exit 1; }
+reply 28 >/dev/null || { echo "no reply to the separate call"; exit 1; }
+case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 26 ] || { echo "expected 26 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 28 ] || { echo "expected 28 replies"; exit 1; }
 echo "mcp smoke passed"

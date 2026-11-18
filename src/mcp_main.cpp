@@ -21,6 +21,7 @@ Getting a tune into John (always via ABC -> import_abc, with instrument = what t
 - thesession.org: curl -s 'https://thesession.org/tunes/search?q=NAME&format=json', then curl -s 'https://thesession.org/tunes/ID?format=json'. Each settings[] item has an "abc" body (a lone "!" is a line break) and "key" like "Dmajor". Add headers yourself: X:1, T:name, M: from the tune type (reel/hornpipe/barndance/strathspey 4/4, jig 6/8, slip jig 9/8, slide 12/8, polka 2/4, waltz/mazurka 3/4, three-two 3/2), L:1/8, K:key. Pass source = the setting URL.
 - Audio file (mp3/wav/flac): transcribe_audio gives a draft ABC plus a report. The draft is a machine guess (detected meter, sixteenths with (3 eighth triplets where they fit, the loudest pitched line); you are the musician who turns it into a sheet. Review it before importing:
   * Solo instrument: instrument = what the sheet is for (a piano recording can become a whistle sheet); it doesn't limit what is heard. If you know which instrument plays the melody in the recording (e.g. a whistle over an orchestra), also pass recording_instrument: the pitch search then stays in its range, so louder accompaniment outside it can't take over (the report's "pitch search" line shows the range).
+  * Dense mix (a singer or lead over a full band, and the draft follows the accompaniment): re-run with separate = "vocals" for a sung melody, or "other" for a whistle, flute, fiddle or piano lead. That runs Demucs (an optional tool the user installs: pip install demucs, or JOHN_DEMUCS = its path) on the section first and transcribes only that stem. It is slow (a CPU can take longer than the section itself), so always pass start/end: only short sections of copyrighted recordings, for personal practice. The report's "separation" line says whether the stem or, when Demucs is missing or fails, the full mix was transcribed.
   * Meter: without a meter, the draft tries 4/4, 3/4, 6/8 and 9/8 and keeps the best fit; the report's meter line lists each score. Check it: do the repeating motifs line up with the bar lines, with long or accented notes on beat 1? If the scores are close (on real recordings they often are) or the meter doesn't suit the tune type (jig 6/8, slip jig 9/8, waltz 3/4, reel 4/4), re-run with meter and compare which version makes the phrases fit the bars. 2/4 and 12/8 aren't tried: expect 4/4 and 6/8.
   * Tempo: read the report's tempo line. Confidence low means the detected tempo may well be wrong: re-run with the 'also plausible' bpm (often half, double or 3:2; not always right either) or the song's usual tempo, and keep the version whose note lengths read naturally. If nearly every note is a sixteenth, the real tempo is probably double the detected one; if it is all half and whole notes, it's probably half. Re-run with bpm. If you know the song, use its usual tempo and feel.
   * Rhythm: a "triplets" line counts the beats written as (3; check them by ear. A "swung eighths" line means long-short pairs are written as straight eighths: keep them straight and say "swing" in the notes. Swung tunes and tunes with many triplets often come out 6/8 without a meter: re-run with meter (e.g. 4/4) if the tune type is simple time.
@@ -118,7 +119,13 @@ static json toolList() {
             {"transpose", {{"type", "integer"}, {"minimum", -12}, {"maximum", 12},
                            {"description", "semitones to transpose the melody by before fitting the octave (the draft's K: follows); "
                                            "0 keeps the recording's key. Default: automatic, only when no octave keeps the notes "
-                                           "in the instrument's range (the report's 'transposed' line says so)"}}}},
+                                           "in the instrument's range (the report's 'transposed' line says so)"}}},
+            {"separate", {{"type", "string"}, {"enum", {"vocals", "other"}},
+                          {"description", "for dense mixes: first separate this Demucs stem (vocals = sung melody; other = whistle, flute, "
+                                          "fiddle, piano lead) and transcribe it. Needs Demucs installed (pip install demucs, or "
+                                          "JOHN_DEMUCS); slow, so pass start/end, and only short sections of copyrighted recordings, "
+                                          "for personal practice. Without Demucs the full mix is transcribed and the report says why. "
+                                          "Default: no separation"}}}},
            {"path"}),
       tool("list_techniques", "List the technique catalog: id, GUI symbol, name, how to play it on the whistle.", json::object()),
       tool("define_technique", "Add or replace a technique in the catalog (for techniques the user wants documented).",
@@ -255,6 +262,9 @@ static std::string callTool(const std::string& name, const json& a) {
         throw std::runtime_error("transpose must be a whole number within -12..12 semitones");
       o.transpose = a["transpose"].get<int>();
     }
+    o.separate = a.value("separate", "");
+    if (!o.separate.empty() && o.separate != "vocals" && o.separate != "other")
+      throw std::runtime_error("separate must be \"vocals\" or \"other\"");
     Transcription t = transcribeFile(path, a.value("start", 0.0), a.value("end", 0.0), o);
     return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name and instrument = " + o.instrument +
            "):\n" + toAbc(t.song);

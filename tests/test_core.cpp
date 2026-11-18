@@ -24,18 +24,6 @@ static const Event& nth(const Song& s, int n) {  // n-th note/rest (skipping bar
   return s.events[0];
 }
 
-static void writeWav(const fs::path& path, const std::vector<float>& x, int rate) {  // 16-bit mono PCM
-  FILE* f = fopen(path.string().c_str(), "wb");
-  auto u32 = [&](unsigned v) { fwrite(&v, 4, 1, f); };
-  auto u16 = [&](unsigned short v) { fwrite(&v, 2, 1, f); };
-  const unsigned n = (unsigned)x.size();
-  fwrite("RIFF", 1, 4, f); u32(36 + n * 2); fwrite("WAVEfmt ", 1, 8, f);
-  u32(16); u16(1); u16(1); u32(rate); u32(rate * 2); u16(2); u16(16);
-  fwrite("data", 1, 4, f); u32(n * 2);
-  for (float v : x) u16((unsigned short)(short)std::lround(std::clamp(v, -1.f, 1.f) * 32767));
-  fclose(f);
-}
-
 // Share of the track's voiced frames, placed on the song through PitchTrack::sync, that land on a note of the same
 // pitch class (the written octave differs from the recording's by the instrument).
 static double aligned(const Song& s, const PitchTrack& t) {
@@ -702,7 +690,7 @@ int main() {
     {  // Import audio: a WAV through the same core function as the viewer gives a new song and its pitch track
       fs::create_directories(home);
       fs::path wav = home / "my tune.wav";
-      writeWav(wav, mix, sr);
+      writeWav(wav.string(), mix, sr);
       Song s = importAudio(wav.string(), 0, 0, {});
       auto saved = loadSong(s.id);
       assert(saved && saved->id == "my-tune" && saved->title == "my tune" && saved->source == "my tune.wav" && saved->folder.empty());
@@ -727,7 +715,7 @@ int main() {
       // The last two bars are made faint: their notes get the "check by ear" comment.
       std::vector<float> faint = mix;
       for (size_t i = (size_t)(6 * 2.4 * sr); i < faint.size(); i++) faint[i] *= 0.3f;
-      writeWav(wav, faint, sr);
+      writeWav(wav.string(), faint, sr);
       Song s2 = importAudio(wav.string(), 4.8, 0, {});
       assert(s2.id == "my-tune-2" && loadTrack("my-tune-2") && melodyOf(s2).size() < melodyOf(*saved).size());
       auto u2 = unclearBars(s2, 2);
@@ -740,6 +728,72 @@ int main() {
       fs::remove(home / "songs" / "my-tune.json");
       fs::remove(home / "songs" / "my-tune-2.json");
     }
+    {  // separate (#5): Demucs runs on the section and its stem is transcribed; without it the full mix, and the report says why
+      fs::create_directories(home);
+      fs::path wav = home / "dense mix.wav";
+      writeWav(wav.string(), mix, sr);
+      TranscribeOptions plain;
+      plain.bpm = 100;
+      Transcription ref = transcribeFile(wav.string(), 0, 0, plain);
+      TranscribeOptions o = plain;
+      o.separate = "vocals";
+      auto sameAsMix = [&](const Transcription& t, const std::string& line) {
+        assert(t.report == "separation: " + line + "; transcribed the full mix\n" + ref.report);
+        assert(toAbc(t.song) == toAbc(ref.song));
+      };
+      std::string path = getenv("PATH") ? getenv("PATH") : "";
+      setenv("PATH", home.string().c_str(), 1);  // no demucs here, even where one is installed
+      unsetenv("JOHN_DEMUCS");
+      sameAsMix(transcribeFile(wav.string(), 0, 0, o), "demucs not found (pip install demucs, or set JOHN_DEMUCS)");
+      setenv("PATH", path.c_str(), 1);
+      std::string missing = (home / "no demucs").string();
+      setenv("JOHN_DEMUCS", missing.c_str(), 1);
+      sameAsMix(transcribeFile(wav.string(), 0, 0, o), "JOHN_DEMUCS (" + missing + ") can't be run");
+#ifndef _WIN32  // the stub is a shell script
+      // a stub in a folder with a space, that writes another tune where Demucs puts the stem
+      Song other = importAbc("X:1\nT:b\nM:4/4\nL:1/8\nK:D\nA2 F2 D2 F2|A2 d2 c2 B2|A2 F2 G2 E2|D8|]\n").song;
+      Performance po = perform(other, 100, 0, false);
+      std::vector<float> stem((size_t)((po.length + 1) * sr), 0.f);
+      Synth so;
+      so.sampleRate = sr;
+      so.metronome = false;
+      long long at = 0;
+      so.render(po, at, stem.data(), (int)stem.size());
+      fs::path dir = home / "demucs stub";
+      fs::create_directories(dir);
+      writeWav((dir / "stem.wav").string(), stem, sr);
+      fs::path stub = dir / "demucs";
+      {
+        std::ofstream f(stub);
+        f << "#!/bin/sh\n"
+             "echo 'stub noise on stdout'; echo 'stub noise on stderr' >&2\n"
+             "[ -n \"$STUB_EXIT\" ] && exit \"$STUB_EXIT\"\n"
+             "for a; do case $a in --two-stems=*) stem=${a#--two-stems=};; esac; done\n"
+             "here=$(dirname \"$0\"); echo \"$4\" > \"$here/input\"\n"
+             "[ -n \"$STUB_NOSTEM\" ] && exit 0\n"
+             "mkdir -p \"$3/htdemucs/$(basename \"$4\" .wav)\"\n"
+             "cp \"$here/stem.wav\" \"$3/htdemucs/$(basename \"$4\" .wav)/$stem.wav\"\n";
+      }
+      fs::permissions(stub, fs::perms::owner_all, fs::perm_options::add);
+      setenv("JOHN_DEMUCS", stub.string().c_str(), 1);
+      Transcription t = transcribeFile(wav.string(), 0, 0, o);
+      assert(t.report.rfind("separation: transcribed the demucs vocals stem\ntempo: ", 0) == 0);
+      int fromStem = common(melodyOf(other), melodyOf(t.song)), fromMix = common(want, melodyOf(t.song));
+      printf("separate (stub): %d/%zu notes of the stem, %d/%zu of the mix\n", fromStem, melodyOf(other).size(), fromMix, want.size());
+      assert(fromStem >= (int)melodyOf(other).size() * 9 / 10 && fromMix < (int)want.size() / 2);
+      std::string input;
+      std::getline(std::ifstream(dir / "input"), input);
+      assert(fs::path(input).filename() == "section.wav" && !fs::exists(fs::path(input).parent_path()));  // temp files removed
+      setenv("STUB_NOSTEM", "1", 1);  // real Demucs exits 0 when it can't read a track
+      sameAsMix(transcribeFile(wav.string(), 0, 0, o), "demucs wrote no vocals.wav (stub noise on stderr)");
+      unsetenv("STUB_NOSTEM");
+      setenv("STUB_EXIT", "3", 1);
+      sameAsMix(transcribeFile(wav.string(), 0, 0, o), "demucs failed with exit status 3 (stub noise on stderr)");
+      unsetenv("STUB_EXIT");
+#endif
+      unsetenv("JOHN_DEMUCS");
+      fs::remove(wav);
+    }
   }
 
   // decoding: a 16-bit WAV of A5 written by hand, read back resampled to 22050 Hz mono
@@ -749,7 +803,7 @@ int main() {
     const int rate = 44100, n = rate / 2;
     std::vector<float> a5(n);
     for (int i = 0; i < n; i++) a5[i] = (float)(12000 / 32767.0 * std::sin(2 * M_PI * 880 * i / rate));
-    writeWav(wav, a5, rate);
+    writeWav(wav.string(), a5, rate);
     auto x = decodeAudio(wav.string(), 22050);
     assert(std::abs((int)x.size() - 22050 / 2) < 100);
     assert(std::abs(detectPitch(x.data() + 2000, 2048, 22050) - 880) < 5);

@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <random>
 #include <set>
@@ -19,7 +20,13 @@
 #ifdef _WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>  // GetModuleFileNameW
+#include <windows.h>  // GetModuleFileNameW, CreateProcessW
+#elif !defined(__EMSCRIPTEN__)
+#include <cerrno>
+#include <fcntl.h>
+#include <spawn.h>
+#include <sys/wait.h>
+extern char** environ;
 #endif
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -618,13 +625,129 @@ std::string uniqueId(const std::string& title) {
 
 // ---------------- audio import ----------------
 
+// Runs argv[0] (found on PATH, no shell, so arguments are passed as they are) with stdin from the null device and
+// stdout + stderr into `log`: nothing it prints may reach the MCP server's stdout, nor may it read the server's stdin.
+// Returns its exit status, or -1 if it couldn't be started.
+static int runQuiet(const std::vector<std::string>& argv, const fs::path& log) {
+#if defined(_WIN32)
+  auto wide = [](const std::string& u) {
+    std::wstring w(MultiByteToWideChar(CP_UTF8, 0, u.c_str(), (int)u.size(), nullptr, 0), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, u.c_str(), (int)u.size(), w.data(), (int)w.size());
+    return w;
+  };
+  std::wstring cmd;  // quoted so that CommandLineToArgvW / the C runtime split it back into argv
+  for (auto& a : argv) {
+    cmd += cmd.empty() ? L"\"" : L" \"";
+    size_t bs = 0;
+    for (wchar_t c : wide(a)) {
+      if (c == L'\\') { bs++; continue; }
+      cmd.append(c == L'"' ? bs * 2 + 1 : bs, L'\\');
+      cmd += c;
+      bs = 0;
+    }
+    cmd.append(bs * 2, L'\\');
+    cmd += L'"';
+  }
+  SECURITY_ATTRIBUTES sa{sizeof sa, nullptr, TRUE};
+  HANDLE out = CreateFileW(log.wstring().c_str(), GENERIC_WRITE, FILE_SHARE_READ, &sa, CREATE_ALWAYS, 0, nullptr);
+  HANDLE in = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, OPEN_EXISTING, 0, nullptr);
+  STARTUPINFOW si{};
+  si.cb = sizeof si;
+  si.dwFlags = STARTF_USESTDHANDLES;
+  si.hStdInput = in;
+  si.hStdOutput = si.hStdError = out;
+  PROCESS_INFORMATION pi{};
+  BOOL ok = out != INVALID_HANDLE_VALUE && in != INVALID_HANDLE_VALUE &&
+            CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
+  if (out != INVALID_HANDLE_VALUE) CloseHandle(out);
+  if (in != INVALID_HANDLE_VALUE) CloseHandle(in);
+  if (!ok) return -1;
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  DWORD code = 1;
+  GetExitCodeProcess(pi.hProcess, &code);
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+  return (int)code;
+#elif defined(__EMSCRIPTEN__)
+  (void)argv, (void)log;
+  return -1;
+#else
+  posix_spawn_file_actions_t fa;
+  posix_spawn_file_actions_init(&fa);
+  posix_spawn_file_actions_addopen(&fa, 0, "/dev/null", O_RDONLY, 0);
+  posix_spawn_file_actions_addopen(&fa, 1, log.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  posix_spawn_file_actions_adddup2(&fa, 1, 2);
+  std::vector<char*> args;
+  for (auto& a : argv) args.push_back(const_cast<char*>(a.c_str()));
+  args.push_back(nullptr);
+  pid_t pid;
+  int err = posix_spawnp(&pid, args[0], &fa, nullptr, args.data(), environ);
+  posix_spawn_file_actions_destroy(&fa);
+  if (err) return -1;
+  int st = 0;
+  while (waitpid(pid, &st, 0) < 0 && errno == EINTR) {}
+  return WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st);
+#endif
+}
+
+// Demucs on a 44.1 kHz stereo section: the `stem` it separates, mono at `rate`, or {} if it couldn't (`why` says
+// which). It writes <out>/<model>/<input name>/<stem>.wav (and no_<stem>.wav). Temp files are always removed.
+static std::vector<float> demucsStem(const std::vector<float>& stereo, const std::string& stem, int rate, std::string& why) {
+  const char* env = getenv("JOHN_DEMUCS");
+  std::string exe = env && *env ? env : "demucs";
+  fs::path dir = fs::temp_directory_path() / ("john-demucs-" + std::to_string(std::random_device{}()));
+  fs::create_directories(dir);
+  struct Cleanup {
+    fs::path d;
+    ~Cleanup() { std::error_code ec; fs::remove_all(d, ec); }
+  } cleanup{dir};
+  fs::path in = dir / "section.wav", out = dir / "out", log = dir / "log.txt";
+  writeWav(in.string(), stereo, 44100, 2);
+  int st = runQuiet({exe, "--two-stems=" + stem, "-o", out.string(), in.string()}, log);
+  auto lastLine = [&] {  // of its output; progress bars end their lines in \r
+    std::ifstream f(log, std::ios::binary);
+    std::string text((std::istreambuf_iterator<char>(f)), {}), last;
+    std::istringstream lines(text);
+    for (std::string l; std::getline(lines, l, '\n');)
+      for (std::istringstream parts(l); std::getline(parts, l, '\r');)
+        if (l.find_first_not_of(" \t") != std::string::npos) last = l;
+    return last.empty() ? "" : " (" + last.substr(0, 200) + ")";
+  };
+  const std::string mix = "; transcribed the full mix";
+  if (st == -1) {
+    why = (env && *env ? "JOHN_DEMUCS (" + exe + ") can't be run" : "demucs not found (pip install demucs, or set JOHN_DEMUCS)") + mix;
+    return {};
+  }
+  if (st != 0) {
+    why = "demucs failed with exit status " + std::to_string(st) + lastLine() + mix;
+    return {};
+  }
+  std::error_code ec;
+  for (fs::recursive_directory_iterator it(out, ec), e; !ec && it != e; it.increment(ec))
+    if (it->path().filename() == stem + ".wav") {
+      why = "transcribed the demucs " + stem + " stem";
+      return decodeAudio(it->path().string(), rate);
+    }
+  why = "demucs wrote no " + stem + ".wav" + lastLine() + mix;  // it exits 0 when it can't read a track
+  return {};
+}
+
 Transcription transcribeFile(std::string path, double start, double end, TranscribeOptions o) {
   if (path.rfind("~/", 0) == 0) path = homeDir() + path.substr(1);
   constexpr int SR = 22050;
-  std::vector<float> x = decodeAudio(path, SR);
-  size_t from = (size_t)std::clamp(start * SR, 0.0, (double)x.size());
-  size_t to = end > 0 ? (size_t)std::clamp(end * SR, (double)from, (double)x.size()) : x.size();
-  return transcribe(std::vector<float>(x.begin() + from, x.begin() + to), SR, o);
+  auto section = [&](int rate, int ch) {  // decoded and trimmed to start..end
+    std::vector<float> x = decodeAudio(path, rate, ch);
+    size_t n = x.size() / ch;
+    size_t from = (size_t)std::clamp(start * rate, 0.0, (double)n);
+    size_t to = end > 0 ? (size_t)std::clamp(end * rate, (double)from, (double)n) : n;
+    return std::vector<float>(x.begin() + from * ch, x.begin() + to * ch);
+  };
+  if (o.separate.empty()) return transcribe(section(SR, 1), SR, o);
+  std::string why;
+  std::vector<float> x = demucsStem(section(44100, 2), o.separate, SR, why);  // Demucs works on 44.1 kHz stereo
+  Transcription t = transcribe(x.empty() ? section(SR, 1) : x, SR, o);
+  t.report = "separation: " + why + "\n" + t.report;
+  return t;
 }
 
 double trackTick(const PitchTrack& t, double sec) {
