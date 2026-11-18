@@ -14,7 +14,7 @@ using namespace john;
 
 static const char* GUIDE = R"(John turns tunes into tin whistle tab sheets with technique markings. Songs are saved to the John data folder and appear live in the John GUI (staff + fingering charts + technique symbols).
 
-Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica). Pass it to import_abc / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts and the technique candidates are for the tin whistle. Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch.
+Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica (diatonic, with a harp key: G..B harps sit below C, Db..F# above)). Pass it to import_abc / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts and the technique candidates are for the tin whistle. Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch.
 
 Getting a tune into John (always via ABC -> import_abc, with instrument = what the user will play it on; the song list shows it and list_songs filters by it):
 - Photo/PDF of sheet music: read the image and transcribe it to ABC carefully (K: key signature, M: meter, L: unit, every bar). After importing, compare get_song bar by bar against the image.
@@ -72,6 +72,7 @@ static json toolList() {
             {"source", {{"type", "string"}, {"description", "where the tune came from (URL, 'photo of ...')"}}},
             {"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "instrument the song is for, default: the one chosen in John's Settings (whistle unless changed)"}}},
             {"whistle", {{"type", "string"}, {"description", "whistle key, default D"}}},
+            {"harp", {{"type", "string"}, {"enum", HARP_KEYS}, {"description", "harmonica key, default: the one chosen in John's Settings (C unless changed)"}}},
             {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
             {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}},
            {"abc"}),
@@ -92,8 +93,9 @@ static json toolList() {
                 {"required", {"index"}}}}}}},
            {"id", "edits"}),
       tool("update_song",
-           "Change song info: title, source, notes (overall advice shown in the GUI), folder (song list group), tempo (quarter notes per minute), instrument, whistle key, or transpose by semitones.",
-           {{"id", str}, {"title", str}, {"source", str}, {"notes", str}, {"folder", str}, {"tempo", {{"type", "integer"}}}, {"instrument", instrumentSchema}, {"whistle", str}, {"transpose", {{"type", "integer"}}}},
+           "Change song info: title, source, notes (overall advice shown in the GUI), folder (song list group), tempo (quarter notes per minute), instrument, whistle key, harmonica key (harp), or transpose by semitones.",
+           {{"id", str}, {"title", str}, {"source", str}, {"notes", str}, {"folder", str}, {"tempo", {{"type", "integer"}}}, {"instrument", instrumentSchema}, {"whistle", str},
+            {"harp", {{"type", "string"}, {"enum", HARP_KEYS}}}, {"transpose", {{"type", "integer"}}}},
            {"id"}),
       tool("delete_bars",
            "Delete bars first..last (inclusive, bar numbers as get_song shows them; a pickup is bar 0) with their notes, rests and techniques. "
@@ -142,7 +144,9 @@ static json toolList() {
 
 static void checkInstrument(const Song& s) {
   if (whistleBase(s.whistle) < 0) throw std::runtime_error("unknown whistle key '" + s.whistle + "' (use a note name like D, C, Bb)");
-  if (!findInstrument(s.instrument, s.whistle)) {
+  if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), s.harp) == HARP_KEYS.end())
+    throw std::runtime_error("unknown harmonica key '" + s.harp + "' (use one of G, Ab, A, Bb, B, C, Db, D, Eb, E, F, F#)");
+  if (!findInstrument(s.instrument, s.whistle, s.harp)) {
     std::string ids;
     for (auto& i : INSTRUMENTS) ids += (ids.empty() ? "" : ", ") + i;
     throw std::runtime_error("unknown instrument '" + s.instrument + "' (use one of: " + ids + ")");
@@ -175,6 +179,7 @@ static std::string callTool(const std::string& name, const json& a) {
     s.source = a.value("source", s.source);
     s.instrument = a.value("instrument", loadSettings().instrument);
     s.whistle = a.value("whistle", "D");
+    s.harp = a.value("harp", loadSettings().harp);
     s.folder = a.value("folder", "");
     checkInstrument(s);
     s.id = a.value("overwrite", false) ? slug(a.value("id", s.title)) : uniqueId(a.value("id", s.title));
@@ -226,9 +231,10 @@ static std::string callTool(const std::string& name, const json& a) {
     s.notes = a.value("notes", s.notes);
     s.folder = a.value("folder", s.folder);
     s.tempo = a.value("tempo", s.tempo);
-    if (a.contains("instrument") || a.contains("whistle")) {  // a song with a bad stored value can still be edited
+    if (a.contains("instrument") || a.contains("whistle") || a.contains("harp")) {  // a song with a bad stored value can still be edited
       s.instrument = a.value("instrument", s.instrument);
       s.whistle = a.value("whistle", s.whistle);
+      s.harp = a.value("harp", s.harp);
       checkInstrument(s);
     }
     if (int t = a.value("transpose", 0)) {

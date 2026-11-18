@@ -46,6 +46,8 @@ struct Song {
   int tempo = 0;           // quarter notes per minute, 0 = unknown
   std::string instrument = "whistle";  // one of INSTRUMENTS
   std::string whistle = "D";           // whistle key (used when instrument is "whistle")
+  int transposed = 0;                  // semitones transpose() moved it since import; 0 = the original sheet
+  std::string harp = "C";              // diatonic harmonica key (used when instrument is "harmonica"), one of HARP_KEYS
   std::vector<Event> events;
   // translations of the title, notes and comments: language -> English text -> translation ("pt-BR" -> ...)
   std::map<std::string, std::map<std::string, std::string>> i18n;
@@ -79,8 +81,11 @@ struct Instrument {
   int octave = 0;          // sounding pitch = written + 12 * octave (whistle +1, guitar -1, others 0)
   bool plays(int midi) const { return midi >= low && midi <= high; }
 };
-// whistleKey is only used for "whistle". Returns nullopt for an unknown id or whistle key.
-std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey = "D");
+// Diatonic harmonica keys, lowest harp first: G..B harps sit below C (an A harp starts on A3), Db..F# above it.
+inline const std::vector<std::string> HARP_KEYS = {"G", "Ab", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#"};
+// whistleKey is only used for "whistle", harpKey for "harmonica". Returns nullopt for an unknown id or key.
+std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey = "D",
+                                         const std::string& harpKey = "C");
 Instrument instrumentOf(const Song& s);           // the song's instrument; a D whistle if the song's values are unknown
 
 // ---- viewer language (gettext style: the English text is the key) ----
@@ -114,16 +119,21 @@ Spelled spell(const Key& k, int midi);
 std::string noteName(const Spelled& s);            // "F#4" ("Fá#4" with setSolfege notes)
 std::string keyName(const Key& k);                 // "D major", "E dorian"; translated by tr()
 std::string tonicName(const Key& k);               // "D" ("Ré" with setSolfege keys in a non-English language)
+int tonicPc(const Key& k);                         // pitch class of the tonic, C = 0: D major and B minor -> 2, 11
 std::optional<Key> parseKey(const std::string& s); // "D", "Ador", "Bm", "G mixolydian"
 int whistleBase(const std::string& whistle);       // MIDI of the lowest written note, D -> 62; -1 if not a whistle key
 Fingering finger(const std::string& whistle, int midi);
 std::string fingeringText(const Fingering& f);     // "XXX XXO +"
 std::string durationName(const Event& e);          // "dotted quarter", "eighth (3-tuplet)"; translated by tr()
-void transpose(Song& s, int semitones);
+void transpose(Song& s, int semitones);         // also adds to s.transposed
 // Notes out of range, half-holed and C-natural cross-fingered (whistle only) if s were transposed by semis.
 // hard() weighs the fingerings as analyze()'s ranking of transpositions does.
 struct RangeCost { int out = 0, half = 0, cross = 0; int hard() const { return half * 10 + cross * 2; } };
 RangeCost rangeCost(const Song& s, const Instrument& in, int semis);
+// Play the song in the key whose tonic is pitch class `tonic` (same mode): transposes by the smallest interval, then
+// moves whole octaves to the octave that fits `in` best (rangeCost: fewest out, then hard()). On a tie, the octave
+// closest to the original sheet (s.transposed nearest 0), so the original key restores it exactly. Returns the shift.
+int transposeToKey(Song& s, int tonic, const Instrument& in);
 // Remove bars first..last (numbers from positions(), as get_song shows them) and the bar lines that close them.
 // A closing repeat/end sign or volta mark moves onto the previous plain bar line. Returns notes/rests removed;
 // throws std::invalid_argument if the range matches nothing or would empty the song.
@@ -215,6 +225,7 @@ struct Settings {
   std::string language;             // viewer language: "" = automatic (system/browser), "en", "pt-BR", ...
   bool solfege = false;             // note names Do Re Mi instead of C D E
   bool solfegeKeys = true;          // key names Do Re Mi ("Ré maior"); only in a language other than English
+  std::string harp = "C";           // harmonica key for songs switched to or imported as harmonica, one of HARP_KEYS
   bool operator==(const Settings&) const = default;
 };
 Settings loadSettings();                    // missing keys -> defaults; unreadable file -> all defaults

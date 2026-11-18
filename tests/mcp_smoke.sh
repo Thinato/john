@@ -43,6 +43,9 @@ OUT=$(printf '%s\n' \
 "{\"jsonrpc\":\"2.0\",\"id\":28,\"method\":\"tools/call\",\"params\":{\"name\":\"transcribe_audio\",\"arguments\":{\"path\":\"$SILENCE\",\"separate\":\"vocals\"}}}" \
 '{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","rubato":"yes"}}}' \
 '{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","rubato":true}}}' \
+'{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Harp\nM:4/4\nL:1/4\nK:A\nA,B,CD|","instrument":"harmonica","harp":"A"}}}' \
+'{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"analyze_song","arguments":{"id":"harp"}}}' \
+'{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"update_song","arguments":{"id":"harp","harp":"H"}}}' \
 | JOHN_DEMUCS="$STUB" "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -65,6 +68,9 @@ check '"enum":\["whistle","violin"'
 check "unknown recording_instrument 'kazoo'"
 check 'smoke-reel - Smoke Reel (D major, 4/4, D whistle)'
 check 'fiddle - Fiddle (G major, 4/4, Violin)'
+check 'instrument: A harmonica'
+check 'Range on the A harmonica (playable A3 .. A6)'
+check "unknown harmonica key 'H'"
 reply() { printf "%s\n" "$OUT" | grep "\"id\":$1,"; }
 reply 20 | grep -q 'fiddle - Fiddle' || { echo "violin filter lost fiddle"; exit 1; }
 ! reply 20 | grep -q 'smoke-reel' || { echo "violin filter kept smoke-reel"; exit 1; }
@@ -83,5 +89,5 @@ reply 29 | grep -q 'rubato must be true or false' || { echo "rubato yes not reje
 case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 30 ] || { echo "expected 30 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 33 ] || { echo "expected 33 replies"; exit 1; }
 echo "mcp smoke passed"

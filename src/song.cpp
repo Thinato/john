@@ -126,9 +126,10 @@ static int modeIndex(const std::string& m) {
   return 0;
 }
 
+int tonicPc(const Key& k) { return mod12(k.fifths * 7 + MODE_SEMIS[modeIndex(k.mode)]); }
+
 std::string tonicName(const Key& k) {
-  int tonicPc = mod12(k.fifths * 7 + MODE_SEMIS[modeIndex(k.mode)]);
-  std::string n = pitchName(spell(k, 60 + tonicPc), gLocalized && gSolfegeKeys);  // English keys always use letters
+  std::string n = pitchName(spell(k, 60 + tonicPc(k)), gLocalized && gSolfegeKeys);  // English keys always use letters
   n.pop_back();  // drop octave digit
   return n;
 }
@@ -169,14 +170,20 @@ int whistleBase(const std::string& w) {
   return 60 + mod12(k->fifths * 7);  // C whistle = C4 (60) ... B whistle = B4 (71); D = 62
 }
 
-std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey) {
+std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey, const std::string& harpKey) {
   if (id == "whistle") {
     int b = whistleBase(whistleKey);
     if (b < 0) return std::nullopt;
     return Instrument{id, whistleKey + " whistle", b, b + 23, 1};
   }
-  // ponytail: ranges only. Harmonica = 10-hole diatonic in C without bends (it can't play every note in range);
-  // add holes/bends or other harmonica keys when harmonica hints are needed.
+  if (id == "harmonica" && harpKey != "C") {  // the C harp is the fixed entry below
+    if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), harpKey) == HARP_KEYS.end()) return std::nullopt;
+    int b = whistleBase(harpKey);  // 60 + pitch class; G..B harps sit below C: an A harp starts on A3
+    if (b >= 67) b -= 12;
+    return Instrument{id, harpKey + " harmonica", b, b + 36, 0};
+  }
+  // ponytail: ranges only. Harmonica = 10-hole diatonic without bends (it can't play every note in range);
+  // add holes/bends when harmonica hints are needed.
   static const Instrument FIXED[] = {
       {"violin", "Violin", 55, 100, 0},                      // G3..E7
       {"piano", "Piano", 21, 108, 0},                        // A0..C8
@@ -189,7 +196,7 @@ std::optional<Instrument> findInstrument(const std::string& id, const std::strin
 }
 
 Instrument instrumentOf(const Song& s) {
-  if (auto i = findInstrument(s.instrument, s.whistle)) return *i;
+  if (auto i = findInstrument(s.instrument, s.whistle, s.harp)) return *i;
   return *findInstrument("whistle", "D");
 }
 
@@ -234,6 +241,7 @@ void transpose(Song& s, int semis) {
   int tonic = mod12(s.key.fifths * 7 + MODE_SEMIS[mi] + semis);
   int f = PC_FIFTHS[mod12(tonic - MODE_SEMIS[mi])];
   s.key.fifths = f;
+  s.transposed += semis;
 }
 
 int deleteBars(Song& s, int first, int last) {
@@ -401,7 +409,7 @@ void saveCustomTechnique(const Technique& t) {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Settings, hints, zoom, light, tempo, countIn, metronome, volume, sound,
                                                 gate, latencyMs, tolerance, instrument, songFilter, language, solfege,
-                                                solfegeKeys)
+                                                solfegeKeys, harp)
 
 Settings loadSettings() {
   Settings s;
@@ -411,6 +419,7 @@ Settings loadSettings() {
   if (!s.sound.empty() && !known(s.sound)) s.sound.clear();
   if (!s.songFilter.empty() && !known(s.songFilter)) s.songFilter.clear();
   if (!known(s.instrument)) s.instrument = "whistle";
+  if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), s.harp) == HARP_KEYS.end()) s.harp = "C";
   s.zoom = std::clamp(s.zoom, 6.0f, 16.0f);  // values the GUI could choke on
   s.tempo = std::clamp(s.tempo, 40, 220);
   s.volume = std::clamp(s.volume, 0.0f, 1.0f);
@@ -550,6 +559,8 @@ json toJson(const Song& s) {
           {"meter", s.meter}, {"key", {{"fifths", s.key.fifths}, {"mode", s.key.mode}}},
           {"tempo", s.tempo}, {"instrument", s.instrument}, {"whistle", s.whistle}, {"events", ev}};
   if (!s.folder.empty()) j["folder"] = s.folder;
+  if (s.harp != "C") j["harp"] = s.harp;  // C harp songs stay as before
+  if (s.transposed) j["transposed"] = s.transposed;
   if (!s.i18n.empty()) j["i18n"] = s.i18n;
   return j;
 }
@@ -574,6 +585,8 @@ Song fromJson(const json& j) {
   s.tempo = j.value("tempo", 0);
   s.instrument = j.value("instrument", "whistle");
   s.whistle = j.value("whistle", "D");
+  s.harp = j.value("harp", "C");
+  s.transposed = j.value("transposed", 0);
   for (auto& x : j.value("events", json::array())) {
     Event e;
     std::string t = x.value("type", "note");
