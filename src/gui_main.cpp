@@ -39,6 +39,16 @@ static std::string utf8(unsigned cp) {
   return s;
 }
 
+// Translated widget label: "###" + the English text keeps the ImGui ID the same in every language ("##" would not).
+static std::string L(const char* english) { return std::string(tr(english)) + "###" + english; }
+
+// Instrument name in the viewer's language; a whistle's key is spelled like key names ("Flauta irlandesa em Ré").
+static std::string instName(const Instrument& in) {
+  if (in.id != "whistle") return tr(in.name);
+  auto key = parseKey(in.name.substr(0, in.name.find(' ')));  // "Bb whistle" -> Bb
+  return trf("%s whistle", key ? tonicName(*key).c_str() : in.name.c_str());
+}
+
 // Displayed note value: base length (192 whole .. 6 32nd) and dots. Tuplet notes show their written value.
 struct Value { int base = 48, dots = 0; };
 static Value valueOf(const Event& e) {
@@ -56,7 +66,7 @@ static int beamCount(int base) { return base == 24 ? 1 : base == 12 ? 2 : base =
 // ---------------- app state ----------------
 struct App {
   std::vector<std::string> ids;
-  struct Meta { fs::file_time_type mtime{}; std::string folder, title, inst, tag; };  // tag: instrument shown in the list, "" for a D whistle
+  struct Meta { fs::file_time_type mtime{}; std::string folder, title; Instrument in; };
   std::map<std::string, Meta> meta;  // song list info, re-read only when a file changes
   std::vector<Technique> techs;
   std::optional<Song> song;
@@ -66,6 +76,7 @@ struct App {
   Settings set = loadSettings();  // edited in place (Settings window, sidebar, transport); saved when it changes
   Settings saved = set;
   bool showSettings = false;
+  bool english = true;          // the viewer's language is English (set by main() when the language changes)
   bool follow = true;
   char comment[2048] = "";
   double lastPoll = -10;
@@ -142,7 +153,7 @@ static void poll(App& a) {
     if (!ec && m.mtime != t) {
       auto s = loadSong(id);
       Instrument in = s ? instrumentOf(*s) : *findInstrument("whistle");
-      m = {t, s ? s->folder : "", s && !s->title.empty() ? s->title : id, in.id, in.name == "D whistle" ? "" : in.name};
+      m = {t, s ? s->folder : "", s && !s->title.empty() ? s->title : id, in};
     }
   }
   std::erase_if(a.meta, [&](auto& kv) { return std::find(a.ids.begin(), a.ids.end(), kv.first) == a.ids.end(); });
@@ -209,7 +220,7 @@ static void drawScore(App& a, Song& s) {
   ImVec2 origin = ImGui::GetCursorScreenPos();
   float width = ImGui::GetContentRegionAvail().x;
   Score sc{ImGui::GetWindowDrawList(), sp};
-  if (!gMusic) { ImGui::TextColored({1, 0.4f, 0.4f, 1}, "Music font missing (Bravura.otf). Re-run cmake to download it."); return; }
+  if (!gMusic) { ImGui::TextColored({1, 0.4f, 0.4f, 1}, "%s", tr("Music font missing (Bravura.otf). Re-run cmake to download it.")); return; }
 
   auto pos = positions(s);
   auto acc = accidentals(s);
@@ -536,8 +547,8 @@ static void drawScore(App& a, Song& s) {
     const Event& e = s.events[hovered];
     ImGui::BeginTooltip();
     ImGui::Text("%s  %s", noteName(spell(s.key, e.midi)).c_str(), durationName(e).c_str());
-    if (whistle) ImGui::Text("fingering: %s", fingeringText(finger(s.whistle, e.midi)).c_str());
-    else if (!inst.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, "out of range for the %s", inst.name.c_str());
+    if (whistle) ImGui::Text(tr("fingering: %s"), fingeringText(finger(s.whistle, e.midi)).c_str());
+    else if (!inst.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, tr("out of range for the %s"), instName(inst).c_str());
     for (auto& t : e.techniques) {
       auto it = std::find_if(a.techs.begin(), a.techs.end(), [&](auto& x) { return x.id == t; });
       ImGui::BulletText("%s", it != a.techs.end() ? it->name.c_str() : t.c_str());
@@ -683,61 +694,62 @@ static void practiceUpdate(App& a, float dt) {
 static void transportBar(App& a) {
   bool playing = a.audio.playing();
   bool space = ImGui::IsKeyPressed(ImGuiKey_Space, false) && !ImGui::GetIO().WantTextInput;
-  if (ImGui::Button(playing ? "  Stop  " : "  Play  ") || space) {
+  if (ImGui::Button(("  " + std::string(playing ? tr("Stop") : tr("Play")) + "  ###play").c_str()) || space) {
     if (playing) a.audio.stop();
     else startPlayback(a, startOrder(a), a.set.countIn);
   }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip(a.set.countIn ? "Space. Starts from the selected note, after a one-bar count-in." : "Space. Starts from the selected note.");
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", a.set.countIn ? tr("Space. Starts from the selected note, after a one-bar count-in.") : tr("Space. Starts from the selected note."));
   ImGui::SameLine();
   ImGui::SetNextItemWidth(170);
-  ImGui::SliderFloat("##bpm", &a.bpm, 40, 220, "tempo %.0f");
+  ImGui::SliderFloat("##bpm", &a.bpm, 40, 220, tr("tempo %.0f"));
   if (ImGui::IsItemDeactivatedAfterEdit() && playing) restartHere(a);  // with the new tempo
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Quarter notes per minute (song tempo: %s)", a.song->tempo ? std::to_string(a.song->tempo).c_str() : "not set");
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(tr("Quarter notes per minute (song tempo: %s)"), a.song->tempo ? std::to_string(a.song->tempo).c_str() : tr("not set"));
   ImGui::SameLine();
-  auto soundName = [&](const std::string& id) { return findInstrument(id, a.song->whistle).value_or(*findInstrument(id)).name; };
-  std::string songSound = instrumentOf(*a.song).name + " (song)";
-  ImGui::SetNextItemWidth(170);
-  if (ImGui::BeginCombo("##sound", ("sound: " + (a.set.sound.empty() ? songSound : soundName(a.set.sound))).c_str())) {
+  auto soundName = [&](const std::string& id) { return instName(findInstrument(id, a.song->whistle).value_or(*findInstrument(id))); };
+  std::string songSound = trf("%s (song)", instName(instrumentOf(*a.song)).c_str());
+  std::string soundLabel = trf("sound: %s", (a.set.sound.empty() ? songSound : soundName(a.set.sound)).c_str());
+  ImGui::SetNextItemWidth(std::max(170.0f, ImGui::CalcTextSize(soundLabel.c_str()).x + ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.x * 2));  // longer in Portuguese
+  if (ImGui::BeginCombo("##sound", soundLabel.c_str())) {
     if (ImGui::Selectable(songSound.c_str(), a.set.sound.empty())) { a.set.sound.clear(); if (playing) restartHere(a); }
     for (auto& id : INSTRUMENTS)
       if (ImGui::Selectable(soundName(id).c_str(), a.set.sound == id)) { a.set.sound = id; if (playing) restartHere(a); }
     ImGui::EndCombo();
   }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Which instrument plays the tune (saved, also in Settings). The notes keep the song's pitch.");
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Which instrument plays the tune (saved, also in Settings). The notes keep the song's pitch."));
   ImGui::SameLine();
   bool melody = a.audio.melody;
-  if (ImGui::Checkbox("Melody", &melody)) a.audio.melody = melody;
+  if (ImGui::Checkbox(L("Melody").c_str(), &melody)) a.audio.melody = melody;
   ImGui::SameLine();
-  ImGui::Checkbox("Metronome", &a.set.metronome);
+  ImGui::Checkbox(L("Metronome").c_str(), &a.set.metronome);
   ImGui::SameLine();
   ImGui::SetNextItemWidth(90);
-  ImGui::SliderFloat("##vol", &a.set.volume, 0, 1, "volume %.1f");
+  ImGui::SliderFloat("##vol", &a.set.volume, 0, 1, tr("volume %.1f"));
 
   // microphone row
-  if (ImGui::Button(a.listen ? "Mic: on " : "Mic: off")) {
+  if (ImGui::Button((std::string(a.listen ? tr("Mic: on") : tr("Mic: off")) + "###mic").c_str())) {
     a.listen = !a.listen;
     if (a.listen && !a.audio.startMic()) a.listen = false;
     if (!a.listen) a.audio.stopMic();
     a.silentFor = 0;
   }
   ImGui::SameLine();
-  if (ImGui::RadioButton("Wait for me", a.mode == App::Wait)) { a.mode = App::Wait; resetPractice(a); }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("The cursor waits on each note until you play it in tune.");
+  if (ImGui::RadioButton(L("Wait for me").c_str(), a.mode == App::Wait)) { a.mode = App::Wait; resetPractice(a); }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("The cursor waits on each note until you play it in tune."));
   ImGui::SameLine();
-  if (ImGui::RadioButton("Play along", a.mode == App::PlayAlong)) a.mode = App::PlayAlong;
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Press Play and play with the backing. Notes turn green (right), red (wrong) or orange (wrong octave).\nUse headphones, or untick Melody and follow the metronome, so the mic doesn't hear the backing.");
+  if (ImGui::RadioButton(L("Play along").c_str(), a.mode == App::PlayAlong)) a.mode = App::PlayAlong;
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Press Play and play with the backing. Notes turn green (right), red (wrong) or orange (wrong octave).\nUse headphones, or untick Melody and follow the metronome, so the mic doesn't hear the backing."));
   ImGui::SameLine();
   ImGui::SetNextItemWidth(110);
-  ImGui::SliderFloat("##tol", &a.set.tolerance, 10, 100, "tolerance %.0fc");
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("How far from the note (in cents, 100 = a semitone) still counts as right.");
+  ImGui::SliderFloat("##tol", &a.set.tolerance, 10, 100, tr("tolerance %.0fc"));
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("How far from the note (in cents, 100 = a semitone) still counts as right."));
   ImGui::SameLine();
-  if (ImGui::Button("Reset marks")) resetPractice(a);
+  if (ImGui::Button(L("Reset marks").c_str())) resetPractice(a);
   if (ImGui::BeginPopupContextItem("calib")) {
-    ImGui::SliderFloat("mic gate", &a.set.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
-    ImGui::SliderFloat("latency ms", &a.set.latencyMs, 0, 300, "%.0f");
+    ImGui::SliderFloat(L("mic gate").c_str(), &a.set.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat(L("latency ms").c_str(), &a.set.latencyMs, 0, 300, "%.0f");
     ImGui::EndPopup();
   }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Right-click for mic calibration (noise gate, latency; also in Settings).");
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Right-click for mic calibration (noise gate, latency; also in Settings)."));
 
   if (a.listen) {
     ImGui::SameLine();
@@ -746,20 +758,20 @@ static void transportBar(App& a) {
       float c = (a.heard - m) * 100;
       ImVec4 col = std::abs(c) <= a.set.tolerance ? ImVec4(0.3f, 0.9f, 0.4f, 1) : ImVec4(1, 0.7f, 0.2f, 1);
       bool whistle = instrumentOf(*a.song).id == "whistle" && a.set.hints;
-      ImGui::TextColored(col, "hearing %s %+.0fc  %s", noteName(spell(a.song->key, m)).c_str(), c,
+      ImGui::TextColored(col, tr("hearing %s %+.0fc  %s"), noteName(spell(a.song->key, m)).c_str(), c,
                          whistle ? fingeringText(finger(a.song->whistle, m)).c_str() : "");
       if (a.cursor >= 0 && a.cursor < (int)a.song->events.size()) {
         int want = a.song->events[a.cursor].midi;
-        if (m == want + 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, whistle ? "(octave too high: blow softer)" : "(octave too high)"); }
-        if (m == want - 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, whistle ? "(octave too low: blow harder)" : "(octave too low)"); }
+        if (m == want + 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, "%s", whistle ? tr("(octave too high: blow softer)") : tr("(octave too high)")); }
+        if (m == want - 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, "%s", whistle ? tr("(octave too low: blow harder)") : tr("(octave too low)")); }
       }
-    } else if (a.silentFor > 2) ImGui::TextColored({1, 0.5f, 0.4f, 1}, "no sound from the mic: allow microphone access for this app/terminal in System Settings > Privacy & Security");
-    else ImGui::TextDisabled("listening...");
+    } else if (a.silentFor > 2) ImGui::TextColored({1, 0.5f, 0.4f, 1}, "%s", tr("no sound from the mic: allow microphone access for this app/terminal in System Settings > Privacy & Security"));
+    else ImGui::TextDisabled("%s", tr("listening..."));
   }
   int good = 0, total = 0;
   for (size_t i = 0; i < a.grades.size(); i++) { good += a.grades[i] == App::Good; total += a.grades[i] != App::None; }
-  if (a.listen && a.mode == App::Wait && a.waitK >= (int)a.order.size()) { ImGui::SameLine(); ImGui::TextColored({0.3f, 0.9f, 0.4f, 1}, "Done! Well played."); }
-  else if (total) { ImGui::SameLine(); ImGui::TextDisabled("%d/%d right", good, total); }
+  if (a.listen && a.mode == App::Wait && a.waitK >= (int)a.order.size()) { ImGui::SameLine(); ImGui::TextColored({0.3f, 0.9f, 0.4f, 1}, "%s", tr("Done! Well played.")); }
+  else if (total) { ImGui::SameLine(); ImGui::TextDisabled(tr("%d/%d right"), good, total); }
   if (!a.audio.error.empty()) ImGui::TextColored({1, 0.4f, 0.4f, 1}, "%s", a.audio.error.c_str());
 }
 
@@ -771,17 +783,17 @@ static void detailsPanel(App& a) {
   ImGui::PopFont();
   const Instrument inst = instrumentOf(s);
   const bool whistle = inst.id == "whistle" && a.set.hints;
-  ImGui::TextDisabled("%s  |  %s  |  %s%s", keyName(s.key).c_str(), s.meter.c_str(), inst.name.c_str(),
+  ImGui::TextDisabled("%s  |  %s  |  %s%s", keyName(s.key).c_str(), s.meter.c_str(), instName(inst).c_str(),
                       s.tempo ? ("  |  " + std::to_string(s.tempo) + " bpm").c_str() : "");
-  if (!s.source.empty()) ImGui::TextWrapped("Source: %s", s.source.c_str());
+  if (!s.source.empty()) ImGui::TextWrapped(tr("Source: %s"), s.source.c_str());
   std::vector<std::string> choices = FOLDERS;
   if (!s.folder.empty() && std::find(choices.begin(), choices.end(), s.folder) == choices.end()) choices.push_back(s.folder);
   choices.push_back("");
   bool edited = false;  // editSong may reload the song or empty a.song: don't use `s` after an edit this frame
   ImGui::SetNextItemWidth(200);
-  if (ImGui::BeginCombo("Folder", s.folder.empty() ? "Unsorted" : s.folder.c_str())) {
+  if (ImGui::BeginCombo(L("Folder").c_str(), s.folder.empty() ? tr("Unsorted") : tr(s.folder.c_str()))) {
     for (auto& f : choices)
-      if (ImGui::Selectable(f.empty() ? "Unsorted" : f.c_str(), f == s.folder)) {
+      if (ImGui::Selectable(f.empty() ? tr("Unsorted") : tr(f.c_str()), f == s.folder)) {
         std::string pick = f;
         editSong(a, [&](Song& x) { x.folder = pick; });
         edited = true;
@@ -791,10 +803,10 @@ static void detailsPanel(App& a) {
   }
   if (edited) return;  // redraw from the fresh song next frame
   ImGui::SetNextItemWidth(200);
-  if (ImGui::BeginCombo("Instrument", inst.name.c_str())) {
+  if (ImGui::BeginCombo(L("Instrument").c_str(), instName(inst).c_str())) {
     for (auto& id : INSTRUMENTS) {
       std::string pick = id;
-      if (ImGui::Selectable(findInstrument(id, s.whistle).value_or(*findInstrument(id)).name.c_str(), id == inst.id)) {
+      if (ImGui::Selectable(instName(findInstrument(id, s.whistle).value_or(*findInstrument(id))).c_str(), id == inst.id)) {
         editSong(a, [&](Song& x) { x.instrument = pick; });
         edited = true;
         break;
@@ -808,12 +820,12 @@ static void detailsPanel(App& a) {
 
   if (a.sel >= 0 && a.sel < (int)s.events.size() && s.events[a.sel].kind == Kind::Note) {
     Event& e = s.events[a.sel];
-    ImGui::Text("Note #%d: %s, %s", a.sel, noteName(spell(s.key, e.midi)).c_str(), durationName(e).c_str());
-    if (whistle) ImGui::Text("Fingering: %s", fingeringText(finger(s.whistle, e.midi)).c_str());
-    else if (!inst.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, "Out of range for the %s", inst.name.c_str());
+    ImGui::Text(tr("Note #%d: %s, %s"), a.sel, noteName(spell(s.key, e.midi)).c_str(), durationName(e).c_str());
+    if (whistle) ImGui::Text(tr("Fingering: %s"), fingeringText(finger(s.whistle, e.midi)).c_str());
+    else if (!inst.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, tr("Out of range for the %s"), instName(inst).c_str());
     for (auto& t : a.techs) {
       bool on = std::find(e.techniques.begin(), e.techniques.end(), t.id) != e.techniques.end();
-      if (ImGui::Checkbox((t.symbol + "  " + t.name + "##" + t.id).c_str(), &on)) {
+      if (ImGui::Checkbox((t.symbol + "  " + t.name + "###" + t.id).c_str(), &on)) {
         editSelected(a, [&](Event& n) {
           n.techniques.erase(std::remove(n.techniques.begin(), n.techniques.end(), t.id), n.techniques.end());
           if (on) n.techniques.push_back(t.id);
@@ -823,13 +835,12 @@ static void detailsPanel(App& a) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.description.c_str());
     }
     ImGui::InputTextMultiline("##comment", a.comment, sizeof a.comment, {-1, ImGui::GetTextLineHeight() * 4});
-    if (ImGui::Button("Save comment")) editSelected(a, [&](Event& n) { n.comment = a.comment; });
-  } else ImGui::TextDisabled("Click a note to see and edit its techniques.");
+    if (ImGui::Button(L("Save comment").c_str())) editSelected(a, [&](Event& n) { n.comment = a.comment; });
+  } else ImGui::TextDisabled("%s", tr("Click a note to see and edit its techniques."));
 
   ImGui::Separator();
-  if (ImGui::CollapsingHeader("Legend", ImGuiTreeNodeFlags_DefaultOpen)) {
-    if (whistle) ImGui::TextWrapped("Fingering chart: top three holes = left hand, bottom three = right hand. "
-                       "Filled = covered, empty = open, half = half-covered. + = blow harder (second octave).");
+  if (ImGui::CollapsingHeader(L("Legend").c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (whistle) ImGui::TextWrapped("%s", tr("Fingering chart: top three holes = left hand, bottom three = right hand. Filled = covered, empty = open, half = half-covered. + = blow harder (second octave)."));
     for (auto& t : a.techs) {
       ImGui::TextColored({0.95f, 0.55f, 0.15f, 1}, "%-4s", t.symbol.c_str());
       ImGui::SameLine();
@@ -849,33 +860,48 @@ static void settingsWindow(App& a) {
   Settings& s = a.set;
   ImGui::SetNextWindowPos({240, 60}, ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowBgAlpha(1);  // the score would show through
-  if (!ImGui::Begin("Settings", &a.showSettings, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) { ImGui::End(); return; }
+  if (!ImGui::Begin(L("Settings").c_str(), &a.showSettings, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) { ImGui::End(); return; }
   auto instrumentCombo = [](const char* label, std::string& v, const char* none) {  // none: label for "", or null
-    auto name = [&](const std::string& id) { return id.empty() ? std::string(none) : findInstrument(id)->name; };
+    auto name = [&](const std::string& id) { return id.empty() ? std::string(none) : instName(*findInstrument(id)); };
     if (!ImGui::BeginCombo(label, name(v).c_str())) return;
     if (none && ImGui::Selectable(none, v.empty())) v.clear();
     for (auto& id : INSTRUMENTS) if (ImGui::Selectable(name(id).c_str(), v == id)) v = id;
     ImGui::EndCombo();
   };
   ImGui::PushItemWidth(220);
-  ImGui::SeparatorText("Sheet");
-  ImGui::Checkbox("Instrument hints (whistle fingerings)", &s.hints);
-  ImGui::SliderFloat("Zoom", &s.zoom, 6, 16, "%.0f");
-  ImGui::Checkbox("Light theme", &s.light);
-  ImGui::SeparatorText("Playback");
-  ImGui::SliderInt("Tempo for songs without one", &s.tempo, 40, 220);
-  ImGui::Checkbox("Count-in bar before playing", &s.countIn);
-  ImGui::Checkbox("Metronome", &s.metronome);
-  ImGui::SliderFloat("Volume", &s.volume, 0, 1, "%.1f");
-  instrumentCombo("Sound", s.sound, "The song's instrument");
-  ImGui::SeparatorText("Microphone");
-  ImGui::SliderFloat("Tolerance (cents)", &s.tolerance, 10, 100, "%.0f");
-  ImGui::SliderFloat("Noise gate", &s.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
-  ImGui::SliderFloat("Latency (ms)", &s.latencyMs, 0, 300, "%.0f");
+  ImGui::SeparatorText(tr("Language"));
+  static const auto langs = languages();  // the i18n/ files
+  auto langName = [&](const std::string& code) -> std::string {
+    if (code.empty()) return tr("Automatic (system language)");
+    for (auto& [c, name] : langs) if (c == code) return name;
+    return code == "en" ? "English" : code;  // each language in its own name
+  };
+  if (ImGui::BeginCombo(L("Language").c_str(), langName(s.language).c_str())) {
+    std::vector<std::string> codes = {"", "en"};
+    for (auto& l : langs) codes.push_back(l.first);
+    for (auto& c : codes) if (ImGui::Selectable(langName(c).c_str(), c == s.language)) s.language = c;
+    ImGui::EndCombo();
+  }
+  ImGui::Checkbox(L("Note names as Do Re Mi").c_str(), &s.solfege);
+  if (!a.english) ImGui::Checkbox(L("Keys as Do Re Mi").c_str(), &s.solfegeKeys);  // English keys are always letters
+  ImGui::SeparatorText(tr("Sheet"));
+  ImGui::Checkbox(L("Instrument hints (whistle fingerings)").c_str(), &s.hints);
+  ImGui::SliderFloat(L("Zoom").c_str(), &s.zoom, 6, 16, "%.0f");
+  ImGui::Checkbox(L("Light theme").c_str(), &s.light);
+  ImGui::SeparatorText(tr("Playback"));
+  ImGui::SliderInt(L("Tempo for songs without one").c_str(), &s.tempo, 40, 220);
+  ImGui::Checkbox(L("Count-in bar before playing").c_str(), &s.countIn);
+  ImGui::Checkbox(L("Metronome").c_str(), &s.metronome);
+  ImGui::SliderFloat(L("Volume").c_str(), &s.volume, 0, 1, "%.1f");
+  instrumentCombo(L("Sound").c_str(), s.sound, tr("The song's instrument"));
+  ImGui::SeparatorText(tr("Microphone"));
+  ImGui::SliderFloat(L("Tolerance (cents)").c_str(), &s.tolerance, 10, 100, "%.0f");
+  ImGui::SliderFloat(L("Noise gate").c_str(), &s.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
+  ImGui::SliderFloat(L("Latency (ms)").c_str(), &s.latencyMs, 0, 300, "%.0f");
 #ifndef __EMSCRIPTEN__  // only the agent (john-mcp, desktop) imports songs
-  ImGui::SeparatorText("New songs");
-  instrumentCombo("Instrument", s.instrument, nullptr);
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Used when the agent imports a song without saying which instrument it is for");
+  ImGui::SeparatorText(tr("New songs"));
+  instrumentCombo(L("Instrument").c_str(), s.instrument, nullptr);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Used when the agent imports a song without saying which instrument it is for"));
 #endif
   ImGui::PopItemWidth();
   ImGui::End();
@@ -920,6 +946,9 @@ int main() {
 #endif
 
   App a;
+  auto applyLanguage = [&a](const std::string& code) { a.english = !setLanguage(code.empty() ? systemLanguage() : code); };
+  std::string lang = a.set.language;  // language currently applied
+  applyLanguage(lang);
   const char* snapshot = std::getenv("JOHN_SNAPSHOT");  // dev aid: write the window to a .tga after a few frames and exit
   bool light = false;  // theme currently applied
   int frame = 0;
@@ -939,6 +968,8 @@ int main() {
     try { poll(a); } catch (const std::exception&) {}  // e.g. data folder briefly unavailable; retry next poll
     practiceUpdate(a, io.DeltaTime);
     if (a.set.light != light) { light = a.set.light; light ? ImGui::StyleColorsLight() : ImGui::StyleColorsDark(); }
+    if (a.set.language != lang) applyLanguage(lang = a.set.language);
+    setSolfege(a.set.solfege, a.set.solfegeKeys);
     a.audio.metronome = a.set.metronome;
     a.audio.volume = a.set.volume;
 
@@ -946,8 +977,8 @@ int main() {
     ImGui::SetNextWindowSize(io.DisplaySize);
     ImGui::Begin("main", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus);
     ImGui::BeginChild("songs", {220, 0}, ImGuiChildFlags_Borders);
-    ImGui::TextDisabled("SONGS");
-    auto instLabel = [](const std::string& id) { return id.empty() ? "All instruments" : id == "whistle" ? "Tin whistle" : findInstrument(id)->name; };
+    ImGui::TextDisabled("%s", tr("SONGS"));
+    auto instLabel = [](const std::string& id) -> std::string { return id.empty() ? tr("All instruments") : id == "whistle" ? tr("Tin whistle") : instName(*findInstrument(id)); };
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::BeginCombo("##instFilter", instLabel(a.set.songFilter).c_str())) {
       if (ImGui::Selectable(instLabel("").c_str(), a.set.songFilter.empty())) a.set.songFilter = "";
@@ -957,49 +988,50 @@ int main() {
     }
     std::map<std::string, std::vector<std::string>, decltype(&folderBefore)> byFolder(&folderBefore);
     for (auto& id : a.ids)
-      if (a.set.songFilter.empty() || a.meta[id].inst == a.set.songFilter) byFolder[a.meta[id].folder].push_back(id);
+      if (a.set.songFilter.empty() || a.meta[id].in.id == a.set.songFilter) byFolder[a.meta[id].folder].push_back(id);
     for (auto& [folder, ids] : byFolder) {
-      std::string label = (folder.empty() ? "Unsorted" : folder) + " (" + std::to_string(ids.size()) + ")##" + folder;
+      std::string label = tr(folder.empty() ? "Unsorted" : folder.c_str()) + std::string(" (") + std::to_string(ids.size()) + ")###" + folder;
       if (!ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth)) continue;
       for (auto& id : ids) {
         auto& m = a.meta[id];
+        std::string tag = m.in.name == "D whistle" ? "" : instName(m.in);  // the instrument after the title
         float x = ImGui::GetCursorPosX();
         if (ImGui::Selectable((m.title + "##" + id).c_str(), id == a.current)) { a.sel = -1; open(a, id); }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s%s", m.title.c_str(), m.tag.empty() ? "" : " - ", m.tag.c_str());  // long titles get clipped
-        if (!m.tag.empty()) {
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s%s", m.title.c_str(), tag.empty() ? "" : " - ", tag.c_str());  // long titles get clipped
+        if (!tag.empty()) {
           ImGui::SameLine(x + ImGui::CalcTextSize(m.title.c_str()).x + 6);
-          ImGui::TextDisabled("%s", m.tag.c_str());
+          ImGui::TextDisabled("%s", tag.c_str());
         }
       }
       ImGui::TreePop();
     }
 #ifdef __EMSCRIPTEN__  // no agent on the web: point to the desktop app instead
-    if (a.ids.empty()) ImGui::TextWrapped("No songs yet. Songs are imported in the desktop app.");
+    if (a.ids.empty()) ImGui::TextWrapped("%s", tr("No songs yet. Songs are imported in the desktop app."));
 #else
-    if (a.ids.empty()) ImGui::TextWrapped("No songs yet. Ask the agent to import one via the john MCP server.");
+    if (a.ids.empty()) ImGui::TextWrapped("%s", tr("No songs yet. Ask the agent to import one via the john MCP server."));
 #endif
-    else if (byFolder.empty()) ImGui::TextDisabled("No songs for this instrument.");
+    else if (byFolder.empty()) ImGui::TextDisabled("%s", tr("No songs for this instrument."));
     ImGui::Separator();
 #ifdef __EMSCRIPTEN__
-    if (ImGui::TextLink("Get the desktop app")) emscripten_run_script("window.open('https://github.com/Thinato/john/releases', '_blank')");
-    ImGui::TextWrapped("Adds the AI agent (MCP), audio transcription and songs on disk.");
+    if (ImGui::TextLink(L("Get the desktop app").c_str())) emscripten_run_script("window.open('https://github.com/Thinato/john/releases', '_blank')");
+    ImGui::TextWrapped("%s", tr("Adds the AI agent (MCP), audio transcription and songs on disk."));
 #else
-    ImGui::Checkbox("Follow agent", &a.follow);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Switch to a song as soon as the agent changes it");
+    ImGui::Checkbox(L("Follow agent").c_str(), &a.follow);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Switch to a song as soon as the agent changes it"));
 #endif
     const bool noHints = a.song && instrumentOf(*a.song).id != "whistle";  // only the whistle has hints so far
     ImGui::BeginDisabled(noHints);
     bool shown = a.set.hints && !noHints;  // unticked while disabled; a.set.hints keeps the choice for whistle songs
-    if (ImGui::Checkbox("Instrument hints", &shown) && !noHints) a.set.hints = shown;
+    if (ImGui::Checkbox(L("Instrument hints").c_str(), &shown) && !noHints) a.set.hints = shown;
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-      if (noHints) ImGui::SetTooltip("No hints for the %s yet", instrumentOf(*a.song).name.c_str());
-      else ImGui::SetTooltip("Show fingering charts and fingerings for the notes");
+      if (noHints) ImGui::SetTooltip(tr("No hints for the %s yet"), instName(instrumentOf(*a.song)).c_str());
+      else ImGui::SetTooltip("%s", tr("Show fingering charts and fingerings for the notes"));
     }
-    ImGui::SliderFloat("Zoom", &a.set.zoom, 6, 16, "%.0f");
-    if (ImGui::Button("Settings")) a.showSettings = !a.showSettings;
+    ImGui::SliderFloat(L("Zoom").c_str(), &a.set.zoom, 6, 16, "%.0f");
+    if (ImGui::Button(L("Settings").c_str())) a.showSettings = !a.showSettings;
 #ifndef __EMSCRIPTEN__  // the web keeps songs in the browser (IndexedDB)
-    ImGui::TextDisabled("Data folder:");
+    ImGui::TextDisabled("%s", tr("Data folder:"));
     ImGui::TextWrapped("%s", dataDir().c_str());
 #endif
     ImGui::EndChild();

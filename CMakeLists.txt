@@ -52,20 +52,21 @@ target_include_directories(john PRIVATE ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/
 target_link_libraries(john PRIVATE john_core)
 
 if(EMSCRIPTEN)
-  # john.html/.js/.wasm/.data. Fonts, lessons/ and demo/ are bundled in john.data, the data folder lives in IndexedDB
+  # john.html/.js/.wasm/.data. Fonts, lessons/, demo/ and i18n/ are bundled in john.data, the data folder lives in IndexedDB
   # (web/pre.js), audio is miniaudio's Web Audio backend. No MCP server, no tests.
-  target_compile_definitions(john_core PRIVATE JOHN_LESSONS="/lessons")
+  target_compile_definitions(john_core PRIVATE JOHN_LESSONS="/lessons" JOHN_I18N="/i18n")
   target_compile_definitions(john PRIVATE JOHN_FONT="/fonts/Bravura.otf" JOHN_TEXT_FONT="/fonts/NotoSans-Regular.ttf")
   target_compile_options(john PRIVATE --use-port=contrib.glfw3)
   target_link_options(john PRIVATE --use-port=contrib.glfw3 -sALLOW_MEMORY_GROWTH -lidbfs.js  # SHELL: stops de-duplication
     "SHELL:--pre-js ${CMAKE_SOURCE_DIR}/web/pre.js" "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html"
     "SHELL:--preload-file ${BRAVURA}@/fonts/Bravura.otf" "SHELL:--preload-file ${NOTO}@/fonts/NotoSans-Regular.ttf"
-    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/lessons@/lessons" "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/demo@/demo")
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/lessons@/lessons" "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/demo@/demo"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/i18n@/i18n")
   set_target_properties(john PROPERTIES SUFFIX .html LINK_DEPENDS "${CMAKE_SOURCE_DIR}/web/pre.js;${CMAKE_SOURCE_DIR}/web/shell.html")
   return()
 endif()
 
-target_compile_definitions(john_core PRIVATE JOHN_LESSONS="${CMAKE_SOURCE_DIR}/lessons")
+target_compile_definitions(john_core PRIVATE JOHN_LESSONS="${CMAKE_SOURCE_DIR}/lessons" JOHN_I18N="${CMAKE_SOURCE_DIR}/i18n")
 target_compile_definitions(john PRIVATE JOHN_FONT="${BRAVURA}" JOHN_TEXT_FONT="${NOTO}" GL_SILENCE_DEPRECATION)
 find_package(OpenGL REQUIRED)
 target_link_libraries(john PRIVATE glfw OpenGL::GL)

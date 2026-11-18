@@ -80,19 +80,34 @@ struct Instrument {
 std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey = "D");
 Instrument instrumentOf(const Song& s);           // the song's instrument; a D whistle if the song's values are unknown
 
+// ---- viewer language (gettext style: the English text is the key) ----
+// Only the GUI calls setLanguage()/setSolfege(); until then tr() returns its argument and note names are letters,
+// so the MCP server, which never calls them, stays English.
+fs::path i18nDir();                                 // i18n/ next to the executable, else the repo's: one <code>.json per language
+bool setLanguage(const std::string& code);          // "en" or a file in i18nDir(), e.g. "pt-BR"; false = English
+std::string systemLanguage();                       // LC_ALL/LANG (navigator.language on the web) matched to a file; "en" if none
+std::vector<std::pair<std::string, std::string>> languages();  // (code, own name) of every file in i18nDir()
+const char* tr(const char* english);                // translation, or `english` when there is none
+std::string tr(const std::string& english);
+std::string trf(const char* english, ...) __attribute__((format(printf, 1, 2)));  // tr() then printf
+// notes: noteName() says Do Re Mi instead of C D E. keys: keyName() does ("Ré maior"), but only in a language other
+// than English; English keys are always letters ("D major").
+void setSolfege(bool notes, bool keys);
+
 // ---- theory ----
 std::string parseMeter(const std::string& meter);  // "N/D" (D = 2, 4, 8, 16; 1 <= N <= 32), "C" -> "4/4", "C|" -> "2/2"; "" if invalid
 int meterTicks(const std::string& meter);          // ticks per bar
 bool compoundMeter(const std::string& meter);      // 6/8, 9/8, 12/8
 int keyAlter(const Key& k, int letter);            // key signature alteration for a letter
 Spelled spell(const Key& k, int midi);
-std::string noteName(const Spelled& s);            // "F#4"
-std::string keyName(const Key& k);                 // "D major", "E dorian"
+std::string noteName(const Spelled& s);            // "F#4" ("Fá#4" with setSolfege notes)
+std::string keyName(const Key& k);                 // "D major", "E dorian"; translated by tr()
+std::string tonicName(const Key& k);               // "D" ("Ré" with setSolfege keys in a non-English language)
 std::optional<Key> parseKey(const std::string& s); // "D", "Ador", "Bm", "G mixolydian"
 int whistleBase(const std::string& whistle);       // MIDI of the lowest written note, D -> 62; -1 if not a whistle key
 Fingering finger(const std::string& whistle, int midi);
 std::string fingeringText(const Fingering& f);     // "XXX XXO +"
-std::string durationName(const Event& e);          // "dotted quarter", "eighth (triplet)"
+std::string durationName(const Event& e);          // "dotted quarter", "eighth (3-tuplet)"; translated by tr()
 void transpose(Song& s, int semitones);
 // Remove bars first..last (numbers from positions(), as get_song shows them) and the bar lines that close them.
 // A closing repeat/end sign or volta mark moves onto the previous plain bar line. Returns notes/rests removed;
@@ -161,7 +176,7 @@ float rms(const float* x, int n);
 float detectPitch(const float* x, int n, int sampleRate, float fmin = 400, float fmax = 3000);
 
 // ---- catalog & storage ----
-std::vector<Technique> defaultTechniques();
+std::vector<Technique> defaultTechniques();       // names and descriptions translated by tr()
 fs::path dataDir();                         // $JOHN_HOME or ~/Documents/John
 std::vector<Technique> loadTechniques();    // defaults merged with dataDir()/techniques.json
 void saveCustomTechnique(const Technique& t);
@@ -181,6 +196,9 @@ struct Settings {
   float tolerance = 40;             // cents from the note that still count as right
   std::string instrument = "whistle";  // for new songs (import_abc without an instrument)
   std::string songFilter;           // song list shows only this instrument id; "" = all
+  std::string language;             // viewer language: "" = automatic (system/browser), "en", "pt-BR", ...
+  bool solfege = false;             // note names Do Re Mi instead of C D E
+  bool solfegeKeys = true;          // key names Do Re Mi ("Ré maior"); only in a language other than English
   bool operator==(const Settings&) const = default;
 };
 Settings loadSettings();                    // missing keys -> defaults; unreadable file -> all defaults
