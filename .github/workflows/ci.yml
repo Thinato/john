@@ -58,6 +58,23 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Package check (temporary, removed before merge)
+        shell: bash
+        run: |
+          d=john-windows
+          mkdir -p $d/fonts
+          cp build/Release/john.exe build/Release/john-mcp.exe $d/
+          cp -R lessons i18n $d/
+          cp build/Bravura.otf build/NotoSans-Regular.ttf $d/fonts/
+          7z a -bso0 $d.zip $d
+          mkdir unz && cd unz && 7z x -bso0 ../$d.zip
+          mv ../lessons ../lessons-hidden  # the build-time path must not be the one found
+          export JOHN_HOME="$(mktemp -d)/Déjà"
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_songs","arguments":{}}}' | ./$d/john-mcp.exe | tee out.txt
+          grep -q 'lesson-1-breath' out.txt
+          grep -q 'Déjà' out.txt || true
+          ls "$JOHN_HOME/songs" | head -3
+
   # Web build of the viewer (emscripten, see README). Not a required check.
   web:
     runs-on: ubuntu-latest
