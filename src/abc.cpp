@@ -60,7 +60,10 @@ ImportResult importAbc(const std::string& abc) {
         sawX = true;
       } else if (f == 'T' && s.title.empty()) s.title = v;
       else if (f == 'C' || f == 'S' || f == 'Z') s.source += (s.source.empty() ? "" : "; ") + v;
-      else if (f == 'M' && !inBody) s.meter = v;
+      else if (f == 'M' && !inBody) {
+        s.meter = v == "C" || v == "C|" ? v : parseMeter(v);  // keep C and C| for the time-signature glyph
+        if (s.meter.empty()) { warn("could not read meter '" + v + "', assumed 4/4"); s.meter = "4/4"; }
+      }
       else if (f == 'L' && !inBody) unit = v;
       else if (f == 'Q') tempo = v;
       else if (f == 'K' && !inBody) {

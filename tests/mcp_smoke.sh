@@ -27,6 +27,9 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"list_songs","arguments":{}}}' \
 '{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"list_songs","arguments":{"instrument":"violin"}}}' \
 '{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"list_songs","arguments":{"instrument":"kazoo"}}}' \
+'{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","meter":"C"}}}' \
+'{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","meter":"C|"}}}' \
+'{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"transcribe_audio","arguments":{"path":"/no/such.mp3","meter":"4"}}}' \
 | "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -53,5 +56,7 @@ reply() { printf "%s\n" "$OUT" | grep "\"id\":$1,"; }
 reply 20 | grep -q 'fiddle - Fiddle' || { echo "violin filter lost fiddle"; exit 1; }
 ! reply 20 | grep -q 'smoke-reel' || { echo "violin filter kept smoke-reel"; exit 1; }
 reply 21 | grep -q "unknown instrument 'kazoo'" || { echo "kazoo filter not rejected"; exit 1; }
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 21 ] || { echo "expected 21 replies"; exit 1; }
+! reply 22 | grep -q 'meter must' && ! reply 23 | grep -q 'meter must' || { echo "C or C| rejected as meter"; exit 1; }
+reply 24 | grep -q 'meter must be N/D' || { echo "bad meter not rejected"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 24 ] || { echo "expected 24 replies"; exit 1; }
 echo "mcp smoke passed"
