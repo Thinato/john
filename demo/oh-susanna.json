@@ -1,0 +1,383 @@
+{
+ "events": [
+  {
+   "comment": "C harmonica: start on hole 4 blow (C). The whole song stays in holes 4 to 6.",
+   "len": 24,
+   "midi": 72,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "comment": "Hole 6 blow (G). Tongue the repeated G ('tu-tu') so the two notes are clear.",
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "comment": "Hole 6 draw (A): the only draw note on hole 6.",
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the line: a short pause to breathe.",
+   "len": 48,
+   "midi": 74,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the phrase: breathe here.",
+   "len": 96,
+   "midi": 72,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "||",
+   "type": "bar"
+  },
+  {
+   "comment": "Chorus: hole 5 draw (F).",
+   "len": 48,
+   "midi": 77,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 77,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the phrase: breathe here.",
+   "len": 48,
+   "midi": 74,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Last note: let it ring with a little hand vibrato (open and close your cupped hands).",
+   "len": 96,
+   "midi": 72,
+   "techniques": [
+    "vibrato"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "folder": "Beginner",
+ "id": "oh-susanna",
+ "instrument": "harmonica",
+ "key": {
+  "fifths": 0,
+  "mode": "maj"
+ },
+ "meter": "2/4",
+ "notes": "Stephen Foster's 1848 song, a bright and bouncy tune for the harmonica in C. It uses only holes 4 to 6: 4 blow C, 4 draw D, 5 blow E, 5 draw F, 6 blow G, 6 draw A. Keep the rhythm steady and tongue repeated notes. Start slowly and speed up when the hole changes feel easy.",
+ "source": "Stephen Foster, 1848, public domain; melody written out for John",
+ "tempo": 100,
+ "title": "Oh! Susanna",
+ "whistle": "D"
+}

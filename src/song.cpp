@@ -504,11 +504,12 @@ fs::path lessonsDir() {
 #endif
 }
 
-// ponytail: a lesson is copied once; later edits to the repo's copy don't reach existing installs.
-int installLessons(const fs::path& from) {
+// ponytail: a song is copied once; later edits to the repo's copy don't reach existing installs.
+int installSongs(const fs::path& from) {
   std::error_code ec;
   if (from.empty() || !fs::is_directory(from, ec)) return 0;
-  fs::path marker = dataDir() / "lessons-installed.txt";  // so a lesson the user deletes stays deleted
+  // one marker per bundled folder (lessons-installed.txt, demo-installed.txt), so a song the user deletes stays deleted
+  fs::path marker = dataDir() / (from.filename().string() + "-installed.txt");
   std::set<std::string> done;
   { std::ifstream f(marker); for (std::string l; std::getline(f, l);) if (!l.empty()) done.insert(l); }
   std::ofstream out(marker, std::ios::app);

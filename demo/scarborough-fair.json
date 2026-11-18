@@ -1,0 +1,323 @@
+{
+ "events": [
+  {
+   "bar": "|:",
+   "type": "bar"
+  },
+  {
+   "comment": "Start the tune with the tongue ('tu') for a clean first note.",
+   "len": 96,
+   "midi": 64,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "comment": "The same E again: tongue it so you hear two notes (later you can try a cut instead).",
+   "len": 48,
+   "midi": 64,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 64,
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the phrase: breathe here.",
+   "len": 48,
+   "midi": 64,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Slide up into the long B from A: lift the middle finger slowly instead of all at once.",
+   "len": 144,
+   "midi": 71,
+   "techniques": [
+    "slide"
+   ],
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the phrase: breathe here.",
+   "len": 96,
+   "midi": 71,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 96,
+   "midi": 62,
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the phrase: breathe here.",
+   "len": 144,
+   "midi": 62,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "The last long E: a gentle breath vibrato makes it sing.",
+   "len": 144,
+   "midi": 64,
+   "techniques": [
+    "vibrato"
+   ],
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Breathe before going back to the start.",
+   "len": 144,
+   "midi": 64,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": ":|",
+   "type": "bar"
+  }
+ ],
+ "folder": "Beginner",
+ "id": "scarborough-fair",
+ "instrument": "whistle",
+ "key": {
+  "fifths": 2,
+  "mode": "dor"
+ },
+ "meter": "3/4",
+ "notes": "An old English ballad in E dorian, slow and smooth. Hold the long notes for their full length and slur everything except the marked tongued notes. The only harder notes are C# (all holes open) and the high D and E. Breathe at the end of each line, as marked.",
+ "source": "https://thesession.org/tunes/7522#setting7522 (traditional English ballad)",
+ "tempo": 100,
+ "title": "Scarborough Fair",
+ "whistle": "D"
+}

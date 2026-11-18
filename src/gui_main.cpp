@@ -882,7 +882,10 @@ static void settingsWindow(App& a) {
 }
 
 int main() {
-  try { installLessons(lessonsDir()); } catch (...) {}
+  try { installSongs(lessonsDir()); } catch (...) {}
+#ifdef __EMSCRIPTEN__
+  try { installSongs("/demo"); } catch (...) {}  // starter songs, web only: desktop users have the agent
+#endif
   if (!glfwInit()) return 1;
 #ifndef __EMSCRIPTEN__  // the web gets WebGL and imgui's default "#version 100" shaders
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);

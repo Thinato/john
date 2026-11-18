@@ -1,0 +1,495 @@
+{
+ "events": [
+  {
+   "bar": "|:",
+   "type": "bar"
+  },
+  {
+   "comment": "Pickup: the tune starts on the last eighth of the bar.",
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "comment": "C natural (the key has only F#): low 2nd finger on the A string.",
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "comment": "End of part A: let the G ring with a little vibrato.",
+   "len": 48,
+   "midi": 67,
+   "techniques": [
+    "vibrato"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "::",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "comment": "Repeated G: a quick cut (grace note above) separates them, fiddle style.",
+   "len": 24,
+   "midi": 79,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "comment": "Repeated A: cut, as on the G.",
+   "len": 24,
+   "midi": 81,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "comment": "Repeated B: cut.",
+   "len": 24,
+   "midi": 83,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "comment": "Last note: vibrato and let it ring.",
+   "len": 48,
+   "midi": 67,
+   "techniques": [
+    "vibrato"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": ":|",
+   "type": "bar"
+  }
+ ],
+ "folder": "Intermediate",
+ "id": "planxty-irwin",
+ "instrument": "violin",
+ "key": {
+  "fifths": 1,
+  "mode": "maj"
+ },
+ "meter": "3/4",
+ "notes": "Turlough O'Carolan wrote this planxty (a tune in honour of a patron) for Colonel John Irwin in the early 1700s. Play it as a lilting waltz, three beats to the bar, not too fast. Part B is higher and brighter; the cuts on its repeated notes give it a little lift.",
+ "source": "https://thesession.org/tunes/790#setting790 (Turlough O'Carolan, 18th century, public domain)",
+ "tempo": 100,
+ "title": "Planxty Irwin",
+ "whistle": "D"
+}

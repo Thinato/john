@@ -1,0 +1,505 @@
+{
+ "events": [
+  {
+   "comment": "Start with the tongue: this pickup leads into the first bar.",
+   "len": 24,
+   "midi": 62,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Slide up into the long B from A: roll the middle finger off slowly.",
+   "len": 96,
+   "midi": 71,
+   "techniques": [
+    "slide"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 72,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the first line: breathe in the rest.",
+   "len": 96,
+   "midi": 62,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 72,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "End of the phrase: breathe here.",
+   "len": 96,
+   "midi": 62,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "comment": "The second part starts here: tongue it.",
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "||",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "comment": "Two C#s in a row: tongue the second one so they don't run together.",
+   "len": 24,
+   "midi": 73,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Long high D: a little vibrato, then breathe in the rest.",
+   "len": 96,
+   "midi": 74,
+   "techniques": [
+    "breath",
+    "vibrato"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 72,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "type": "rest"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "folder": "Beginner",
+ "id": "down-by-the-sally-gardens",
+ "instrument": "whistle",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "4/4",
+ "notes": "A slow Irish air, sung to the words of W. B. Yeats. Play it smoothly, like singing, at an easy tempo; every line ends on a long note with a rest after it, which is where you breathe. Only the second part goes up to the high D and E.",
+ "source": "https://thesession.org/tunes/1314#setting23155 (traditional Irish air, The Maids of Mourne Shore)",
+ "tempo": 72,
+ "title": "Down By The Sally Gardens",
+ "whistle": "D"
+}

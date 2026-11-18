@@ -1,0 +1,929 @@
+{
+ "events": [
+  {
+   "comment": "Tongue the pickup to start the reel.",
+   "len": 24,
+   "midi": 69,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|:",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "comment": "Triplet: three As in the time of two eighths. Tongue them or use cuts, and keep the beat even.",
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "comment": "Repeated D: cut it.",
+   "len": 24,
+   "midi": 74,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 71,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 74,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 71,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "comment": "End of the phrase: drop or shorten this G to breathe.",
+   "len": 24,
+   "midi": 67,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 69,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "ending": "1",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 71,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 74,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 71,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": ":|",
+   "ending": "2",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "comment": "End of part A: shorten this D and breathe.",
+   "len": 24,
+   "midi": 74,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|:",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 71,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 74,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 71,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "comment": "End of the phrase: breathe here.",
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "tuplet_start": true,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 16,
+   "midi": 81,
+   "tuplet": 3,
+   "tuplet_q": 2,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Long G: roll (~).",
+   "len": 72,
+   "midi": 79,
+   "techniques": [
+    "roll"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "comment": "Long F#: roll (~).",
+   "len": 72,
+   "midi": 78,
+   "techniques": [
+    "roll"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "ending": "1",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": ":|",
+   "ending": "2",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "folder": "Advanced",
+ "id": "the-silver-spear",
+ "instrument": "whistle",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "4/4",
+ "notes": "A popular Irish reel. Reels count in four with a gentle swing; lean on beats 1 and 3. The triplets in bars 1, 3 and 5 are the tune's signature. Start around the given tempo and only speed up when the breaths at the phrase ends feel easy.",
+ "source": "https://thesession.org/tunes/182#setting182 (traditional Irish reel)",
+ "tempo": 120,
+ "title": "The Silver Spear",
+ "whistle": "D"
+}

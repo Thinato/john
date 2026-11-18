@@ -1,0 +1,395 @@
+{
+ "events": [
+  {
+   "bar": "|:",
+   "type": "bar"
+  },
+  {
+   "comment": "Polkas are bouncy: tongue the start.",
+   "len": 36,
+   "midi": 74,
+   "techniques": [
+    "tongue"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 12,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 36,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 12,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 36,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 12,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 36,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 12,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "comment": "End of part A: breathe here.",
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "::",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "comment": "Repeated A: a cut (flick of the B finger) separates the two As without stopping the air.",
+   "len": 24,
+   "midi": 81,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "comment": "Same as bar 9: cut the repeated A.",
+   "len": 24,
+   "midi": 81,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "comment": "High B: one finger down and faster air.",
+   "len": 48,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "comment": "Cut the repeated A again.",
+   "len": 24,
+   "midi": 81,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 36,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 12,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "comment": "End of the tune: breathe before the repeat.",
+   "len": 48,
+   "midi": 69,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": ":|",
+   "type": "bar"
+  }
+ ],
+ "folder": "Intermediate",
+ "id": "britches-full-of-stitches",
+ "instrument": "whistle",
+ "key": {
+  "fifths": 2,
+  "mode": "maj"
+ },
+ "meter": "2/4",
+ "notes": "A favourite Irish polka from Kerry and Cork, played in the second octave of the whistle. The dotted rhythm (long-short) gives it the bounce: lean on the first note of each pair. Learn it slowly, then aim for a lively, steady beat. Cuts in part B separate the repeated high As.",
+ "source": "https://thesession.org/tunes/1075#setting1075 (traditional Irish polka)",
+ "tempo": 110,
+ "title": "The Britches Full Of Stitches",
+ "whistle": "D"
+}

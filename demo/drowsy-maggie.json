@@ -1,0 +1,521 @@
+{
+ "events": [
+  {
+   "bar": "|:",
+   "type": "bar"
+  },
+  {
+   "comment": "E on the beat: a short roll gives this reel its drive.",
+   "len": 48,
+   "midi": 64,
+   "techniques": [
+    "short_roll"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Short roll, as in bar 1.",
+   "len": 48,
+   "midi": 64,
+   "techniques": [
+    "short_roll"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "bar": ":|",
+   "type": "bar"
+  },
+  {
+   "comment": "Long D at the start of part B: a cut accents it.",
+   "len": 48,
+   "midi": 74,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "comment": "C sharp: E dorian's key signature has two sharps, F# and C#.",
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Cut, as in bar 5.",
+   "len": 48,
+   "midi": 74,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 62,
+   "type": "note"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "folder": "Advanced",
+ "id": "drowsy-maggie",
+ "instrument": "violin",
+ "key": {
+  "fifths": 2,
+  "mode": "dor"
+ },
+ "meter": "4/4",
+ "notes": "A well-known Irish reel in E dorian, played here on the fiddle. Part A rocks between the open E and the melody notes; part B goes higher. Keep the bow light and the rhythm steady, with a gentle lean on beats 1 and 3. Start slowly: the string crossings are the hard part.",
+ "source": "https://thesession.org/tunes/27#setting27 (traditional Irish reel)",
+ "tempo": 120,
+ "title": "Drowsy Maggie",
+ "whistle": "D"
+}

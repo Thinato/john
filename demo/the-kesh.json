@@ -1,0 +1,535 @@
+{
+ "events": [
+  {
+   "bar": "|:",
+   "type": "bar"
+  },
+  {
+   "comment": "Long G: the classic place for a roll (~). Until rolls are comfortable, play a plain G with a cut.",
+   "len": 72,
+   "midi": 67,
+   "techniques": [
+    "roll"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Long A: roll, as on the G in bar 1.",
+   "len": 72,
+   "midi": 69,
+   "techniques": [
+    "roll"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "comment": "Repeated D: a cut separates the two Ds.",
+   "len": 24,
+   "midi": 74,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "comment": "End of part A: shorten this G a little and breathe.",
+   "len": 72,
+   "midi": 67,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": "::",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "comment": "Repeated B: cut it.",
+   "len": 24,
+   "midi": 71,
+   "techniques": [
+    "cut"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "comment": "C sharp (all holes open): the key signature says C natural, but this one is sharp.",
+   "len": 24,
+   "midi": 73,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 78,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 81,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 24,
+   "midi": 83,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "comment": "End of the tune: breathe before the repeat.",
+   "len": 72,
+   "midi": 79,
+   "techniques": [
+    "breath"
+   ],
+   "type": "note"
+  },
+  {
+   "bar": ":|",
+   "type": "bar"
+  }
+ ],
+ "folder": "Intermediate",
+ "id": "the-kesh",
+ "instrument": "whistle",
+ "key": {
+  "fifths": 1,
+  "mode": "maj"
+ },
+ "meter": "6/8",
+ "notes": "One of the best-known Irish jigs. Jigs count in two groups of three eighths: lean on the first of each group. Part A sits in the low octave, part B climbs to high G, A and B. Play it slowly first; the rolls in bars 1 and 2 can be cuts until they're easy.",
+ "source": "https://thesession.org/tunes/55#setting55 (traditional Irish jig)",
+ "tempo": 105,
+ "title": "The Kesh",
+ "whistle": "D"
+}

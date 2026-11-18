@@ -1,0 +1,523 @@
+{
+ "events": [
+  {
+   "comment": "Pickup: the tune starts on beat 3.",
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Slide up into E from D on the same string.",
+   "len": 72,
+   "midi": 76,
+   "techniques": [
+    "slide"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 77,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "comment": "G sharp: it leans back up to A.",
+   "len": 24,
+   "midi": 68,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 68,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "comment": "Slide into E, as in bar 2.",
+   "len": 72,
+   "midi": 76,
+   "techniques": [
+    "slide"
+   ],
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 77,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 68,
+   "type": "note"
+  },
+  {
+   "comment": "F sharp here, an old modal touch, then G sharp again.",
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 68,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 69,
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "||",
+   "type": "bar"
+  },
+  {
+   "comment": "Chorus: it starts high on G.",
+   "len": 144,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 77,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 68,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 68,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 64,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 79,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 77,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 76,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 74,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 67,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 72,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 71,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 72,
+   "midi": 68,
+   "type": "note"
+  },
+  {
+   "len": 24,
+   "midi": 66,
+   "type": "note"
+  },
+  {
+   "len": 48,
+   "midi": 68,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 144,
+   "midi": 69,
+   "tie": true,
+   "type": "note"
+  },
+  {
+   "bar": "|",
+   "type": "bar"
+  },
+  {
+   "len": 96,
+   "midi": 69,
+   "type": "note"
+  },
+  {
+   "bar": "|]",
+   "type": "bar"
+  }
+ ],
+ "folder": "Intermediate",
+ "id": "greensleeves",
+ "instrument": "guitar",
+ "key": {
+  "fifths": 0,
+  "mode": "min"
+ },
+ "meter": "3/4",
+ "notes": "An English tune from the 16th century, here in A minor for the guitar, melody only. Play it slowly and let each note ring into the next. The long-short pattern in many bars (dotted quarter and eighth) gives it its swaying feel, and the G sharps lean back to A.",
+ "source": "Traditional English, 16th century, public domain; melody written out for John",
+ "tempo": 80,
+ "title": "Greensleeves",
+ "whistle": "D"
+}
