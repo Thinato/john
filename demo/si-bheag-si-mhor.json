@@ -616,6 +616,20 @@
   }
  ],
  "folder": "Intermediate",
+ "i18n": {
+  "pt-BR": {
+   "End of part A: breathe before the repeat.": "Fim da parte A: respire antes da repetição.",
+   "End of the phrase: breathe here.": "Fim da frase: respire aqui.",
+   "High B, the top of the tune: a little vibrato.": "B agudo, a nota mais aguda da música: um pouco de vibrato.",
+   "Long D: let it ring with a little vibrato.": "D longo: deixe soar com um pouco de vibrato.",
+   "Low D: breathe here, before the jump back up.": "D grave: respire aqui, antes do salto de volta para cima.",
+   "Repeated F#: a cut separates the two notes smoothly.": "F# repetido: um corte (cut) separa as duas notas com suavidade.",
+   "Slide up into the F# from E for a soft, singing start.": "Deslize (slide) do E até o F# para um começo suave e cantado.",
+   "Start with the tongue: these two eighths lead into the first bar.": "Comece com a língua: estas duas colcheias levam ao primeiro compasso.",
+   "Sí Bheag Sí Mhór": "Sí Bheag Sí Mhór",
+   "Turlough O'Carolan's first composition (c. 1690s), about a battle between the fairies of two hills. Play it gently as a slow waltz, three beats to the bar, with long notes held full value. Breathe at the marked phrase ends; the second part climbs to high A and B.": "A primeira composição de Turlough O'Carolan (década de 1690), sobre uma batalha entre as fadas de duas colinas. Toque com delicadeza, como uma valsa lenta, três tempos por compasso, segurando as notas longas pelo valor inteiro. Respire nos fins de frase marcados; a segunda parte sobe até o A e o B agudos."
+  }
+ },
  "id": "si-bheag-si-mhor",
  "instrument": "whistle",
  "key": {

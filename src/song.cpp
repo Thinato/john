@@ -401,6 +401,7 @@ void saveSettings(const Settings& s) { writeJson(dataDir() / "settings.json", js
 // ---------------- viewer language ----------------
 
 static std::map<std::string, std::string, std::less<>> gTr;  // English -> current language; empty = English
+static std::string gLang;  // code of the loaded language; empty = English
 
 fs::path i18nDir() {
 #ifdef JOHN_I18N
@@ -416,6 +417,7 @@ bool setLanguage(const std::string& code) {
   if (j.is_object())  // else "en", unknown or unreadable: English
     for (auto& [k, v] : j.items())
       if (v.is_string() && !v.get_ref<const std::string&>().empty()) gTr[k] = v.get<std::string>();
+  gLang = gTr.empty() ? "" : code;
   return gLocalized = !gTr.empty();
 }
 
@@ -471,6 +473,13 @@ const char* tr(const char* english) {
 
 std::string tr(const std::string& english) { return tr(english.c_str()); }
 
+std::string songText(const Song& s, const std::string& english) {
+  auto l = s.i18n.find(gLang);
+  if (l == s.i18n.end()) return english;
+  auto t = l->second.find(english);  // keyed by the exact English: an edited text simply stops matching
+  return t != l->second.end() && !t->second.empty() ? t->second : english;
+}
+
 std::string trf(const char* english, ...) {
   const char* f = tr(english);
   va_list ap, ap2;
@@ -516,6 +525,7 @@ json toJson(const Song& s) {
           {"meter", s.meter}, {"key", {{"fifths", s.key.fifths}, {"mode", s.key.mode}}},
           {"tempo", s.tempo}, {"instrument", s.instrument}, {"whistle", s.whistle}, {"events", ev}};
   if (!s.folder.empty()) j["folder"] = s.folder;
+  if (!s.i18n.empty()) j["i18n"] = s.i18n;
   return j;
 }
 
@@ -555,6 +565,7 @@ Song fromJson(const json& j) {
     e.ending = x.value("ending", "");
     s.events.push_back(e);
   }
+  s.i18n = j.value("i18n", decltype(s.i18n){});
   return s;
 }
 

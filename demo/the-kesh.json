@@ -520,6 +520,19 @@
   }
  ],
  "folder": "Intermediate",
+ "i18n": {
+  "pt-BR": {
+   "C sharp (all holes open): the key signature says C natural, but this one is sharp.": "C sustenido (todos os furos abertos): a armadura indica C natural, mas este é sustenido.",
+   "End of part A: shorten this G a little and breathe.": "Fim da parte A: encurte um pouco este G e respire.",
+   "End of the tune: breathe before the repeat.": "Fim da música: respire antes da repetição.",
+   "Long A: roll, as on the G in bar 1.": "A longo: rolo, como no G do compasso 1.",
+   "Long G: the classic place for a roll (~). Until rolls are comfortable, play a plain G with a cut.": "G longo: o lugar clássico para um rolo (roll, ~). Até os rolos ficarem confortáveis, toque um G simples com um corte.",
+   "One of the best-known Irish jigs. Jigs count in two groups of three eighths: lean on the first of each group. Part A sits in the low octave, part B climbs to high G, A and B. Play it slowly first; the rolls in bars 1 and 2 can be cuts until they're easy.": "Um dos jigs irlandeses mais conhecidos. O jig se conta em dois grupos de três colcheias: apoie-se na primeira de cada grupo. A parte A fica na oitava grave; a parte B sobe até o G, o A e o B agudos. Toque devagar primeiro; os rolos (rolls) dos compassos 1 e 2 podem ser cortes (cuts) até ficarem fáceis.",
+   "Repeated B: cut it.": "B repetido: faça um corte.",
+   "Repeated D: a cut separates the two Ds.": "D repetido: um corte separa os dois Ds.",
+   "The Kesh": "The Kesh"
+  }
+ },
  "id": "the-kesh",
  "instrument": "whistle",
  "key": {

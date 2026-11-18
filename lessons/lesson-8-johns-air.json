@@ -398,5 +398,22 @@
  "tempo": 84,
  "title": "Lesson 8: John's Air",
  "whistle": "D",
- "folder": "Lessons"
+ "folder": "Lessons",
+ "i18n": {
+  "pt-BR": {
+   "Lesson 8: John's Air": "Lição 8: Ária do John",
+   "A short original air written for these lessons, named after this app's namesake. It brings everything together: both octaves, crossing the break, a slide, cuts as accents, vibrato and planned breaths. The first half climbs from low D; the second half lives in the high octave.": "Uma pequena ária original escrita para estas lições, com o nome de quem dá nome a este app. Ela junta tudo: as duas oitavas, a passagem, um deslize, cortes como acentos, vibrato e respirações planejadas. A primeira metade sobe a partir do D grave; a segunda metade fica na oitava aguda.",
+   "John's Air uses everything: both octaves, the break, a slide, cuts, vibrato and breathing. Play it slowly at first.": "A Ária do John usa tudo: as duas oitavas, a passagem, um deslize, cortes, vibrato e respiração. Toque devagar no começo.",
+   "Up over the break to high D: fingers down together, faster air.": "Subindo pela passagem até o D agudo: dedos descendo juntos, ar mais rápido.",
+   "A cut as an accent on the first beat: flick your top finger up and back (for an instant it sounds C#).": "Um corte como acento no primeiro tempo: levante e recoloque rapidamente o dedo de cima (por um instante soa um C#).",
+   "Long E: hold it steady first, then add a little vibrato.": "E longo: primeiro segure firme, depois acrescente um pouco de vibrato.",
+   "Breathe here, before the second line.": "Respire aqui, antes da segunda linha.",
+   "Slide from A up into B: roll the 2nd finger off slowly.": "Deslize do A até o B: tire o 2º dedo devagar, rolando-o.",
+   "End of the first half: a long high D with vibrato, then rest.": "Fim da primeira metade: um D agudo longo com vibrato, depois a pausa.",
+   "The second half sits mostly in the high octave: tongue the high F# and keep the air fast.": "A segunda metade fica quase toda na oitava aguda: use a língua no F# agudo e mantenha o ar rápido.",
+   "Long high F#: steady, then vibrato.": "F# agudo longo: firme, depois vibrato.",
+   "High A, the top note of the piece.": "A agudo, a nota mais aguda da peça.",
+   "Final high D: steady air, gentle vibrato, then stop cleanly.": "D agudo final: ar firme, vibrato suave, depois pare de forma limpa."
+  }
+ }
 }

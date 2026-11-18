@@ -490,6 +490,19 @@
   }
  ],
  "folder": "Beginner",
+ "i18n": {
+  "pt-BR": {
+   "A slow Irish air, sung to the words of W. B. Yeats. Play it smoothly, like singing, at an easy tempo; every line ends on a long note with a rest after it, which is where you breathe. Only the second part goes up to the high D and E.": "Uma ária lenta (slow air) irlandesa, cantada com a letra de W. B. Yeats. Toque de forma ligada, como se cantasse, num andamento tranquilo; cada linha termina numa nota longa seguida de uma pausa, e é ali que você respira. Só a segunda parte sobe até o D e o E agudos.",
+   "Down By The Sally Gardens": "Down By The Sally Gardens",
+   "End of the first line: breathe in the rest.": "Fim da primeira linha: respire na pausa.",
+   "End of the phrase: breathe here.": "Fim da frase: respire aqui.",
+   "Long high D: a little vibrato, then breathe in the rest.": "D agudo longo: um pouco de vibrato, depois respire na pausa.",
+   "Slide up into the long B from A: roll the middle finger off slowly.": "Deslize (slide) do A até o B longo: tire o dedo do meio devagar, rolando-o.",
+   "Start with the tongue: this pickup leads into the first bar.": "Comece com a língua: esta anacruse leva ao primeiro compasso.",
+   "The second part starts here: tongue it.": "A segunda parte começa aqui: use a língua.",
+   "Two C#s in a row: tongue the second one so they don't run together.": "Dois C# seguidos: use a língua no segundo para que não se misturem."
+  }
+ },
  "id": "down-by-the-sally-gardens",
  "instrument": "whistle",
  "key": {

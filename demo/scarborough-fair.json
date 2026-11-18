@@ -308,6 +308,18 @@
   }
  ],
  "folder": "Beginner",
+ "i18n": {
+  "pt-BR": {
+   "An old English ballad in E dorian, slow and smooth. Hold the long notes for their full length and slur everything except the marked tongued notes. The only harder notes are C# (all holes open) and the high D and E. Breathe at the end of each line, as marked.": "Uma antiga balada inglesa em Mi dórico, lenta e suave. Segure as notas longas pelo valor inteiro e ligue tudo, menos as notas marcadas com golpe de língua. As únicas notas mais difíceis são o C# (todos os furos abertos) e o D e o E agudos. Respire no fim de cada linha, como está marcado.",
+   "Breathe before going back to the start.": "Respire antes de voltar ao começo.",
+   "End of the phrase: breathe here.": "Fim da frase: respire aqui.",
+   "Scarborough Fair": "Scarborough Fair",
+   "Slide up into the long B from A: lift the middle finger slowly instead of all at once.": "Deslize (slide) do A até o B longo: levante o dedo do meio devagar, em vez de tudo de uma vez.",
+   "Start the tune with the tongue ('tu') for a clean first note.": "Comece a música com a língua ('tu') para uma primeira nota limpa.",
+   "The last long E: a gentle breath vibrato makes it sing.": "O último E longo: um vibrato de sopro suave faz a nota cantar.",
+   "The same E again: tongue it so you hear two notes (later you can try a cut instead).": "O mesmo E de novo: use a língua para ouvir duas notas (mais tarde você pode tentar um corte no lugar)."
+  }
+ },
  "id": "scarborough-fair",
  "instrument": "whistle",
  "key": {

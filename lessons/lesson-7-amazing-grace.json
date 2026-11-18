@@ -301,5 +301,19 @@
  "tempo": 80,
  "title": "Lesson 7: Slides and vibrato - Amazing Grace",
  "whistle": "D",
- "folder": "Lessons"
+ "folder": "Lessons",
+ "i18n": {
+  "pt-BR": {
+   "Lesson 7: Slides and vibrato - Amazing Grace": "Lição 7: Deslizes e vibrato - Amazing Grace",
+   "Amazing Grace in 3/4, a slow air for expressive techniques. It practises slides (gliding up into B), breath vibrato on the long high D and the last note, and breathing at phrase ends. Play it like singing: smooth and unhurried.": "Amazing Grace em 3/4, uma ária lenta (slow air) para técnicas expressivas. Ela pratica deslizes (slides), chegando ao B por baixo, o vibrato de sopro no D agudo longo e na última nota, e a respiração nos fins de frase. Toque como se estivesse cantando: suave e sem pressa.",
+   "Amazing Grace, slow and singing. It's in G major on the D whistle and has no C at all.": "Amazing Grace, lenta e cantada. Está em Sol maior na flauta irlandesa em Ré e não tem nenhum C.",
+   "Slide into B: start with the A fingering (2nd finger down) and slowly roll that finger off, so the pitch glides up into B.": "Deslize até o B: comece com a digitação do A (2º dedo tampando) e vá tirando esse dedo devagar, rolando-o, para o som subir deslizando até o B.",
+   "End of the phrase: breathe here.": "Fim da frase: respire aqui.",
+   "High D held for five beats: blow fast and steady, then add a gentle breath vibrato (pulse the air like a soft 'ha-ha-ha').": "D agudo segurado por cinco tempos: sopre rápido e firme, depois acrescente um vibrato de sopro suave (pulse o ar como um 'ha-ha-ha' leve).",
+   "Breathe after the long D.": "Respire depois do D longo.",
+   "A quick B D pair: up to the high D again.": "Um par rápido B D: subindo de novo até o D agudo.",
+   "End of the phrase: breathe.": "Fim da frase: respire.",
+   "The last note: hold it with vibrato and let it fade.": "A última nota: segure-a com vibrato e deixe o som sumir."
+  }
+ }
 }

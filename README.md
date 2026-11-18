@@ -69,6 +69,8 @@ Songs live in `~/Documents/John/songs/*.json` (override with `JOHN_HOME`); songs
 
 The viewer speaks English and Brazilian Portuguese. By default it follows the system language (`LANG`/`LC_ALL`; on macOS, when those are empty as for an app started from Finder, the first language in System Settings > Language & Region; the browser's language on the web); pick one in Settings. The MCP server and the agent's tools always answer in English. Translations are in `i18n/<language>.json`, one file per language, mapping each English text to its translation; to add a language, add a file (see `kb/notes/i18n-translate-viewer-text.md`).
 
+The lessons and the starter songs carry their own Portuguese title, notes and comments (an `"i18n"` map inside each song file), shown when the viewer is in Portuguese. Lessons installed before this was added are your own copies and stay in English; new installs and new browsers get the translations. Your own songs, and anything the agent writes, stay in the language they were written in.
+
 ## Lessons
 
 `lessons/` holds a beginner course for the D whistle. John installs it into your song list the first time it runs (delete a lesson and it stays deleted). Each lesson has comments on the notes explaining what to practise:
