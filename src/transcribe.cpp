@@ -270,6 +270,9 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
   // Melody continuity: compare each note with the duration-weighted median pitch of the notes around it (±2 s).
   // An octave away with energy in the other octave = octave error, move it. Short and well below = accompaniment
   // poking through (a chord attack, a bass note in a melody rest), drop it and give its time to the next note.
+  // Unless the next note is back in the melody's range and its pitch is still silent during this one: the melody is
+  // monophonic, so that is the melody itself leaping up from a low note (#7). Accompaniment pokes through while the
+  // melody sounds over it.
   {
     const int win = (int)(2.0 / hopSec), shortF = (int)(0.3 / hopSec);
     std::vector<RawNote> kept;
@@ -296,7 +299,8 @@ Transcription transcribe(const std::vector<float>& x, int sr, const TranscribeOp
       if (d > 9 && energy(n.m - 12) >= 0.7 * energy(n.m)) n.m -= 12;
       else if (d < -7) {
         if (energy(n.m + 12) >= 1.5 * energy(n.m)) n.m += 12;
-        else if (n.b - n.a < shortF) {
+        else if (n.b - n.a < shortF &&
+                 !(i + 1 < split.size() && pitch[i + 1] - ref >= -7 && energy(pitch[i + 1]) < 0.25 * energy(n.m))) {
           if (i + 1 < split.size() && split[i + 1].a == n.b) split[i + 1].a = n.a;
           continue;
         }
