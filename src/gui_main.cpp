@@ -54,7 +54,6 @@ struct App {
   std::vector<std::string> ids;
   struct Meta { fs::file_time_type mtime{}; std::string folder, title, inst, tag; };  // tag: instrument shown in the list, "" for a D whistle
   std::map<std::string, Meta> meta;  // song list info, re-read only when a file changes
-  std::string instFilter;  // song list: only this instrument id, "" = all; session-only for now
   std::vector<Technique> techs;
   std::optional<Song> song;
   std::string current;
@@ -902,15 +901,15 @@ int main() {
     ImGui::TextDisabled("SONGS");
     auto instLabel = [](const std::string& id) { return id.empty() ? "All instruments" : id == "whistle" ? "Tin whistle" : findInstrument(id)->name; };
     ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::BeginCombo("##instFilter", instLabel(a.instFilter).c_str())) {
-      if (ImGui::Selectable(instLabel("").c_str(), a.instFilter.empty())) a.instFilter = "";
+    if (ImGui::BeginCombo("##instFilter", instLabel(a.set.songFilter).c_str())) {
+      if (ImGui::Selectable(instLabel("").c_str(), a.set.songFilter.empty())) a.set.songFilter = "";
       for (auto& id : INSTRUMENTS)
-        if (ImGui::Selectable(instLabel(id).c_str(), id == a.instFilter)) a.instFilter = id;
+        if (ImGui::Selectable(instLabel(id).c_str(), id == a.set.songFilter)) a.set.songFilter = id;
       ImGui::EndCombo();
     }
     std::map<std::string, std::vector<std::string>, decltype(&folderBefore)> byFolder(&folderBefore);
     for (auto& id : a.ids)
-      if (a.instFilter.empty() || a.meta[id].inst == a.instFilter) byFolder[a.meta[id].folder].push_back(id);
+      if (a.set.songFilter.empty() || a.meta[id].inst == a.set.songFilter) byFolder[a.meta[id].folder].push_back(id);
     for (auto& [folder, ids] : byFolder) {
       std::string label = (folder.empty() ? "Unsorted" : folder) + " (" + std::to_string(ids.size()) + ")##" + folder;
       if (!ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth)) continue;

@@ -169,6 +169,7 @@ struct Settings {
   float latencyMs = 80;             // mic + speaker delay, for grading play-along
   float tolerance = 40;             // cents from the note that still count as right
   std::string instrument = "whistle";  // for new songs (import_abc without an instrument)
+  std::string songFilter;           // song list shows only this instrument id; "" = all
   bool operator==(const Settings&) const = default;
 };
 Settings loadSettings();                    // missing keys -> defaults; unreadable file -> all defaults

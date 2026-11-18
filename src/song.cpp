@@ -325,7 +325,7 @@ void saveCustomTechnique(const Technique& t) {
 }
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Settings, hints, zoom, light, tempo, countIn, metronome, volume, sound,
-                                                gate, latencyMs, tolerance, instrument)
+                                                gate, latencyMs, tolerance, instrument, songFilter)
 
 Settings loadSettings() {
   Settings s;
@@ -333,6 +333,7 @@ Settings loadSettings() {
   catch (const json::exception&) { return {}; }  // missing, garbage, or a key of the wrong type
   auto known = [](const std::string& id) { return std::count(INSTRUMENTS.begin(), INSTRUMENTS.end(), id) > 0; };
   if (!s.sound.empty() && !known(s.sound)) s.sound.clear();
+  if (!s.songFilter.empty() && !known(s.songFilter)) s.songFilter.clear();
   if (!known(s.instrument)) s.instrument = "whistle";
   s.zoom = std::clamp(s.zoom, 6.0f, 16.0f);  // values the GUI could choke on
   s.tempo = std::clamp(s.tempo, 40, 220);
