@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import random
@@ -28,12 +29,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NOTES = "kb/notes/"
-DB = Path(os.environ.get("KB_DB_PATH") or ROOT / "kb" / ".cache" / "kb.db")
+DB = ROOT / "kb" / ".cache" / "kb.db"  # per checkout: each worktree builds its own
 # voyage-4 beat voyage-code-4 on this repo (prose notes + C++): right result first for 9/10 test questions vs 3/10
 # (code-4 with input_type=document buries the notes). Same 200M free tokens. Re-measure before changing (issue #28).
 MODEL, DIM = os.environ.get("KB_MODEL") or "voyage-4", 1024
 CODE_EXT = {".cpp", ".hpp", ".h", ".md", ".txt", ".sh", ".yml"}
 WINDOW, OVERLAP = 60, 15
+CHUNKING = 1  # bump when chunking changes, so existing caches rebuild
 SECTIONS = ["Context", "Rule", "Why", "How to apply"]
 WEAK = 0.65  # best distance above this = no strong match (voyage-4: relevant hits ~0.35-0.6, unrelated ~0.8)
 
@@ -100,12 +102,16 @@ def check_note(name: str, text: str) -> list[str]:
 # ---------------- files ----------------
 def repo_files() -> dict[str, str]:
     """path -> text for every tracked or untracked-but-not-ignored file we index."""
-    names = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"], cwd=ROOT,
-                           capture_output=True, text=True, check=True).stdout.splitlines()
+    try:
+        names = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"], cwd=ROOT,
+                               capture_output=True, text=True, check=True).stdout.splitlines()
+    except (OSError, subprocess.CalledProcessError):
+        sys.exit("kb: needs git and a git checkout of the repo")
     out = {}
     for n in sorted(set(names)):
         p = ROOT / n
-        if (n.startswith(NOTES) and n.endswith(".md")) or (Path(n).suffix in CODE_EXT and not n.startswith("kb/")):
+        note = n.startswith(NOTES) and n.endswith(".md") and "/" not in n[len(NOTES):]
+        if note or (Path(n).suffix in CODE_EXT and not n.startswith("kb/")):
             if p.is_file():
                 out[n] = p.read_text(errors="replace")
     return out
@@ -136,9 +142,14 @@ def embed(texts: list[str], input_type: str) -> list[array]:
             except urllib.error.HTTPError as e:
                 if e.code not in (429, 500, 502, 503, 504) or attempt == 6:
                     sys.exit(f"Voyage API error {e.code}: {e.read().decode(errors='replace')[:300]}")
-            except urllib.error.URLError as e:
-                if attempt == 6 or isinstance(e.reason, ssl.SSLError):  # retrying won't fix certificates
-                    sys.exit(f"cannot reach Voyage API: {e.reason}")
+                wait = e.headers.get("Retry-After", "")
+                if wait.isdigit():
+                    time.sleep(min(60, int(wait)))
+                    continue
+            except (OSError, http.client.HTTPException, ValueError, KeyError) as e:  # network drop, bad reply
+                reason = getattr(e, "reason", e)
+                if attempt == 6 or isinstance(reason, ssl.SSLError):  # retrying won't fix certificates
+                    sys.exit(f"cannot reach Voyage API: {reason}")
             time.sleep(min(60, 2 ** attempt) * (0.5 + random.random()))
 
     for t in texts:  # stay well under the per-request limits (1000 texts, ~120k tokens)
@@ -155,17 +166,19 @@ def embed(texts: list[str], input_type: str) -> list[array]:
 # ---------------- index ----------------
 def connect() -> sqlite3.Connection:
     DB.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(DB)
+    db = sqlite3.connect(DB, timeout=120)  # another agent may be syncing the same checkout
     db.executescript("""
         CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE IF NOT EXISTS file(path TEXT PRIMARY KEY, hash TEXT);
         CREATE TABLE IF NOT EXISTS chunk(path TEXT, kind TEXT, start INT, end INT, heading TEXT, text TEXT, emb BLOB);
         CREATE INDEX IF NOT EXISTS chunk_path ON chunk(path);
     """)
-    model = f"{MODEL}/{DIM}"
-    if (db.execute("SELECT value FROM meta WHERE key='model'").fetchone() or [model])[0] != model:
-        db.executescript("DELETE FROM file; DELETE FROM chunk;")  # embeddings from another model don't mix
-    db.execute("INSERT OR REPLACE INTO meta VALUES('model', ?)", (model,))
+    model = f"{MODEL}/{DIM}/chunking-{CHUNKING}"
+    if (db.execute("SELECT value FROM meta WHERE key='model'").fetchone() or [None])[0] != model:
+        # another model's embeddings (or old chunks) don't mix: start over
+        db.executescript("DELETE FROM file; DELETE FROM chunk;")
+        db.execute("INSERT OR REPLACE INTO meta VALUES('model', ?)", (model,))
+        db.commit()
     return db
 
 
@@ -180,12 +193,14 @@ def sync(db: sqlite3.Connection, quiet: bool = False) -> None:
             continue
         try:
             cs = chunk_note(text) if path.startswith(NOTES) else chunk_code(path, text)
-        except ValueError as e:
+        except ValueError as e:  # malformed note: drop its old chunks until it's fixed
             bad.append(f"{path}: {e}")
-            continue
+            cs = []
         todo[path] = h
         chunks += [dict(c, path=path) for c in cs]
     vecs = embed([c["text"] for c in chunks], "document") if chunks else []
+    if len(vecs) != len(chunks):
+        sys.exit(f"kb: Voyage returned {len(vecs)} embeddings for {len(chunks)} chunks; index left unchanged")
     for p in gone + list(todo):
         db.execute("DELETE FROM chunk WHERE path=?", (p,))
         db.execute("DELETE FROM file WHERE path=?", (p,))
@@ -212,22 +227,26 @@ def query(db: sqlite3.Connection, q: str, n: int, kind: str | None) -> None:
         rows.append((1 - sum(a * b for a, b in zip(qv, v)), path, k, start, end, heading, text))  # unit vectors
     rows.sort(key=lambda r: r[0])
     if not rows:
-        print("No results: the index is empty.")
+        print(f"No results: no {kind or 'chunk'}s in the index.")
         return
-    shown: set[str] = set()
+    shown, ranges = 0, {}  # notes shown once, whole; code windows overlapping one already shown are skipped
     for dist, path, k, start, end, heading, text in rows:
-        if len(shown) >= n:
+        if shown >= n:
             break
-        if k == "note":  # one hit per note, printed whole (notes are short)
-            if path in shown:
-                continue
+        if any(s <= end and start <= e for s, e in ranges.get(path, [])) or (k == "note" and path in ranges):
+            continue
+        ranges.setdefault(path, []).append((start, end))
+        shown += 1
+        if k == "note":
             print(f"--- [note] {path}  (distance {dist:.2f}, best section: {heading})")
-            print(parse_note((ROOT / path).read_text())[1].strip())
+            try:
+                print(parse_note((ROOT / path).read_text())[1].strip())
+            except (OSError, ValueError):  # changed since it was indexed
+                print(text.split("\n\n", 1)[-1])
         else:
             body = text.split("\n", 1)[-1].splitlines()
             print(f"--- [code] {path}:{start}-{end}  (distance {dist:.2f})")
             print("\n".join(body[:25] + ([f"... ({len(body) - 25} more lines: read the file)"] if len(body) > 25 else [])))
-        shown.add(path if k == "note" else f"{path}:{start}")
         print()
     if rows[0][0] > WEAK:
         print(f"(No strong match: best distance {rows[0][0]:.2f}. Search the code directly, or ask the user. "
@@ -239,7 +258,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     qp = sub.add_parser("query", help="search notes and code")
     qp.add_argument("text", nargs="+")
-    qp.add_argument("-n", type=int, default=6, help="number of results (default 6)")
+    qp.add_argument("-n", type=int, default=6, choices=range(1, 51), metavar="N", help="number of results (default 6)")
     g = qp.add_mutually_exclusive_group()
     g.add_argument("--notes", action="store_const", const="note", dest="kind", help="only knowledge notes")
     g.add_argument("--code", action="store_const", const="code", dest="kind", help="only code")

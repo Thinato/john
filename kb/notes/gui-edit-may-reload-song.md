@@ -9,10 +9,10 @@ tags: [gui, imgui, editing, references, crash]
 GUI code in `src/gui_main.cpp` that changes the current song from inside a loop (combos, checkboxes, technique lists).
 
 ## Rule
-`editSong()` first reloads the song from disk if the file changed (the agent may have edited it), and `open()` can even leave `App::song` empty. After calling it, stop iterating over the song's data: copy values you need into locals before the call, and `break` out of the loop right after.
+`editSong()` first reloads the song from disk if the file changed (the agent may have edited it), and `open()` can even leave `App::song` empty when the file was deleted. After calling it, don't touch anything taken from the song earlier in the frame: copy the values you need into locals before the call, then leave the loop, and don't use `Song&` references held by the enclosing panel for the rest of the frame (return, or re-check `a.song`).
 
 ## Why
 `App::song` is a `std::optional<Song>`; a reload replaces its contents, and a deleted file empties it, so `Song&`, `Event&` and iterators taken earlier can point at changed or destroyed data.
 
 ## How to apply
-Follow the existing pattern: `std::string pick = f;` before `editSong(a, [&](Song& x) { ... pick ... });` then `break;`. The Folder, Instrument and technique-checkbox widgets do this.
+Pattern: `std::string pick = f;` before `editSong(a, [&](Song& x) { ... pick ... });`, then `break;`. The Instrument combo and the technique checkboxes do this. `detailsPanel` still has two gaps (the Folder combo doesn't break, and `Song& s` is used after the combos), tracked in #30.

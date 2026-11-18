@@ -8,7 +8,11 @@ python3 kb/kb.py check                                          # validate the n
 python3 kb/kb.py sync                                           # refresh the index (query does this itself)
 ```
 
-Search needs a [Voyage AI](https://dash.voyageai.com/) key in `VOYAGE_API_KEY`. Python 3.10+, standard library only. The index is a local cache in `kb/.cache/` (gitignored): each query re-embeds only the files that changed, so a note is searchable as soon as it's written. A full index of the repo is about 100k tokens, a small fraction of Voyage's free tier. The model is `voyage-4` (override with `KB_MODEL`); it found the right result first for 9 of 10 test questions, `voyage-code-4` for 3 of 10 (see #28).
+Search needs a [Voyage AI](https://dash.voyageai.com/) key in `VOYAGE_API_KEY`. Python 3.10+, standard library only. **No key?** The notes are plain markdown: `grep -ril <word> kb/notes/` and read them.
+
+The index is a local cache in `kb/.cache/` (gitignored), one per checkout: each query re-embeds only the files that changed, so a note is searchable as soon as it's written. A fresh checkout or worktree embeds the whole repo on its first query (about 100k tokens, a few seconds; a small fraction of Voyage's 200M free tokens). Voyage's normal rate limits need a payment method on the account; without one the limits may be too low for that first index (the free tokens apply either way).
+
+The model is `voyage-4`; it found the right result first for 9 of 10 test questions, `voyage-code-4` for 3 of 10 (see #28). `KB_MODEL` switches to another voyage-4-family model; the "no strong match" threshold is tuned for `voyage-4`.
 
 ## Writing a note
 
