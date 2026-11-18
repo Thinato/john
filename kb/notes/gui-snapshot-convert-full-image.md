@@ -15,4 +15,4 @@ Run `JOHN_HOME=<tmp> JOHN_SNAPSHOT=<tmp>/s.tga ./build/john`, then `sips -s form
 Snapshot mode renders a few frames and exits, with no way to click; an empty data folder otherwise fills with the bundled lessons, and the crop step wasted time showing the wrong area.
 
 ## How to apply
-For a song-specific check, create it with `john-mcp` (`import_abc`) into the temp `JOHN_HOME` first, or edit its JSON there (e.g. change `instrument`) between snapshots.
+For a song-specific check, create it with `john-mcp` (`import_abc`) into the temp `JOHN_HOME` first, or edit its JSON there (e.g. change `instrument`) between snapshots. Snapshot mode can't click, so to see a GUI toggle in its other state (e.g. "Instrument hints" off), flip the `App` member's default for a local build only, snapshot, then revert it and rebuild.
