@@ -967,6 +967,27 @@ int main() {
   assert(!loadSong("../etc"));
   assert(listSongs() == std::vector<std::string>{"test-jig"});
 
+  // #68: every X: tune of a multi-tune file becomes a song with `like`'s instrument and source and a unique id; the file
+  // header's fields apply to each tune, empty tunes are reported, text without a tune is an error
+  {
+    Song like;
+    like.instrument = "violin";
+    like.source = "tunes.abc";
+    const char* abc = "%abc-2.1\nL:1/4\n\nX:1\nT:Same\nK:G\nGABc|\n\nX:2\nT:Same\nM:3/4\nK:D\nd2e|f3|\nX:3\nT:Nothing\nK:D\n";
+    auto r = importAbcSongs(abc, like);
+    assert(r.size() == 2 && r[0].song.id == "same" && r[1].song.id == "same-2");
+    auto a1 = loadSong("same"), a2 = loadSong("same-2");
+    assert(a1 && a2 && a1->instrument == "violin" && a2->source == "tunes.abc" && a2->meter == "3/4");
+    assert(a1->events[0].len == WHOLE / 4 && a2->key.fifths == 2);  // L:1/4 from the file header
+    assert(std::find(r[0].warnings.begin(), r[0].warnings.end(), "Nothing: no K: line or no notes, not imported") != r[0].warnings.end());
+    like.id = "mine";
+    assert(importAbcSongs("T:Pasted\nK:D\nDEF|", like)[0].song.id == "mine");  // no X:: the whole text is one tune
+    bool threw = false;
+    try { importAbcSongs("just some words\n", like); } catch (const std::runtime_error&) { threw = true; }
+    assert(threw);
+    for (auto id : {"same", "same-2", "mine"}) fs::remove(dataDir() / "songs" / (std::string(id) + ".json"));
+  }
+
   // lessons: installed once, a deleted lesson stays deleted, and every bundled lesson loads
   {
     fs::path src = home / "lesson-src";

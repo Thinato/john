@@ -333,4 +333,45 @@ ImportResult importAbc(const std::string& abc) {
   return r;
 }
 
+// Tunes of an ABC file: one piece per X: line, each with the field lines of the file header (text before the first X:,
+// ABC 2.1) in front. Text without X: is one tune.
+static std::vector<std::string> splitAbc(const std::string& abc) {
+  std::vector<std::string> tunes;
+  std::string header;
+  std::istringstream in(abc);
+  for (std::string line; std::getline(in, line);) {
+    if (line.rfind("X:", 0) == 0) tunes.push_back(header);
+    if (!tunes.empty()) tunes.back() += line + "\n";
+    else if (line.size() >= 2 && line[1] == ':' && isalpha((unsigned char)line[0])) header += line + "\n";
+  }
+  if (tunes.empty()) tunes.push_back(abc);
+  return tunes;
+}
+
+std::vector<ImportResult> importAbcSongs(const std::string& abc, const Song& like, bool overwrite) {
+  auto tunes = splitAbc(abc);
+  std::vector<ImportResult> out;
+  std::vector<std::string> empty;
+  for (auto& t : tunes) {
+    ImportResult r = importAbc(t);
+    Song& s = r.song;
+    bool hasKey = t.rfind("K:", 0) == 0 || t.find("\nK:") != std::string::npos;  // without one, any text "has notes"
+    if (s.events.empty() || !hasKey) { empty.push_back(s.title + ": no K: line or no notes, not imported"); continue; }
+    if (tunes.size() > 1)
+      for (auto& w : r.warnings) w = s.title + ": " + w;
+    if (!like.source.empty()) s.source = like.source;
+    s.instrument = like.instrument;
+    s.whistle = like.whistle;
+    s.harp = like.harp;
+    s.folder = like.folder;
+    std::string base = out.empty() && !like.id.empty() ? like.id : s.title;
+    s.id = out.empty() && overwrite ? slug(base) : uniqueId(base);
+    saveSong(s);
+    out.push_back(std::move(r));
+  }
+  if (out.empty()) throw std::runtime_error("No tune found: ABC needs a K: (key) line and notes.");
+  for (auto& w : empty) out[0].warnings.push_back(w);
+  return out;
+}
+
 }  // namespace john
