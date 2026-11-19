@@ -30,14 +30,17 @@ function pixels(source, width, height, side) {
 async function decodeImage(file) {
 	try {
 		const bitmap = await createImageBitmap(file); // EXIF orientation applied
-		return pixels(bitmap, bitmap.width, bitmap.height, MAX_SIDE);
+		const image = pixels(bitmap, bitmap.width, bitmap.height, MAX_SIDE);
+		bitmap.close();
+		return image;
 	} catch {
 		throw fail(/\.hei[cf]$/i.test(file.name) || /hei[cf]/.test(file.type) ? "heic" : "decode", file.name);
 	}
 }
 
-/** One function per page, in order: each renders its page when called. */
-async function pagesOf(files) {
+/** One function per page, in order: each renders its page when called. `docs` collects the pdf.js loading tasks, which
+ * the caller must destroy (each runs its own pdf.js worker holding the file). */
+async function pagesOf(files, docs) {
 	const pages = [];
 	for (const file of files) {
 		if (!isPdf(file)) {
@@ -49,7 +52,9 @@ async function pagesOf(files) {
 		let pdf;
 		try {
 			const data = new Uint8Array(await file.arrayBuffer());
-			pdf = await pdfjs.getDocument({ data, wasmUrl: new URL("./pdfjs/wasm/", import.meta.url).href, isEvalSupported: false }).promise;
+			const task = pdfjs.getDocument({ data, wasmUrl: new URL("./pdfjs/wasm/", import.meta.url).href, isEvalSupported: false });
+			docs.push(task);
+			pdf = await task.promise;
 		} catch (e) {
 			throw fail("pdf", `${file.name}: ${e?.message ?? e}`);
 		}
@@ -92,17 +97,27 @@ export async function read(files, FS) {
 		else if (m.type === "error") me.pending?.fail(fail(m.code, m.message));
 		else me.pending?.ok(m);
 	};
-	me.worker.onerror = (e) => me.pending?.fail(fail("read", e.message || "the reader could not start"));
+	// a worker that fails to load fires "error" once, maybe before anything is asked: remember it
+	let broken = null;
+	me.worker.onerror = (e) => {
+		broken ??= fail("read", e.message || "the reader could not start");
+		me.pending?.fail(broken);
+	};
 	const ask = (message, transfer) =>
 		new Promise((ok, failed) => {
+			if (broken) return failed(broken);
 			me.pending = { ok, fail: failed };
 			me.worker.postMessage(message, transfer);
 		});
+	const docs = [];
+	files = [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 	Object.keys(state).forEach((k) => delete state[k]);
 	set({ stage: "open", name: files[0].name, page: 0, pages: 0, ms: 0, upscaled: 0 });
 	try {
-		files = [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-		const pages = await pagesOf(files);
+		try {
+			FS.unlink("/omr/result.musicxml"); // a finished read John hasn't imported yet would be taken for this one
+		} catch {}
+		const pages = await pagesOf(files, docs);
 		set({ pages: pages.length });
 		try {
 			FS.mkdir("/omr");
@@ -111,8 +126,8 @@ export async function read(files, FS) {
 			if (me.cancelled) return;
 			set({ stage: i ? "read" : state.stage, page: i + 1, ratio: 0 });
 			const image = await render();
+			if (me.cancelled) return; // before writing: a newer read may own /omr/original by now
 			if (i === 0) writeOriginal(FS, image);
-			if (me.cancelled) return;
 			const title = i ? null : files[0].name.replace(/\.[^.]*$/, ""); // the song is named after the file
 			const done = await ask({ type: "page", title, image: { data: image.data, width: image.width, height: image.height } }, [image.data.buffer]);
 			set({ ms: state.ms + done.ms, upscaled: state.upscaled + done.upscaled, backend: done.backend, threads: done.threads });
@@ -129,6 +144,7 @@ export async function read(files, FS) {
 		}
 	} finally {
 		me.worker.terminate(); // frees the reader's memory; the next import loads it again from the Cache API
+		for (const task of docs) task.destroy();
 	}
 }
 

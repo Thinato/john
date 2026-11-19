@@ -1111,6 +1111,12 @@ int main() {
     assert((midis == std::vector<int>{66, 65, 65, 73, 78, 66, 73}));
     std::string again = read;
     assert(!checkFirstLineKey(again) && again == read);  // fixed: one key now
+    // a written natural tied into the next bar stays natural there (the tied note has no accidental of its own)
+    std::string tied = score(plain, n("F", 4, 4, "<accidental>natural</accidental><tie type=\"start\"/>") + "</measure><measure number=\"2\">" +
+                                        n("F", 4, 4, "<tie type=\"stop\"/>") + "</measure>" + line2);
+    assert(checkFirstLineKey(tied)->fixed);
+    auto t = importMusicXml(tied).song;
+    assert(nth(t, 0).midi == 65 && nth(t, 1).midi == 65 && nth(t, 0).tie);
     // a repeat where the lines meet changes nothing (Drowsy Maggie's first line is its A part)
     std::string atRepeat = score(plain, line1("<barline location=\"right\"><repeat direction=\"backward\"/></barline>") + line2);
     assert(checkFirstLineKey(atRepeat)->fixed && importMusicXml(atRepeat).song.key.fifths == 2);

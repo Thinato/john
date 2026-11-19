@@ -248,14 +248,17 @@ std::optional<FirstLineKey> checkFirstLineKey(std::string& xml) {
   for (auto part : score.children("part")) {
     auto pm = measures(part);
     for (size_t i = 0; i < line2 && i < pm.size(); i++) {
-      std::set<std::string> written;  // step + octave with a written accidental earlier in the bar: it still holds
+      // step + octave with a written accidental earlier in the bar: it still holds.
+      // ponytail: notes in document order, voice after voice; copisteria carries accidentals left to right across
+      // voices, which differs only in bars with several voices (not whistle tunes)
+      std::set<std::string> written;
       for (auto n : pm[i].children("note")) {
         auto p = n.child("pitch");
         const char* li = p ? strchr("CDEFGAB", p.child_value("step")[0]) : nullptr;
         if (!li || !*li) continue;
         std::string so = std::string(p.child_value("step")) + p.child_value("octave");
         if (n.child("accidental")) written.insert(so);
-        if (written.count(so)) continue;
+        if (written.count(so) || n.find_child_by_attribute("tie", "type", "stop")) continue;  // a tied note keeps its first note's pitch
         int alter = keyAlter(key, int(li - "CDEFGAB"));
         auto a = p.child("alter");
         if (!alter) { p.remove_child(a); continue; }

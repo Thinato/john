@@ -26,11 +26,19 @@ const MAX_SIDE = 4096;
 const at = (file) => new URL(file, import.meta.url).href;
 const post = (message) => self.postMessage(message);
 
+/** fetch(), failing with code "download" (offline, HTTP error) so John shows the download message. */
+async function download(file, init) {
+	const response = await fetch(at(file), init).catch((e) => {
+		throw Object.assign(new Error(`${file}: ${e.message}`), { code: "download" });
+	});
+	if (!response.ok) throw Object.assign(new Error(`${file}: HTTP ${response.status}`), { code: "download" });
+	return response;
+}
+
 /** Fetch a file the reader needs, from the cache when it is there, reporting bytes as they arrive. */
 async function fetchFile(cache, file, size, onBytes) {
 	const cached = await cache?.match(at(file));
-	const response = cached ?? (await fetch(at(file)));
-	if (!response.ok) throw Object.assign(new Error(`${file}: HTTP ${response.status}`), { code: "download" });
+	const response = cached ?? (await download(file));
 	const bytes = new Uint8Array(size);
 	let n = 0;
 	for (const reader = response.body.getReader(); ; ) {
@@ -71,6 +79,7 @@ async function trunkSession(bytes) {
 				if (backend !== "webgpu") throw e;
 				console.warn("John reader: WebGPU run failed, using WASM:", e); // e.g. a page over the GPU's buffer limits
 				backend = "wasm";
+				await session.release().catch(() => {});
 				session = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"] });
 				return session.run(feeds);
 			}
@@ -81,7 +90,7 @@ async function trunkSession(bytes) {
 let reader = null; // { models, meta }, once loaded
 
 async function load() {
-	const manifest = await (await fetch(at("manifest.json"), { cache: "no-cache" })).json();
+	const manifest = await (await download("manifest.json", { cache: "no-cache" })).json();
 	const name = `john-omr-${manifest.version}`;
 	let cache = null;
 	try {
