@@ -249,6 +249,7 @@ ImportResult importAbc(const std::string& abc);
 // reduced to their top note, one key and meter (the first); what is dropped or rounded becomes a warning. Throws when
 // the file can't be read or has no notes.
 ImportResult importMusicXml(const std::string& data);
+inline constexpr size_t MXL_MAX_ENTRY = 64u << 20;  // bigger .mxl entries are refused before unzipping (zip bombs)
 bool isMusicXml(const std::string& data);         // an .mxl (zip) or text with a <score-partwise>/<score-timewise> root
 std::string graceTechnique(const std::vector<int>& graces, int midi);  // grace pitches before a note: cut, tap, roll, double_cut
 // Import MusicXML (isMusicXml) as one song, or every tune (X:) of ABC, as new saved songs: instrument, whistle, harp and

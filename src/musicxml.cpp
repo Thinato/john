@@ -24,9 +24,15 @@ bool isMusicXml(const std::string& d) {
 static std::string unzipMxl(const std::string& zip) {
   mz_zip_archive z{};
   if (!mz_zip_reader_init_mem(&z, zip.data(), zip.size(), 0)) throw std::runtime_error(MXL_ERROR);
+  struct End { mz_zip_archive* z; ~End() { mz_zip_reader_end(z); } } end{&z};  // also when a check throws
+  // miniz inflates into a buffer of the declared size, so checking it is enough: an entry that lies fails instead of growing
   auto extract = [&](const std::string& name) {
+    int i = mz_zip_reader_locate_file(&z, name.c_str(), nullptr, 0);
+    mz_zip_archive_file_stat st;
+    if (i < 0 || !mz_zip_reader_file_stat(&z, (mz_uint)i, &st)) return std::string();
+    if (st.m_uncomp_size > MXL_MAX_ENTRY) throw std::runtime_error("The .mxl file is too large.");
     size_t n = 0;
-    void* p = mz_zip_reader_extract_file_to_heap(&z, name.c_str(), &n, 0);
+    void* p = mz_zip_reader_extract_to_heap(&z, (mz_uint)i, &n, 0);
     std::string s = p ? std::string((const char*)p, n) : "";
     mz_free(p);
     return s;
@@ -43,7 +49,6 @@ static std::string unzipMxl(const std::string& zip) {
     if (n.rfind("META-INF/", 0) != 0 && (ends(".xml") || ends(".musicxml"))) root = n;
   }
   std::string xml = root.empty() ? "" : extract(root);
-  mz_zip_reader_end(&z);
   if (xml.empty()) throw std::runtime_error(MXL_ERROR);
   return xml;
 }

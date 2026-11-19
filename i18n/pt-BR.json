@@ -208,5 +208,6 @@
  "Could not read the MusicXML file.": "Não foi possível ler o arquivo MusicXML.",
  "Timewise MusicXML is not supported: export it as partwise.": "MusicXML timewise não é suportado: exporte como partwise.",
  "Not a MusicXML score.": "Não é uma partitura MusicXML.",
- "No notes found in the first part.": "Nenhuma nota encontrada na primeira parte."
+ "No notes found in the first part.": "Nenhuma nota encontrada na primeira parte.",
+ "The .mxl file is too large.": "O arquivo .mxl é grande demais."
 }

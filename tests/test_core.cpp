@@ -1069,6 +1069,26 @@ int main() {
       try { importMusicXml(bad); } catch (const std::runtime_error&) { threw = true; }
       assert(threw);
     }
+    // zip bomb: an entry one byte over MXL_MAX_ENTRY (spaces, so it zips to a few KB) is refused before unzipping,
+    // whether it is the score the container names or container.xml itself
+    const std::string huge(MXL_MAX_ENTRY + 1, ' ');
+    for (const char* name : {"music/jig.musicxml", "META-INF/container.xml"}) {
+      mz_zip_archive b{};
+      assert(mz_zip_writer_init_heap(&b, 0, 0));
+      if (strcmp(name, "META-INF/container.xml") != 0)
+        assert(mz_zip_writer_add_mem(&b, "META-INF/container.xml", container.data(), container.size(), MZ_DEFAULT_COMPRESSION));
+      assert(mz_zip_writer_add_mem(&b, name, huge.data(), huge.size(), MZ_BEST_SPEED));
+      void* bbuf = nullptr;
+      size_t bsize = 0;
+      assert(mz_zip_writer_finalize_heap_archive(&b, &bbuf, &bsize));
+      const std::string bomb((const char*)bbuf, bsize);
+      mz_free(bbuf);
+      mz_zip_writer_end(&b);
+      assert(bomb.size() < MXL_MAX_ENTRY / 100);
+      std::string err;
+      try { importMusicXml(bomb); } catch (const std::runtime_error& e) { err = e.what(); }
+      assert(err == "The .mxl file is too large.");
+    }
   }
 
   // lessons: installed once, a deleted lesson stays deleted, and every bundled lesson loads
