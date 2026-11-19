@@ -78,7 +78,7 @@ jobs:
       # the image reader (#75) the Pages deploy copies: CMake downloaded and checked its model and runtimes
       - name: Check the image reader files
         run: |
-          for f in coi-serviceworker.js omr/manifest.json omr/worker.js omr/omr.js omr/NOTICE.txt omr/copisteria/write.js \
+          for f in omr/manifest.json omr/worker.js omr/omr.js omr/NOTICE.txt omr/copisteria/write.js \
                    omr/models/copista-2m-trunk.onnx omr/ort/ort.min.mjs omr/ort/ort-wasm-simd-threaded.jsep.wasm omr/pdfjs/pdf.min.mjs; do
             test -s build-web/$f || { echo "missing build-web/$f"; exit 1; }
           done

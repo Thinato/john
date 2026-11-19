@@ -50,7 +50,7 @@ python3 -m http.server -d build-web 8000
 
 Then open <http://localhost:8000/john.html>. Sound starts on the first click; the mic needs `localhost` or HTTPS.
 
-The image reader (`web/omr/`) needs no npm or bundler: at configure time CMake downloads the copista-2m model (its ONNX export on Hugging Face), ONNX Runtime Web and PDF.js at pinned versions and checks their SHA-256, into `build-web/omr/`. `web/coi-serviceworker.js` makes the page cross-origin isolated on hosts without COOP/COEP headers (GitHub Pages), so the reader gets WASM threads; it reloads the page once on the first visit.
+The image reader (`web/omr/`) needs no npm or bundler: at configure time CMake downloads the copista-2m model (its ONNX export on Hugging Face), ONNX Runtime Web and PDF.js at pinned versions and checks their SHA-256, into `build-web/omr/`. Pages sends no COOP/COEP headers, so the reader uses WebGPU where the browser has it and single-threaded WASM otherwise.
 
 ## Use
 
@@ -121,4 +121,4 @@ Dev aid: `JOHN_SNAPSHOT=out.tga ./build/john` renders a few frames, writes the w
 
 MIT, see [LICENSE](LICENSE). Third-party parts (fonts, libraries) keep their own licences.
 
-The web version's image reader is built from copisteria and the copista-2m model by KobiMusic (Apache-2.0; `web/omr/copisteria/` is the JavaScript port from [brunombo/OpticalMusicRecognition](https://github.com/brunombo/OpticalMusicRecognition), MusicOCR's code MIT), ONNX Runtime Web (MIT), PDF.js (Apache-2.0) and coi-serviceworker (MIT). [`web/omr/NOTICE.txt`](web/omr/NOTICE.txt) lists them with their notices and licence files; the site serves it at `omr/NOTICE.txt` (*Licences of the music reader* in the Import song window).
+The web version's image reader is built from copisteria and the copista-2m model by KobiMusic (Apache-2.0; `web/omr/copisteria/` is the JavaScript port from [brunombo/OpticalMusicRecognition](https://github.com/brunombo/OpticalMusicRecognition), MusicOCR's code MIT), ONNX Runtime Web (MIT) and PDF.js (Apache-2.0). [`web/omr/NOTICE.txt`](web/omr/NOTICE.txt) lists them with their notices and licence files; the site serves it at `omr/NOTICE.txt` (*Licences of the music reader* in the Import song window).

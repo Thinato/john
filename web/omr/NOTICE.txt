@@ -33,7 +33,3 @@ ONNX Runtime Web 1.30.0, by Microsoft - MIT licence
 
 PDF.js 6.5.438, by Mozilla - Apache License 2.0
   pdfjs/ (npm package pdfjs-dist, unchanged). Licence: pdfjs/LICENSE. Its image decoders: pdfjs/wasm/LICENSE_*.
-
-coi-serviceworker 0.1.7, by Guido Zuidhof and contributors - MIT licence
-  ../coi-serviceworker.js, modified by MusicOCR and by John (which files it leaves alone). Licence:
-  licenses/coi-serviceworker-MIT.txt.

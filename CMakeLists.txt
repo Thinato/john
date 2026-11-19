@@ -76,7 +76,7 @@ if(EMSCRIPTEN)
   set_target_properties(john PROPERTIES SUFFIX .html LINK_DEPENDS "${CMAKE_SOURCE_DIR}/web/pre.js;${CMAKE_SOURCE_DIR}/web/shell.html")
 
   # Image import (#75): the sheet-music reader is served next to john.html, in omr/. web/omr/ (John's scripts and the
-  # vendored copisteria port) and web/coi-serviceworker.js are copied on every build. The copista-2m model (its ONNX
+  # vendored copisteria port) is copied on every build. The copista-2m model (its ONNX
   # export on Hugging Face), ONNX Runtime Web and pdf.js are downloaded at pinned versions, SHA-256 checked, into
   # downloads/<sha256> (a new pin downloads again). omr/manifest.json lists what the reader caches in the browser.
   set(OMR ${CMAKE_BINARY_DIR}/omr)
@@ -130,8 +130,7 @@ if(EMSCRIPTEN)
   file(WRITE ${OMR}/manifest.json "{\"version\": \"${short}-ort${ORT_VERSION}\", \"files\": {${cached}}}\n")
   add_custom_target(omr ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/web/omr ${OMR}
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/web/coi-serviceworker.js ${CMAKE_BINARY_DIR}
-    COMMENT "Copying the image reader (web/omr, web/coi-serviceworker.js) next to john.html")
+    COMMENT "Copying the image reader (web/omr) next to john.html")
   return()
 endif()
 

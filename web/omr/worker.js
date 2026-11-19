@@ -1,7 +1,8 @@
 // John's sheet-music reader (#75): a module Web Worker started by omr.js. It reads pages with copisteria's JavaScript
 // port (copisteria/, vendored from brunombo/OpticalMusicRecognition, see NOTICE.txt) and the copista-2m networks on
-// ONNX Runtime Web: the detector trunk on WebGPU where it works, everything else on WASM (threads when the page is
-// cross-origin isolated by coi-serviceworker.js). Messages, one at a time:
+// ONNX Runtime Web: the detector trunk on WebGPU where it works, everything else on WASM. GitHub Pages sends no
+// COOP/COEP headers, so the page isn't cross-origin isolated and ONNX Runtime runs WASM on one thread (it checks this
+// itself; coi-serviceworker was tried and dropped, see kb/notes/web-coi-serviceworker-dropped.md). Messages, one at a time:
 //   in:  { type: "page", image: { data, width, height }, title }  (RGBA; several, in page order; the title on the first)
 //                                                                ->  out: { type: "page", ms, upscaled, ... }
 //        { type: "finish" }                                                                ->  out: { type: "result", musicXml }
@@ -58,19 +59,21 @@ const withTimeout = (promise, ms) =>
 	Promise.race([promise, new Promise((_, fail) => setTimeout(() => fail(new Error(`timed out after ${ms} ms`)), ms))]);
 
 let backend = "wasm";
+// errors only: otherwise every WebGPU session logs a console.error warning about shape ops kept on the CPU
+const QUIET = { logSeverityLevel: 3 };
 
 /** The trunk's session: WebGPU when it starts (a stalled driver times out), moving to WASM if a run fails there. */
 async function trunkSession(bytes) {
 	let session = null;
 	if (navigator.gpu) {
 		try {
-			session = await withTimeout(ort.InferenceSession.create(bytes, { executionProviders: ["webgpu", "wasm"] }), 20000);
+			session = await withTimeout(ort.InferenceSession.create(bytes, { ...QUIET, executionProviders: ["webgpu", "wasm"] }), 20000);
 			backend = "webgpu";
 		} catch (e) {
 			console.warn("John reader: WebGPU unusable, using WASM:", e);
 		}
 	}
-	session ??= await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"] });
+	session ??= await ort.InferenceSession.create(bytes, { ...QUIET, executionProviders: ["wasm"] });
 	return {
 		async run(feeds) {
 			try {
@@ -80,7 +83,7 @@ async function trunkSession(bytes) {
 				console.warn("John reader: WebGPU run failed, using WASM:", e); // e.g. a page over the GPU's buffer limits
 				backend = "wasm";
 				await session.release().catch(() => {});
-				session = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"] });
+				session = await ort.InferenceSession.create(bytes, { ...QUIET, executionProviders: ["wasm"] });
 				return session.run(feeds);
 			}
 		},
@@ -112,11 +115,11 @@ async function load() {
 			post({ type: "progress", stage: "download", loaded, total });
 		});
 	post({ type: "progress", stage: "start" });
-	ort.env.logLevel = "error"; // not a warning per session about shape ops kept on the CPU
+	ort.env.logLevel = "error";
 	ort.env.wasm.wasmBinary = bytes["ort/ort-wasm-simd-threaded.jsep.wasm"];
 	ort.env.wasm.wasmPaths = { mjs: at("ort/ort-wasm-simd-threaded.jsep.mjs") };
 	const meta = JSON.parse(new TextDecoder().decode(bytes["models/copista-meta.json"]));
-	const wasm = (file) => ort.InferenceSession.create(bytes[file], { executionProviders: ["wasm"] });
+	const wasm = (file) => ort.InferenceSession.create(bytes[file], { ...QUIET, executionProviders: ["wasm"] });
 	const sessions = {
 		trunk: await trunkSession(bytes["models/copista-2m-trunk.onnx"]),
 		verifier: await wasm("models/copista-2m-verifier.onnx"),
