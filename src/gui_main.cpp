@@ -111,6 +111,8 @@ struct App {
   std::vector<char> abcText = std::vector<char>(1 << 17);  // the paste box (heap: the web's stack is small)
   char abcPath[1024] = "";
   std::string abcError, abcResult;
+  // Import song's instrument (this session only, not saved): "" = Settings' instrument / harp until the user picks one
+  std::string abcInst, abcWhistle = "D", abcHarp;
 #ifdef __EMSCRIPTEN__
   std::vector<Original> originals;              // ponytail: textures live until the page closes; few imports per visit
   std::map<std::string, size_t> originalOf;     // song id -> its original in `originals`
@@ -1203,12 +1205,20 @@ static std::optional<std::string> readText(const fs::path& p) {
   return ss.str();
 }
 
-// Every tune in the ABC, or the MusicXML score (text or .mxl bytes), becomes a song (instrument from Settings, as
-// import_abc); the first one is opened. Returns the new songs' ids.
-static std::vector<std::string> importText(App& a, const std::string& data, const std::string& source) {
+// The instrument the Import song window imports for: the user's pick, else Settings' instrument and harp.
+static Song importLike(const App& a) {
   Song like;
-  like.instrument = a.set.instrument;
-  like.harp = a.set.harp;
+  like.instrument = a.abcInst.empty() ? a.set.instrument : a.abcInst;
+  like.whistle = a.abcWhistle;
+  like.harp = a.abcHarp.empty() ? a.set.harp : a.abcHarp;
+  return like;
+}
+
+// Every tune in the ABC, or the MusicXML score (text or .mxl bytes), becomes a song for the window's instrument
+// (importLike); the first one is opened. A song with many notes out of that instrument's range gets a line pointing to
+// Play in key (#67); nothing is transposed. Returns the new songs' ids.
+static std::vector<std::string> importText(App& a, const std::string& data, const std::string& source) {
+  Song like = importLike(a);
   like.source = source;
   a.abcError.clear();
   a.abcResult.clear();
@@ -1220,6 +1230,11 @@ static std::vector<std::string> importText(App& a, const std::string& data, cons
       a.newestSeen = std::max(a.newestSeen, fs::last_write_time(songPath(x.song.id), ec));  // poll() mustn't follow to the last
       for (auto& w : x.warnings) a.abcResult += "\n" + w;
       ids.push_back(x.song.id);
+      int notes = 0, out = rangeCost(x.song, instrumentOf(x.song), 0).out;
+      for (auto& e : x.song.events) notes += e.kind == Kind::Note;
+      if (out * 10 >= notes && out > 0)  // ponytail: "many" = 10% of the notes; a lone stray note isn't worth a line
+        a.abcResult += "\n" + (r.size() > 1 ? songText(x.song, x.song.title) + ": " : std::string()) +
+                       trf("%d of %d notes are out of the %s's range. To move the song, pick another key in Play in key next to the sheet.", out, notes, instName(instrumentOf(x.song)).c_str());
     }
     a.abcResult = trf("Imported %d song(s).", (int)r.size()) + a.abcResult;
     open(a, r[0].song.id);
@@ -1310,6 +1325,27 @@ static void abcWindow(App& a) {
   ImGui::SetNextWindowBgAlpha(1);
   if (!ImGui::Begin(L("Import song").c_str(), &a.showAbc, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) { ImGui::End(); return; }
   const float w = ImGui::GetFontSize() * 32;
+  // the instrument every import from this window is for; names as in the details panel (instName, keyLabel)
+  const Song like = importLike(a);
+  const Instrument as = instrumentOf(like);
+  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12);
+  if (ImGui::BeginCombo(L("Instrument").c_str(), instName(as).c_str())) {
+    for (auto& id : INSTRUMENTS)
+      if (ImGui::Selectable(instName(findInstrument(id, like.whistle, like.harp).value_or(*findInstrument(id))).c_str(), id == as.id))
+        a.abcInst = id;
+    ImGui::EndCombo();
+  }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("The instrument the sheet is for"));
+  if (as.id == "whistle" || as.id == "harmonica") {
+    const bool whistle = as.id == "whistle";
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5);
+    if (ImGui::BeginCombo(whistle ? L("Whistle key").c_str() : L("Harmonica key").c_str(), keyLabel(whistle ? like.whistle : like.harp).c_str())) {
+      for (auto& k : HARP_KEYS)
+        if (ImGui::Selectable((keyLabel(k) + "###" + k).c_str(), k == (whistle ? like.whistle : like.harp))) (whistle ? a.abcWhistle : a.abcHarp) = k;
+      ImGui::EndCombo();
+    }
+  }
   ImGui::PushTextWrapPos(w);
   ImGui::TextUnformatted(tr("Find tunes on thesession.org or abcnotation.com, copy the ABC and paste it here."));
   ImGui::PopTextWrapPos();

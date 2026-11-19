@@ -187,6 +187,8 @@
 
  "%s harmonica": "Gaita em %s",
  "Harmonica key": "Tom da gaita",
+ "Whistle key": "Tom da flauta",
+ "%d of %d notes are out of the %s's range. To move the song, pick another key in Play in key next to the sheet.": "%d de %d notas estão fora da extensão do instrumento (%s). Para mudar a música de lugar, escolha outro tom em Tocar no tom, ao lado da partitura.",
  "Play in key": "Tocar no tom",
  "%s (original)": "%s (original)",
  "Transposes the song and saves it. Pick the original key to get it back.": "Transpõe a música e a salva. Escolha o tom original para voltar a ele.",

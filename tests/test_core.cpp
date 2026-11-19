@@ -1065,6 +1065,18 @@ int main() {
     auto back = loadSong("test-jig-2");
     assert(back && back->instrument == "violin" && back->source == "jig.mxl" && toJson(*back)["events"] == toJson(abc)["events"]);
     fs::remove(dataDir() / "songs" / "test-jig-2.json");
+    // the viewer's Import song instrument picker (#75 review): the whistle or harp key comes from `like` too
+    for (auto [inst, whistle, harp] : {std::tuple{"whistle", "Bb", "C"}, std::tuple{"harmonica", "D", "G"}}) {
+      Song as;
+      as.instrument = inst;
+      as.whistle = whistle;
+      as.harp = harp;
+      auto got = importSongs("X:1\nT:Picker Test\nK:D\nDEF|\n", as);
+      auto s = loadSong(got[0].song.id);
+      assert(s && s->instrument == inst && s->whistle == whistle && s->harp == harp);
+      assert(instrumentOf(*s).name == (std::string(inst) == "whistle" ? "Bb whistle" : "G harmonica"));
+      fs::remove(dataDir() / "songs" / (got[0].song.id + ".json"));
+    }
     for (const std::string& bad : {std::string("PK\x03\x04 not a zip"), std::string("<score-timewise/>"), score(jigAttrs, "</measure>")}) {
       bool threw = false;
       try { importMusicXml(bad); } catch (const std::runtime_error&) { threw = true; }
