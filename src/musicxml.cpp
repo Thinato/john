@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iterator>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <miniz.h>
 #include <pugixml.hpp>
@@ -212,6 +213,67 @@ ImportResult importMusicXml(const std::string& data) {
     else if (right != "|" && !ev.empty()) ev.back().bar = right;  // a measure with nothing kept: no bar of its own
   }
   if (last < 0) throw std::runtime_error("No notes found in the first part.");
+  return r;
+}
+
+std::optional<FirstLineKey> checkFirstLineKey(std::string& xml) {
+  pugi::xml_document doc;
+  if (!doc.load_buffer(xml.data(), xml.size())) return std::nullopt;
+  auto score = doc.child("score-partwise");
+  auto measures = [](pugi::xml_node part) { return std::vector<pugi::xml_node>(part.children("measure").begin(), part.children("measure").end()); };
+  auto ms = measures(score.child("part"));
+  std::vector<std::pair<size_t, int>> keys;  // (measure, fifths) where the key changes
+  size_t line2 = 0;                          // the second line's first measure
+  for (size_t i = 0; i < ms.size(); i++) {
+    for (auto a : ms[i].children("attributes"))
+      if (auto k = a.child("key"); k && (keys.empty() || keys.back().second != k.child("fifths").text().as_int()))
+        keys.push_back({i, k.child("fifths").text().as_int()});
+    for (auto p : ms[i].children("print"))
+      if (i && !line2 && (p.attribute("new-system").as_bool() || p.attribute("new-page").as_bool())) line2 = i;
+  }
+  if (keys.size() != 2 || keys[0].first != 0 || !line2 || keys[1].first != line2) return std::nullopt;
+  FirstLineKey r{keys[0].second, keys[1].second, false};
+  const Key key{r.rest, "maj"};
+  // A written sharp (flat) on line 1 on a note the later key sharpens (flattens) means that line really has no key
+  // signature, since with one printed it wouldn't need it: the key changes for real, leave it.
+  bool real = false;
+  for (size_t i = 0; i < line2; i++)
+    for (auto n : ms[i].children("note")) {
+      auto p = n.child("pitch");
+      const char* li = p ? strchr("CDEFGAB", p.child_value("step")[0]) : nullptr;
+      int alter = p.child("alter").text().as_int();
+      real |= li && *li && n.child("accidental") && alter && alter == keyAlter(key, int(li - "CDEFGAB"));
+    }
+  if (r.first != 0 || real) return r;
+  for (auto part : score.children("part")) {
+    auto pm = measures(part);
+    for (size_t i = 0; i < line2 && i < pm.size(); i++) {
+      // step + octave with a written accidental earlier in the bar: it still holds.
+      // ponytail: notes in document order, voice after voice; copisteria carries accidentals left to right across
+      // voices, which differs only in bars with several voices (not whistle tunes)
+      std::set<std::string> written;
+      for (auto n : pm[i].children("note")) {
+        auto p = n.child("pitch");
+        const char* li = p ? strchr("CDEFGAB", p.child_value("step")[0]) : nullptr;
+        if (!li || !*li) continue;
+        std::string so = std::string(p.child_value("step")) + p.child_value("octave");
+        if (n.child("accidental")) written.insert(so);
+        if (written.count(so) || n.find_child_by_attribute("tie", "type", "stop")) continue;  // a tied note keeps its first note's pitch
+        int alter = keyAlter(key, int(li - "CDEFGAB"));
+        auto a = p.child("alter");
+        if (!alter) { p.remove_child(a); continue; }
+        if (!a) a = p.insert_child_after("alter", p.child("step"));
+        a.text().set(alter);
+      }
+    }
+    if (!pm.empty())
+      for (auto a : pm[0].children("attributes"))
+        if (auto f = a.child("key").child("fifths")) f.text().set(r.rest);
+  }
+  std::ostringstream os;
+  doc.save(os, "", pugi::format_raw);
+  xml = os.str();
+  r.fixed = true;
   return r;
 }
 
