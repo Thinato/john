@@ -1144,7 +1144,7 @@ static void importWindow(App& a) {
 EM_JS(void, pickAbcFile, (), {
   var input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.abc,.txt,text/plain';
+  input.accept = '.abc,.txt,text/plain,.musicxml,.xml,.mxl';
   input.onchange = async function() {
     var f = input.files[0];
     if (!f) return;
@@ -1164,8 +1164,9 @@ static std::optional<std::string> readText(const fs::path& p) {
   return ss.str();
 }
 
-// Every tune in the ABC becomes a song (instrument from Settings, as import_abc); the first one is opened.
-static void importAbcText(App& a, const std::string& abc, const std::string& source) {
+// Every tune in the ABC, or the MusicXML score (text or .mxl bytes), becomes a song (instrument from Settings, as
+// import_abc); the first one is opened.
+static void importText(App& a, const std::string& data, const std::string& source) {
   Song like;
   like.instrument = a.set.instrument;
   like.harp = a.set.harp;
@@ -1173,7 +1174,7 @@ static void importAbcText(App& a, const std::string& abc, const std::string& sou
   a.abcError.clear();
   a.abcResult.clear();
   try {
-    auto r = importAbcSongs(abc, like);  // saveSong() calls persist() on the web
+    auto r = importSongs(data, like);  // saveSong() calls persist() on the web
     std::error_code ec;
     for (auto& x : r) {
       a.newestSeen = std::max(a.newestSeen, fs::last_write_time(songPath(x.song.id), ec));  // poll() mustn't follow to the last
@@ -1188,15 +1189,16 @@ static void importAbcText(App& a, const std::string& abc, const std::string& sou
 }
 
 #ifndef __EMSCRIPTEN__
-static void importAbcFile(App& a) {
+static void importFile(App& a) {
   std::error_code ec;
   auto text = fs::is_regular_file(a.abcPath, ec) ? readText(a.abcPath) : std::nullopt;
-  if (text) importAbcText(a, *text, fs::path(a.abcPath).filename().string());
+  if (text) importText(a, *text, fs::path(a.abcPath).filename().string());
   else { a.abcResult.clear(); a.abcError = tr("File not found."); }
 }
 #endif
 
-// Import song: paste ABC, or open a file (web: browser file picker; desktop: a path, or drop an .abc file on the window).
+// Import song: paste ABC, or open an ABC or MusicXML file (web: browser file picker; desktop: a path, or drop the file on
+// the window).
 static void abcWindow(App& a) {
 #ifdef __EMSCRIPTEN__
   std::error_code ec;
@@ -1205,17 +1207,17 @@ static void abcWindow(App& a) {
   for (auto& p : picked) {
     auto text = readText(p);
     fs::remove(p, ec);
-    if (text) importAbcText(a, *text, p.filename().string());
+    if (text) importText(a, *text, p.filename().string());
   }
 #else
-  if (!gDropped.empty()) {  // .abc only: anything else stays for Import audio
+  if (!gDropped.empty()) {  // ABC and MusicXML only: anything else stays for Import audio
     std::string ext = fs::path(gDropped).extension().string();
     for (auto& c : ext) c = (char)tolower((unsigned char)c);
-    if (ext == ".abc") {
+    if (ext == ".abc" || ext == ".musicxml" || ext == ".xml" || ext == ".mxl") {
       snprintf(a.abcPath, sizeof a.abcPath, "%s", gDropped.c_str());
       gDropped.clear();
       a.showAbc = true;
-      importAbcFile(a);
+      importFile(a);
     }
   }
 #endif
@@ -1229,18 +1231,20 @@ static void abcWindow(App& a) {
   ImGui::PopTextWrapPos();
   ImGui::InputTextMultiline("##abc", a.abcText.data(), a.abcText.size(), {w, ImGui::GetTextLineHeight() * 14});
   if (ImGui::Button(L("Import").c_str())) {
-    importAbcText(a, a.abcText.data(), tr("pasted"));
+    importText(a, a.abcText.data(), tr("pasted"));
     if (a.abcError.empty()) a.abcText[0] = 0;
   }
   ImGui::SameLine();
 #ifdef __EMSCRIPTEN__
   if (ImGui::Button(L("Open a file...").c_str())) pickAbcFile();
+  ImGui::SameLine();
+  ImGui::TextDisabled("%s", tr("ABC or MusicXML (.musicxml, .mxl)"));
 #else
-  ImGui::TextUnformatted(tr("or drop an .abc file on the window, or type its path:"));
+  ImGui::TextUnformatted(tr("or drop an ABC or MusicXML file on the window, or type its path:"));
   ImGui::SetNextItemWidth(w - ImGui::CalcTextSize(tr("Open")).x - ImGui::GetStyle().FramePadding.x * 2 - ImGui::GetStyle().ItemSpacing.x);
   ImGui::InputText("##abcPath", a.abcPath, sizeof a.abcPath);
   ImGui::SameLine();
-  if (ImGui::Button(L("Open").c_str())) importAbcFile(a);
+  if (ImGui::Button(L("Open").c_str())) importFile(a);
 #endif
   ImGui::PushTextWrapPos(w);
   if (!a.abcError.empty()) ImGui::TextColored({1, 0.4f, 0.4f, 1}, "%s", a.abcError.c_str());
@@ -1379,7 +1383,7 @@ int main() {
     }
     ImGui::SliderFloat(L("Zoom").c_str(), &a.set.zoom, 6, 16, "%.0f");
     if (ImGui::Button(L("Import song").c_str())) a.showAbc = !a.showAbc;
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Add songs from ABC notation: paste it or open a file"));
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Add songs from ABC notation or MusicXML: paste ABC or open a file"));
     if (ImGui::Button(L("Settings").c_str())) a.showSettings = !a.showSettings;
 #ifndef __EMSCRIPTEN__  // the web keeps songs in the browser (IndexedDB) and has no transcription
     ImGui::SameLine();
@@ -1411,7 +1415,7 @@ int main() {
     }
     ImGui::End();
     settingsWindow(a);
-    abcWindow(a);  // before importWindow: takes dropped .abc files
+    abcWindow(a);  // before importWindow: takes dropped ABC and MusicXML files
 #ifndef __EMSCRIPTEN__
     importWindow(a);
 #endif

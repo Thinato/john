@@ -11,6 +11,7 @@
 #include <regex>
 #include <set>
 #include <stdexcept>
+#include <miniz.h>
 #ifdef _WIN32
 #define setenv(k, v, overwrite) _putenv_s(k, v)
 #define unsetenv(k) _putenv_s(k, "")
@@ -974,18 +975,120 @@ int main() {
     like.instrument = "violin";
     like.source = "tunes.abc";
     const char* abc = "%abc-2.1\nL:1/4\n\nX:1\nT:Same\nK:G\nGABc|\n\nX:2\nT:Same\nM:3/4\nK:D\nd2e|f3|\nX:3\nT:Nothing\nK:D\n";
-    auto r = importAbcSongs(abc, like);
+    auto r = importSongs(abc, like);
     assert(r.size() == 2 && r[0].song.id == "same" && r[1].song.id == "same-2");
     auto a1 = loadSong("same"), a2 = loadSong("same-2");
     assert(a1 && a2 && a1->instrument == "violin" && a2->source == "tunes.abc" && a2->meter == "3/4");
     assert(a1->events[0].len == WHOLE / 4 && a2->key.fifths == 2);  // L:1/4 from the file header
     assert(std::find(r[0].warnings.begin(), r[0].warnings.end(), "Nothing: no K: line or no notes, not imported") != r[0].warnings.end());
     like.id = "mine";
-    assert(importAbcSongs("T:Pasted\nK:D\nDEF|", like)[0].song.id == "mine");  // no X:: the whole text is one tune
+    assert(importSongs("T:Pasted\nK:D\nDEF|", like)[0].song.id == "mine");  // no X:: the whole text is one tune
     bool threw = false;
-    try { importAbcSongs("just some words\n", like); } catch (const std::runtime_error&) { threw = true; }
+    try { importSongs("just some words\n", like); } catch (const std::runtime_error&) { threw = true; }
     assert(threw);
     for (auto id : {"same", "same-2", "mine"}) fs::remove(dataDir() / "songs" / (std::string(id) + ".json"));
+  }
+
+  // #73: MusicXML. A score written by hand gives the same events as the same tune in ABC: repeat, grace cut, triplet,
+  // rest, tie, 1st/2nd endings (divisions 6 per quarter: eighth 3, triplet eighth 2)
+  {
+    auto score = [](const std::string& attrs, const std::string& measures, const std::string& moreParts = "") {
+      return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE score-partwise PUBLIC \"-//Recordare//DTD MusicXML 4.0 Partwise//EN\" "
+             "\"http://www.musicxml.org/dtds/partwise.dtd\">\n<score-partwise version=\"4.0\"><work><work-title>Test Jig</work-title></work>"
+             "<identification><creator type=\"composer\">Trad.</creator></identification><part-list><score-part id=\"P1\"/></part-list>"
+             "<part id=\"P1\"><measure number=\"1\"><attributes>" + attrs + "</attributes>" + measures + "</part>" + moreParts + "</score-partwise>";
+    };
+    auto n = [](const char* step, int oct, int dur, const std::string& extra = "", int alter = 0) {
+      return std::string("<note><pitch><step>") + step + "</step>" + (alter ? "<alter>" + std::to_string(alter) + "</alter>" : "") +
+             "<octave>" + std::to_string(oct) + "</octave></pitch><duration>" + std::to_string(dur) + "</duration><voice>1</voice>" + extra + "</note>";
+    };
+    const std::string trip = "<time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>";
+    const std::string jigAttrs = "<divisions>6</divisions><key><fifths>2</fifths></key><time><beats>6</beats><beat-type>8</beat-type></time>";
+    const std::string jig =
+        "<barline location=\"left\"><repeat direction=\"forward\"/></barline>" + n("A", 4, 9) +
+        "<note><grace/><pitch><step>G</step><octave>5</octave></pitch><voice>1</voice></note>" + n("A", 4, 3) + n("F", 4, 3, "", 1) + n("A", 4, 3) +
+        "</measure><measure number=\"2\">" + n("E", 5, 2, trip + "<notations><tuplet type=\"start\"/></notations>") + n("F", 5, 2, trip, 1) +
+        n("G", 5, 2, trip + "<notations><tuplet type=\"stop\"/></notations>") + n("A", 5, 9) + "<note><rest/><duration>3</duration><voice>1</voice></note>" +
+        "</measure><measure number=\"3\"><barline location=\"left\"><ending number=\"1\" type=\"start\"/></barline>" + n("D", 5, 9, "<tie type=\"start\"/>") +
+        n("D", 5, 6, "<tie type=\"stop\"/>") +
+        "<barline location=\"right\"><ending number=\"1\" type=\"stop\"/><repeat direction=\"backward\"/></barline></measure>"
+        "<measure number=\"4\"><barline location=\"left\"><ending number=\"2\" type=\"start\"/></barline>" + n("D", 5, 9) + n("D", 5, 6) + n("B", 4, 3) +
+        "<barline location=\"right\"><bar-style>light-light</bar-style><ending number=\"2\" type=\"discontinue\"/></barline></measure>";
+    auto x = importMusicXml(score(jigAttrs, jig));
+    Song abc = importAbc("X:1\nT:Test Jig\nM:6/8\nL:1/8\nK:D\n|:A3 {g}AFA|(3efg a3 z|1 d3- d2:|2 d3 d2B||\n").song;
+    assert(x.warnings.empty() && x.song.title == "Test Jig" && x.song.source == "Trad." && x.song.meter == "6/8");
+    assert(x.song.key.fifths == 2 && x.song.key.mode == "maj");
+    assert(toJson(x.song)["events"] == toJson(abc)["events"]);
+    assert(playOrder(x.song) == playOrder(abc));
+
+    // key with a mode, tempo, breath mark, a chord (top note kept), voice 2 and a second part dropped, a key change
+    // ignored, a length off John's grid (divisions 5: a fifth of a quarter is 9.6 ticks), all with warnings
+    auto w = importMusicXml(score("<divisions>5</divisions><key><fifths>2</fifths><mode>dorian</mode></key><time symbol=\"common\"><beats>4</beats><beat-type>4</beat-type></time>",
+        "<direction><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>90</per-minute></metronome></direction-type></direction>" +
+        n("E", 4, 5, "<notations><articulations><breath-mark/></articulations></notations>") + n("G", 4, 5) + n("B", 4, 5, "<chord/>") +
+        n("C", 5, 4, "", 1) + n("D", 5, 1) + n("E", 5, 5) + "<backup><duration>20</duration></backup>" +
+        "<note><pitch><step>C</step><octave>3</octave></pitch><duration>20</duration><voice>2</voice></note></measure>"
+        "<measure number=\"2\"><attributes><key><fifths>-1</fifths></key></attributes>" + n("E", 4, 20) + "</measure>",
+        "<part id=\"P2\"><measure number=\"1\"><attributes><divisions>1</divisions></attributes>" + n("C", 2, 4) + "</measure></part>"));
+    const Song& ws = w.song;
+    assert(ws.key.fifths == 2 && ws.key.mode == "dor" && keyName(ws.key) == "E dorian" && ws.meter == "C" && ws.tempo == 90);
+    assert(nth(ws, 0).techniques == std::vector<std::string>{"breath"} && nth(ws, 1).midi == 71 && nth(ws, 2).midi == 73);
+    assert(nth(ws, 0).len == 48 && nth(ws, 3).len == 10 && nth(ws, 5).midi == 64 && nth(ws, 5).len == WHOLE);
+    for (auto& e : ws.events) assert(e.kind != Kind::Note || e.midi > 60);  // nothing from voice 2 or part 2
+    auto has = [&](const char* m) { return std::find(w.warnings.begin(), w.warnings.end(), m) != w.warnings.end(); };
+    assert(has("chords reduced to their top note") && has("only the first voice was imported, other voices dropped"));
+    assert(has("only the first part was imported, 1 other part(s) dropped") && has("key change ignored (one key per song)"));
+    assert(has("note lengths that don't fit John's timing grid (1/192 of a whole note) were rounded") && w.warnings.size() == 5);
+
+    // .mxl: zipped, the score in a folder named by META-INF/container.xml; importSongs() saves it like ABC
+    const std::string xml = score(jigAttrs, jig);
+    mz_zip_archive z{};
+    assert(mz_zip_writer_init_heap(&z, 0, 0));
+    const std::string container = "<?xml version=\"1.0\"?><container><rootfiles><rootfile full-path=\"music/jig.musicxml\"/></rootfiles></container>";
+    assert(mz_zip_writer_add_mem(&z, "mimetype", "application/vnd.recordare.musicxml", 34, MZ_NO_COMPRESSION));
+    assert(mz_zip_writer_add_mem(&z, "META-INF/container.xml", container.data(), container.size(), MZ_DEFAULT_COMPRESSION));
+    assert(mz_zip_writer_add_mem(&z, "music/jig.musicxml", xml.data(), xml.size(), MZ_DEFAULT_COMPRESSION));
+    void* buf = nullptr;
+    size_t size = 0;
+    assert(mz_zip_writer_finalize_heap_archive(&z, &buf, &size));
+    const std::string mxl((const char*)buf, size);
+    mz_free(buf);
+    mz_zip_writer_end(&z);
+    assert(isMusicXml(mxl) && isMusicXml(xml) && !isMusicXml("X:1\nT:a\nK:D\nABc|"));
+    assert(toJson(importMusicXml(mxl).song) == toJson(x.song));
+    Song like;
+    like.instrument = "violin";
+    like.source = "jig.mxl";
+    auto saved = importSongs(mxl, like);
+    assert(saved.size() == 1 && saved[0].song.id == "test-jig-2");  // "test-jig" is taken
+    auto back = loadSong("test-jig-2");
+    assert(back && back->instrument == "violin" && back->source == "jig.mxl" && toJson(*back)["events"] == toJson(abc)["events"]);
+    fs::remove(dataDir() / "songs" / "test-jig-2.json");
+    for (const std::string& bad : {std::string("PK\x03\x04 not a zip"), std::string("<score-timewise/>"), score(jigAttrs, "</measure>")}) {
+      bool threw = false;
+      try { importMusicXml(bad); } catch (const std::runtime_error&) { threw = true; }
+      assert(threw);
+    }
+    // zip bomb: an entry one byte over MXL_MAX_ENTRY (spaces, so it zips to a few KB) is refused before unzipping,
+    // whether it is the score the container names or container.xml itself
+    const std::string huge(MXL_MAX_ENTRY + 1, ' ');
+    for (const char* name : {"music/jig.musicxml", "META-INF/container.xml"}) {
+      mz_zip_archive b{};
+      assert(mz_zip_writer_init_heap(&b, 0, 0));
+      if (strcmp(name, "META-INF/container.xml") != 0)
+        assert(mz_zip_writer_add_mem(&b, "META-INF/container.xml", container.data(), container.size(), MZ_DEFAULT_COMPRESSION));
+      assert(mz_zip_writer_add_mem(&b, name, huge.data(), huge.size(), MZ_BEST_SPEED));
+      void* bbuf = nullptr;
+      size_t bsize = 0;
+      assert(mz_zip_writer_finalize_heap_archive(&b, &bbuf, &bsize));
+      const std::string bomb((const char*)bbuf, bsize);
+      mz_free(bbuf);
+      mz_zip_writer_end(&b);
+      assert(bomb.size() < MXL_MAX_ENTRY / 100);
+      std::string err;
+      try { importMusicXml(bomb); } catch (const std::runtime_error& e) { err = e.what(); }
+      assert(err == "The .mxl file is too large.");
+    }
   }
 
   // lessons: installed once, a deleted lesson stays deleted, and every bundled lesson loads

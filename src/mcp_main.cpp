@@ -1,7 +1,9 @@
 // john-mcp: MCP server (stdio, newline-delimited JSON-RPC) exposing the tin whistle tools to an agent.
 #include "john.hpp"
 #include <algorithm>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <set>
 #include <sstream>
@@ -14,9 +16,10 @@ using namespace john;
 
 static const char* GUIDE = R"(John turns tunes into tin whistle tab sheets with technique markings. Songs are saved to the John data folder and appear live in the John GUI (staff + fingering charts + technique symbols).
 
-Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica (diatonic, with a harp key: G..B harps sit below C, Db..F# above)). Pass it to import_abc / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts and the technique candidates are for the tin whistle. Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch.
+Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica (diatonic, with a harp key: G..B harps sit below C, Db..F# above)). Pass it to import_abc / import_musicxml / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts and the technique candidates are for the tin whistle. Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch.
 
-Getting a tune into John (always via ABC -> import_abc, with instrument = what the user will play it on; the song list shows it and list_songs filters by it):
+Getting a tune into John (via ABC -> import_abc, with instrument = what the user will play it on; the song list shows it and list_songs filters by it):
+- MusicXML file (.musicxml, .xml or zipped .mxl, exported by MuseScore, Finale, Sibelius, flat.io or an optical music reader): import_musicxml with path (same options as import_abc). Read its warnings: only the first part and voice are kept, chords keep the top note. Then check get_song.
 - Photo/PDF of sheet music: read the image and transcribe it to ABC carefully (K: key signature, M: meter, L: unit, every bar). After importing, compare get_song bar by bar against the image.
 - thesession.org: curl -s 'https://thesession.org/tunes/search?q=NAME&format=json', then curl -s 'https://thesession.org/tunes/ID?format=json'. Each settings[] item has an "abc" body (a lone "!" is a line break) and "key" like "Dmajor". Add headers yourself: X:1, T:name, M: from the tune type (reel/hornpipe/barndance/strathspey 4/4, jig 6/8, slip jig 9/8, slide 12/8, polka 2/4, waltz/mazurka 3/4, three-two 3/2), L:1/8, K:key. Pass source = the setting URL.
 - Audio file (mp3/wav/flac): transcribe_audio gives a draft ABC plus a report. The draft is a machine guess (detected meter, sixteenths with (3 eighth triplets where they fit, the loudest pitched line); you are the musician who turns it into a sheet. Review it before importing:
@@ -76,6 +79,19 @@ static json toolList() {
             {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
             {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}},
            {"abc"}),
+      tool("import_musicxml",
+           "Create a song from a MusicXML file (.musicxml, .xml, or zipped .mxl, as MuseScore, Finale, Sibelius or flat.io export it; "
+           "optical music readers such as Audiveris output it too). Takes the first part's first voice; chords keep their top note, grace notes become cuts/taps. "
+           "Returns warnings (what was dropped or rounded) and the note listing. Same options as import_abc.",
+           {{"path", {{"type", "string"}, {"description", "absolute path (or ~/...) to the .musicxml, .xml or .mxl file"}}},
+            {"xml", {{"type", "string"}, {"description", "the MusicXML text itself, instead of a path"}}},
+            {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
+            {"source", {{"type", "string"}, {"description", "where the score came from; default the composer in the file"}}},
+            {"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "instrument the song is for, default: the one chosen in John's Settings (whistle unless changed)"}}},
+            {"whistle", {{"type", "string"}, {"description", "whistle key, default D"}}},
+            {"harp", {{"type", "string"}, {"enum", HARP_KEYS}, {"description", "harmonica key, default: the one chosen in John's Settings (C unless changed)"}}},
+            {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
+            {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}}),
       tool("get_song",
            "Show a song as a table: event index, bar, beat, note, length, whistle fingering (X covered, O open, H half, + upper octave; other instruments: out-of-range marks), techniques, comment.",
            {{"id", str}}, {"id"}),
@@ -172,7 +188,7 @@ static std::string callTool(const std::string& name, const json& a) {
     if (r.empty() && !inst.empty()) return "No songs for instrument '" + inst + "'.";
     return r.empty() ? "No songs yet. Data folder: " + dataDir().string() : r;
   }
-  if (name == "import_abc") {
+  if (name == "import_abc" || name == "import_musicxml") {
     Song like;
     like.id = a.value("id", "");
     like.source = a.value("source", "");
@@ -181,8 +197,20 @@ static std::string callTool(const std::string& name, const json& a) {
     like.harp = a.value("harp", loadSettings().harp);
     like.folder = a.value("folder", "");
     checkInstrument(like);
+    std::string data = a.value("abc", "");
+    if (name == "import_musicxml") {
+      std::string path = a.value("path", "");
+      if (path.rfind("~/", 0) == 0) path = homeDir() + path.substr(1);
+      data = a.value("xml", "");
+      if (!path.empty()) {
+        std::ifstream f(fs::path(path), std::ios::binary);
+        if (!f) throw std::runtime_error("cannot read " + path);
+        data.assign(std::istreambuf_iterator<char>(f), {});
+      }
+      if (!isMusicXml(data)) throw std::runtime_error("not MusicXML: pass path (a .musicxml, .xml or .mxl file) or xml (text with a <score-partwise> root)");
+    }
     std::string out;
-    for (auto& ir : importAbcSongs(a.value("abc", ""), like, a.value("overwrite", false))) {
+    for (auto& ir : importSongs(data, like, a.value("overwrite", false))) {
       out += (out.empty() ? "" : "\n") + std::string("Saved as '") + ir.song.id + "'.\n";
       for (auto& x : ir.warnings) out += "warning: " + x + "\n";
       out += "\n" + listing(ir.song);
