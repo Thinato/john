@@ -36,10 +36,12 @@ jobs:
       - name: Build
         run: cmake --build build-web --parallel
 
+      # omr/: the image reader (#75), with its model, runtimes and licences (downloaded and checked by CMake)
       - name: Collect the site (john.html served as index.html)
         run: |
           mkdir site
-          cp build-web/john.js build-web/john.wasm build-web/john.data site/
+          cp build-web/john.js build-web/john.wasm build-web/john.data build-web/coi-serviceworker.js site/
+          cp -R build-web/omr site/
           cp build-web/john.html site/index.html
 
       - uses: actions/configure-pages@v6

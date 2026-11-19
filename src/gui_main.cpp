@@ -78,6 +78,10 @@ static Value valueOf(const Event& e) {
 static int beamCount(int base) { return base == 24 ? 1 : base == 12 ? 2 : base == 6 ? 3 : 0; }
 
 // ---------------- app state ----------------
+#ifdef __EMSCRIPTEN__
+// The first page of an image import (#75), shown next to the sheet to compare. Kept until the page is closed.
+struct Original { GLuint tex = 0; int w = 0, h = 0; };
+#endif
 struct App {
   std::vector<std::string> ids;
   struct Meta { fs::file_time_type mtime{}; std::string folder, title; Instrument in; };
@@ -107,6 +111,12 @@ struct App {
   std::vector<char> abcText = std::vector<char>(1 << 17);  // the paste box (heap: the web's stack is small)
   char abcPath[1024] = "";
   std::string abcError, abcResult;
+#ifdef __EMSCRIPTEN__
+  std::vector<Original> originals;              // ponytail: textures live until the page closes; few imports per visit
+  std::map<std::string, size_t> originalOf;     // song id -> its original in `originals`
+  bool showOriginal = true;                     // the original instead of the details panel, for songs that have one
+  float originalZoom = 1;
+#endif
   char comment[2048] = "";
   double lastPoll = -10;
 
@@ -1139,21 +1149,50 @@ static void importWindow(App& a) {
 #endif
 
 #ifdef __EMSCRIPTEN__
-// Browser file picker: the chosen file is written to /picked/<name> (memory, not IndexedDB); abcWindow() imports it on
-// the next frame. Called from an ImGui button, which runs within the click's user activation the browser requires.
-EM_JS(void, pickAbcFile, (), {
+// Browser file picker. ABC and MusicXML files are written to /picked/<name> (memory, not IndexedDB); abcWindow()
+// imports them on the next frame. Images and PDFs go to the sheet-music reader (web/omr/omr.js, #75), which reads them
+// next to this module and writes /omr/result.musicxml and /omr/original when done. Called from an ImGui button, which
+// runs within the click's user activation the browser requires.
+EM_JS(void, pickFile, (), {
   var input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.abc,.txt,text/plain,.musicxml,.xml,.mxl';
+  input.multiple = true;
+  input.accept = '.abc,.txt,text/plain,.musicxml,.xml,.mxl,image/*,.heic,.heif,.pdf,application/pdf';
   input.onchange = async function() {
-    var f = input.files[0];
-    if (!f) return;
-    var data = new Uint8Array(await f.arrayBuffer());
-    try { FS.mkdir('/picked'); } catch (e) {}
-    FS.writeFile('/picked/' + f.name, data);
+    var exts = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'heic', 'heif', 'avif'];  // no regexes: EM_JS is a C string
+    var picture = (f) => f.type.startsWith('image/') || f.type == 'application/pdf' || exts.includes(f.name.split('.').pop().toLowerCase());
+    var files = Array.from(input.files);
+    for (var f of files.filter((f) => !picture(f))) {
+      var data = new Uint8Array(await f.arrayBuffer());
+      try { FS.mkdir('/picked'); } catch (e) {}
+      FS.writeFile('/picked/' + f.name, data);
+    }
+    var pictures = files.filter(picture);
+    if (pictures.length) (await import('./omr/omr.js')).read(pictures, FS);
   };
   input.click();
 });
+EM_JS_DEPS(omr, "$stringToNewUTF8");
+// The reader's state as JSON (omr.js `state`: stage idle/open/download/start/read/done/error, ...); free() it.
+EM_JS(char*, omrState, (), { return stringToNewUTF8(JSON.stringify(globalThis.johnOmr ? globalThis.johnOmr.state : {stage: 'idle'})); });
+EM_JS(void, omrCancel, (), { if (globalThis.johnOmr) globalThis.johnOmr.cancel(); });  // stop, and back to idle
+
+static std::optional<Original> loadOriginal(const std::string& bytes) {  // width, height (uint32 LE), RGBA
+  uint32_t w = 0, h = 0;
+  if (bytes.size() < 8) return std::nullopt;
+  memcpy(&w, bytes.data(), 4);
+  memcpy(&h, bytes.data() + 4, 4);
+  if (!w || !h || bytes.size() != 8 + (size_t)w * h * 4) return std::nullopt;
+  Original o{0, (int)w, (int)h};
+  glGenTextures(1, &o.tex);
+  glBindTexture(GL_TEXTURE_2D, o.tex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, o.w, o.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, bytes.data() + 8);
+  return o;
+}
 #endif
 
 static std::optional<std::string> readText(const fs::path& p) {
@@ -1165,20 +1204,22 @@ static std::optional<std::string> readText(const fs::path& p) {
 }
 
 // Every tune in the ABC, or the MusicXML score (text or .mxl bytes), becomes a song (instrument from Settings, as
-// import_abc); the first one is opened.
-static void importText(App& a, const std::string& data, const std::string& source) {
+// import_abc); the first one is opened. Returns the new songs' ids.
+static std::vector<std::string> importText(App& a, const std::string& data, const std::string& source) {
   Song like;
   like.instrument = a.set.instrument;
   like.harp = a.set.harp;
   like.source = source;
   a.abcError.clear();
   a.abcResult.clear();
+  std::vector<std::string> ids;
   try {
     auto r = importSongs(data, like);  // saveSong() calls persist() on the web
     std::error_code ec;
     for (auto& x : r) {
       a.newestSeen = std::max(a.newestSeen, fs::last_write_time(songPath(x.song.id), ec));  // poll() mustn't follow to the last
       for (auto& w : x.warnings) a.abcResult += "\n" + w;
+      ids.push_back(x.song.id);
     }
     a.abcResult = trf("Imported %d song(s).", (int)r.size()) + a.abcResult;
     open(a, r[0].song.id);
@@ -1186,7 +1227,33 @@ static void importText(App& a, const std::string& data, const std::string& sourc
   } catch (const std::exception& e) {
     a.abcError = tr(std::string(e.what()));
   }
+  return ids;
 }
+
+#ifdef __EMSCRIPTEN__
+// The image reader is done (omr.js wrote /omr/result.musicxml): check the first line's key (checkFirstLineKey), import
+// the score and keep the first page to show next to the new songs.
+static void importRead(App& a, std::string xml, const json& state) {
+  auto key = checkFirstLineKey(xml);
+  auto ids = importText(a, xml, state.value("name", ""));
+  if (ids.empty()) return;
+  auto sig = [](int fifths) { return keyName(Key{fifths, "maj"}); };
+  if (key && key->fixed)
+    a.abcResult += "\n" + trf("The first line had no key signature but the rest is in %s, so John used that key for the first line too. Check it against the original.", sig(key->rest).c_str());
+  else if (key)
+    a.abcResult += "\n" + trf("The first line is in %s but the rest is in %s. Check the key against the original.", sig(key->first).c_str(), sig(key->rest).c_str());
+  if (state.value("upscaled", 0) > 0) a.abcResult += "\n" + std::string(tr("The image was small, so John enlarged it 2x before reading."));
+  a.abcResult += "\n" + trf("Read %d page(s) in %.1f s.", state.value("pages", 1), state.value("ms", 0) / 1000.0);
+  auto px = readText("/omr/original");
+  std::error_code ec;
+  fs::remove("/omr/original", ec);
+  if (auto o = px ? loadOriginal(*px) : std::nullopt) {
+    a.originals.push_back(*o);
+    for (auto& id : ids) a.originalOf[id] = a.originals.size() - 1;
+    a.showOriginal = true;
+  }
+}
+#endif
 
 #ifndef __EMSCRIPTEN__
 static void importFile(App& a) {
@@ -1208,6 +1275,23 @@ static void abcWindow(App& a) {
     auto text = readText(p);
     fs::remove(p, ec);
     if (text) importText(a, *text, p.filename().string());
+  }
+  json omr = json::parse(std::unique_ptr<char, decltype(&free)>(omrState(), free).get());
+  const std::string stage = omr.value("stage", "idle");
+  if (auto xml = readText("/omr/result.musicxml")) {
+    fs::remove("/omr/result.musicxml", ec);
+    importRead(a, *xml, omr);
+    omrCancel();
+  } else if (stage == "error") {
+    const std::string err = omr.value("error", "");
+    a.abcResult.clear();
+    a.abcError = err == "heic"       ? tr("This browser can't open HEIC photos. Save the photo as JPG or PNG and open that.")
+                 : err == "decode"   ? tr("Couldn't open this image.")
+                 : err == "pdf"      ? tr("Couldn't open this PDF.")
+                 : err == "download" ? tr("Couldn't download the music reader. Check the internet connection and try again.")
+                                     : tr("Couldn't read this sheet music.");
+    a.abcError += " (" + omr.value("detail", "") + ")";
+    omrCancel();
   }
 #else
   if (!gDropped.empty()) {  // ABC and MusicXML only: anything else stays for Import audio
@@ -1236,9 +1320,26 @@ static void abcWindow(App& a) {
   }
   ImGui::SameLine();
 #ifdef __EMSCRIPTEN__
-  if (ImGui::Button(L("Open a file...").c_str())) pickAbcFile();
+  const bool reading = stage != "idle" && stage != "done" && stage != "error";
+  if (ImGui::Button(L("Open a file...").c_str())) pickFile();  // images or a PDF replace a read in progress
   ImGui::SameLine();
-  ImGui::TextDisabled("%s", tr("ABC or MusicXML (.musicxml, .mxl)"));
+  ImGui::TextDisabled("%s", tr("ABC, MusicXML, or a photo, scan or PDF of sheet music"));
+  ImGui::PushTextWrapPos(w);
+  ImGui::TextDisabled("%s", tr("Sheet music in an image or PDF is read by a music reader that runs in this browser: the image never leaves your device. Clean printed scores read best; photos and handwriting read worse, so compare the result with the original. The first time, the reader is downloaded once (about 22 MB)."));
+  ImGui::PopTextWrapPos();
+  if (reading) {
+    int page = omr.value("page", 0), pages = omr.value("pages", 0);
+    double ratio = omr.value("ratio", 0.0), loaded = omr.value("loaded", 0.0), total = omr.value("total", 0.0);
+    float done = 0;
+    std::string label;
+    if (stage == "download") { done = total > 0 ? float(loaded / total) : 0; label = trf("Downloading the music reader (first time only): %d%%", int(done * 100)); }
+    else if (stage == "start") label = tr("Starting the music reader...");
+    else if (stage == "read") { done = pages ? float((page - 1 + ratio) / pages) : 0; label = trf("Reading page %d of %d...", page, pages); }
+    else label = tr("Opening the file...");
+    ImGui::ProgressBar(done, {w - ImGui::CalcTextSize(tr("Cancel")).x - ImGui::GetStyle().FramePadding.x * 2 - ImGui::GetStyle().ItemSpacing.x, 0}, label.c_str());
+    ImGui::SameLine();
+    if (ImGui::Button(L("Cancel").c_str())) omrCancel();
+  }
 #else
   ImGui::TextUnformatted(tr("or drop an ABC or MusicXML file on the window, or type its path:"));
   ImGui::SetNextItemWidth(w - ImGui::CalcTextSize(tr("Open")).x - ImGui::GetStyle().FramePadding.x * 2 - ImGui::GetStyle().ItemSpacing.x);
@@ -1250,8 +1351,28 @@ static void abcWindow(App& a) {
   if (!a.abcError.empty()) ImGui::TextColored({1, 0.4f, 0.4f, 1}, "%s", a.abcError.c_str());
   if (!a.abcResult.empty()) ImGui::TextUnformatted(a.abcResult.c_str());
   ImGui::PopTextWrapPos();
+#ifdef __EMSCRIPTEN__
+  if (ImGui::TextLink(L("Licences of the music reader").c_str())) emscripten_run_script("window.open('omr/NOTICE.txt', '_blank')");
+#endif
   ImGui::End();
 }
+
+#ifdef __EMSCRIPTEN__
+// The image a song was read from (#75), in place of the details panel: zoom, and scroll to compare it with the sheet.
+static void originalPanel(App& a, const Original& o) {
+  ImGui::TextDisabled("%s", tr("ORIGINAL"));
+  ImGui::SameLine();
+  ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
+  ImGui::SliderFloat((std::string(tr("Zoom")) + "###originalZoom").c_str(), &a.originalZoom, 1, 4, "%.1fx");
+  ImGui::PushTextWrapPos(0);
+  ImGui::TextDisabled("%s", tr("Compare the sheet with the image it was read from: the reader can miss or misread notes, more often in photos and handwriting."));
+  ImGui::PopTextWrapPos();
+  ImGui::BeginChild("originalImage", {0, 0}, ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
+  float w = ImGui::GetContentRegionAvail().x * a.originalZoom;
+  ImGui::Image(ImTextureRef((ImTextureID)o.tex), {w, w * o.h / o.w});
+  ImGui::EndChild();
+}
+#endif
 
 int main() {
   try { installSongs(lessonsDir()); } catch (...) {}
@@ -1382,8 +1503,18 @@ int main() {
       else ImGui::SetTooltip("%s", tr("Show fingering charts and fingerings for the notes"));
     }
     ImGui::SliderFloat(L("Zoom").c_str(), &a.set.zoom, 6, 16, "%.0f");
+#ifdef __EMSCRIPTEN__
+    const Original* original = a.originalOf.count(a.current) ? &a.originals[a.originalOf[a.current]] : nullptr;
+    if (original) ImGui::Checkbox(L("Show the original image").c_str(), &a.showOriginal);
+    if (original && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("The image this song was read from, next to the sheet"));
+    if (!a.showOriginal) original = nullptr;
+#endif
     if (ImGui::Button(L("Import song").c_str())) a.showAbc = !a.showAbc;
+#ifdef __EMSCRIPTEN__
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Add songs from ABC notation, MusicXML, or a photo, scan or PDF of sheet music"));
+#else
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Add songs from ABC notation or MusicXML: paste ABC or open a file"));
+#endif
     if (ImGui::Button(L("Settings").c_str())) a.showSettings = !a.showSettings;
 #ifndef __EMSCRIPTEN__  // the web keeps songs in the browser (IndexedDB) and has no transcription
     ImGui::SameLine();
@@ -1399,6 +1530,9 @@ int main() {
 
     if (a.song) {
       float detailsW = 340;
+#ifdef __EMSCRIPTEN__
+      if (original) detailsW = ImGui::GetContentRegionAvail().x * 0.45f;  // the original takes the details panel's place
+#endif
       float scoreW = ImGui::GetContentRegionAvail().x - detailsW - 8;
       ImGui::BeginGroup();
       ImGui::BeginChild("transport", {scoreW, 0}, ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
@@ -1410,7 +1544,11 @@ int main() {
       ImGui::EndGroup();
       ImGui::SameLine();
       ImGui::BeginChild("details", {0, 0}, ImGuiChildFlags_Borders);
-      detailsPanel(a);
+#ifdef __EMSCRIPTEN__
+      if (original) originalPanel(a, *original);
+      else
+#endif
+        detailsPanel(a);
       ImGui::EndChild();
     }
     ImGui::End();

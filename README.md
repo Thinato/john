@@ -14,11 +14,12 @@ Turning sheet music into whistle tabs is mostly mechanical. Choosing where the o
     - Right-click *Reset marks* to set the mic noise gate and latency (also in Settings).
   - **Import audio** (button in the sidebar, desktop only): drop an mp3, wav or flac file on the window, or paste its path, and press *Transcribe*. Optional: start and end (seconds), tempo and meter (blank = detect), the instrument the sheet is for (default from Settings) the instrument playing the melody in the recording, *Separate the melody (Demucs)* for a dense mix (vocals or another lead instrument; needs `pip install demucs` or `JOHN_DEMUCS`, slow, so use start/end for a short section), and *Rubato* for music whose tempo drifts. John keeps working while it listens; the draft opens as a new song in *Unsorted*, with the detected tempo, meter and key in its notes (and whether Demucs ran, which the window also shows) and "unclear in the recording, check by ear" on doubtful notes. In a whistle draft, cuts, taps and rolls John hears are marked on their notes as candidates. Under each line of music a strip shows the pitch John heard in the recording, faint where it was unsure. It's a machine draft: compare it with the recording by ear, or ask the agent to tidy it.
   - **Import song** (button in the sidebar, web and desktop): paste ABC notation (from thesession.org, abcnotation.com, ...) and press *Import*, or open an `.abc` file or a MusicXML score (`.musicxml`, `.xml` or zipped `.mxl`, as MuseScore, Finale, Sibelius and flat.io export it) (web: *Open a file...*; desktop: type its path or drop it on the window). Every ABC tune (`X:`) becomes a song in *Unsorted* for the Settings instrument; a MusicXML score becomes one song from its first part and voice, chords reduced to the top note. Warnings are listed in the window and the first song opens. No agent needed.
+    - **Images and PDFs** (web only for now): *Open a file...* also takes a photo, scan or PDF of sheet music (PNG, JPG, WebP; HEIC where the browser opens it). A music reader that runs in the browser ([copisteria](https://github.com/kobimusic/copisteria) with the copista-2m model) reads every page in order into one song, and the image never leaves the device. The first time it downloads about 22 MB (kept by the browser afterwards), with a progress bar and *Cancel*. The first page is shown next to the sheet (*Show the original image*) so you can compare: clean printed scores read best, photos and handwriting worse. Small scans are enlarged 2x before reading, and when only the first line comes out without the key signature of the rest, John gives it that key and says so.
   - **Settings** (button in the sidebar): language, note names (C D E or Do Re Mi) and, in Portuguese, key names ("Ré maior" or "D maior"), instrument hints, zoom, light or dark theme, the tempo for songs without one, count-in, metronome, volume, playback sound, mic tolerance, noise gate and latency, and the instrument new songs get when the agent doesn't name one. Changes apply at once and are kept between sessions. The controls in the main window (hints, zoom, sound, metronome, volume, tolerance) change the same settings.
 
 ## Get it
 
-- **Try it in the browser:** <https://lisecki.dev/john/>. The viewer with the lessons, playback and mic; songs are kept in the browser, and you add your own with Import song (ABC or MusicXML). No AI agent and no audio transcription.
+- **Try it in the browser:** <https://lisecki.dev/john/>. The viewer with the lessons, playback and mic; songs are kept in the browser, and you add your own with Import song (ABC, MusicXML, or a photo, scan or PDF of sheet music). No AI agent and no audio transcription.
 - **Desktop app** (adds the AI agent / MCP server, audio transcription and songs on disk): download from [Releases](https://github.com/Thinato/john/releases).
   - **macOS** (11 or later, Apple silicon or Intel): download `john-macos.zip` and unzip it. The app isn't signed, so in Terminal run `xattr -dr com.apple.quarantine john-macos` once, then `cd john-macos && ./john`.
   - **Linux** (x86-64, X11 or XWayland): `tar xzf john-linux.tar.gz && cd john-linux && ./john`.
@@ -43,11 +44,13 @@ The viewer also runs in the browser, with no server: songs, techniques and setti
 
 ```sh
 emcmake cmake -S . -B build-web
-cmake --build build-web       # john.html, john.js, john.wasm, john.data
+cmake --build build-web       # john.html, john.js, john.wasm, john.data, and omr/ (the image reader)
 python3 -m http.server -d build-web 8000
 ```
 
 Then open <http://localhost:8000/john.html>. Sound starts on the first click; the mic needs `localhost` or HTTPS.
+
+The image reader (`web/omr/`) needs no npm or bundler: at configure time CMake downloads the copista-2m model (its ONNX export on Hugging Face), ONNX Runtime Web and PDF.js at pinned versions and checks their SHA-256, into `build-web/omr/`. `web/coi-serviceworker.js` makes the page cross-origin isolated on hosts without COOP/COEP headers (GitHub Pages), so the reader gets WASM threads; it reloads the page once on the first visit.
 
 ## Use
 
@@ -105,6 +108,7 @@ Lessons 5 and 7 are public-domain tunes; the rest are original exercises.
 | Viewer (Bravura SMuFL glyphs drawn with ImDrawList) | `src/gui_main.cpp` |
 | Viewer translations (English text -> translation) | `i18n/*.json`, `tr()` in `src/song.cpp` |
 | Web build: IndexedDB storage and page | `web/pre.js`, `web/shell.html` |
+| Web image import: the reader (Web Worker) and its copisteria port, the first-line key check | `web/omr/`, `checkFirstLineKey()` in `src/musicxml.cpp` |
 
 Notes are stored at written pitch: whistle music is written an octave below how it sounds, so a D whistle's bottom note is D4.
 Durations are in ticks (192 per whole note).
@@ -116,3 +120,5 @@ Dev aid: `JOHN_SNAPSHOT=out.tga ./build/john` renders a few frames, writes the w
 ## License
 
 MIT, see [LICENSE](LICENSE). Third-party parts (fonts, libraries) keep their own licences.
+
+The web version's image reader is built from copisteria and the copista-2m model by KobiMusic (Apache-2.0; `web/omr/copisteria/` is the JavaScript port from [brunombo/OpticalMusicRecognition](https://github.com/brunombo/OpticalMusicRecognition), MusicOCR's code MIT), ONNX Runtime Web (MIT), PDF.js (Apache-2.0) and coi-serviceworker (MIT). [`web/omr/NOTICE.txt`](web/omr/NOTICE.txt) lists them with their notices and licence files; the site serves it at `omr/NOTICE.txt` (*Licences of the music reader* in the Import song window).

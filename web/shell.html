@@ -11,6 +11,9 @@
 </head>
 <body>
   <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+  <!-- makes the page cross-origin isolated on hosts without COOP/COEP headers (GitHub Pages), so the image reader
+       gets WASM threads (#75); it reloads the page once on the first visit, see web/pre.js -->
+  <script src="coi-serviceworker.js"></script>
   <script>var Module = { canvas: document.getElementById('canvas') };</script>
   {{{ SCRIPT }}}
 </body>

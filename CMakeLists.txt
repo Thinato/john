@@ -74,6 +74,64 @@ if(EMSCRIPTEN)
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/lessons@/lessons" "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/demo@/demo"
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/i18n@/i18n")
   set_target_properties(john PROPERTIES SUFFIX .html LINK_DEPENDS "${CMAKE_SOURCE_DIR}/web/pre.js;${CMAKE_SOURCE_DIR}/web/shell.html")
+
+  # Image import (#75): the sheet-music reader is served next to john.html, in omr/. web/omr/ (John's scripts and the
+  # vendored copisteria port) and web/coi-serviceworker.js are copied on every build. The copista-2m model (its ONNX
+  # export on Hugging Face), ONNX Runtime Web and pdf.js are downloaded at pinned versions, SHA-256 checked, into
+  # downloads/<sha256> (a new pin downloads again). omr/manifest.json lists what the reader caches in the browser.
+  set(OMR ${CMAKE_BINARY_DIR}/omr)
+  set(OMR_MODELS_COMMIT 049d45cf85545b169392bc4376b7cf0570408f44)
+  set(OMR_MODELS https://huggingface.co/pauldubois98/musicocr-models/resolve/${OMR_MODELS_COMMIT})
+  set(ORT_VERSION 1.30.0)
+  set(PDFJS_VERSION 6.5.438)
+  function(omr_download url sha256)  # sets DOWNLOADED to the checked file
+    set(DOWNLOADED ${CMAKE_BINARY_DIR}/downloads/${sha256} PARENT_SCOPE)
+    if(NOT EXISTS ${CMAKE_BINARY_DIR}/downloads/${sha256})
+      message(STATUS "Downloading ${url}")
+      file(DOWNLOAD ${url} ${CMAKE_BINARY_DIR}/downloads/${sha256}.part EXPECTED_HASH SHA256=${sha256} TLS_VERIFY ON)
+      file(RENAME ${CMAKE_BINARY_DIR}/downloads/${sha256}.part ${CMAKE_BINARY_DIR}/downloads/${sha256})
+    endif()
+  endfunction()
+  function(omr_file url sha256 dest)
+    omr_download(${url} ${sha256})
+    configure_file(${DOWNLOADED} ${OMR}/${dest} COPYONLY)
+  endfunction()
+  function(omr_npm url sha256 dest)  # then the package's files to copy into omr/<dest>/, dist/ and build/ dropped
+    omr_download(${url} ${sha256})
+    set(dir ${CMAKE_BINARY_DIR}/downloads/${sha256}-x)
+    list(TRANSFORM ARGN PREPEND package/ OUTPUT_VARIABLE members)
+    file(ARCHIVE_EXTRACT INPUT ${DOWNLOADED} DESTINATION ${dir} PATTERNS ${members})
+    foreach(f ${ARGN})
+      string(REGEX REPLACE "^(dist|build)/" "" to ${f})
+      configure_file(${dir}/package/${f} ${OMR}/${dest}/${to} COPYONLY)
+    endforeach()
+  endfunction()
+  omr_file(${OMR_MODELS}/copista-2m-trunk.onnx 48963688a5bc542ae2f45e5a3f92a67395980dbf4fe10523aefb2e8ea734489d models/copista-2m-trunk.onnx)
+  omr_file(${OMR_MODELS}/copista-2m-verifier.onnx 2a3ace8af11b134d270fef6f2af902d692ff656db22d6f0c19e40e6fd9b48d2a models/copista-2m-verifier.onnx)
+  omr_file(${OMR_MODELS}/copista-evidence.onnx 37257aacbfab45243fe47fd24d22cee4d0e24e69c78e06e2736fb9e55fcac847 models/copista-evidence.onnx)
+  omr_file(${OMR_MODELS}/copista-meta.json ae34e810a43c7d0833fcb94e8a8cfc2be7d1e82ec4e0bca68a810a659134876b models/copista-meta.json)
+  omr_file(${OMR_MODELS}/LICENSE cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30 licenses/copista-models-LICENSE.txt)
+  omr_file(${OMR_MODELS}/NOTICE 02beb1af1c2a10ded1f008db587f28c6a36180607cb305ef4f597d0388bc29fe licenses/copista-models-NOTICE.txt)
+  omr_npm(https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-${ORT_VERSION}.tgz
+    d2228df7e4616bc3348bf504ee888f3bec43789a273f0a63f3e68d203ce3bf71 ort
+    dist/ort.min.mjs dist/ort-wasm-simd-threaded.jsep.mjs dist/ort-wasm-simd-threaded.jsep.wasm)
+  omr_npm(https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-${PDFJS_VERSION}.tgz
+    7461aefcd27c4ef0dd76f9ca5760f09466eb6b3f934432670c12132e7b3d6faa pdfjs
+    build/pdf.min.mjs build/pdf.worker.min.mjs LICENSE wasm/jbig2.wasm wasm/openjpeg.wasm wasm/qcms_bg.wasm
+    wasm/LICENSE_JBIG2 wasm/LICENSE_OPENJPEG wasm/LICENSE_QCMS wasm/LICENSE_PDFJS_JBIG2 wasm/LICENSE_PDFJS_OPENJPEG wasm/LICENSE_PDFJS_QCMS)
+  set(cached "")
+  foreach(f models/copista-2m-trunk.onnx models/copista-2m-verifier.onnx models/copista-evidence.onnx models/copista-meta.json
+            ort/ort-wasm-simd-threaded.jsep.wasm)
+    file(SIZE ${OMR}/${f} size)
+    list(APPEND cached "\"${f}\": ${size}")
+  endforeach()
+  list(JOIN cached ", " cached)
+  string(SUBSTRING ${OMR_MODELS_COMMIT} 0 7 short)
+  file(WRITE ${OMR}/manifest.json "{\"version\": \"${short}-ort${ORT_VERSION}\", \"files\": {${cached}}}\n")
+  add_custom_target(omr ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/web/omr ${OMR}
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/web/coi-serviceworker.js ${CMAKE_BINARY_DIR}
+    COMMENT "Copying the image reader (web/omr, web/coi-serviceworker.js) next to john.html")
   return()
 endif()
 

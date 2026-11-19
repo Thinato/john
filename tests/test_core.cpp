@@ -11,6 +11,7 @@
 #include <regex>
 #include <set>
 #include <stdexcept>
+#include <tuple>
 #include <miniz.h>
 #ifdef _WIN32
 #define setenv(k, v, overwrite) _putenv_s(k, v)
@@ -1089,6 +1090,42 @@ int main() {
       try { importMusicXml(bomb); } catch (const std::runtime_error& e) { err = e.what(); }
       assert(err == "The .mxl file is too large.");
     }
+
+    // #75: the image reader missed the first line's key signature. Line 1 (measures 1-2) has none, line 2 (from measure
+    // 3, <print new-system>) has 2 sharps: line 1 gets them, except a written natural and the same note after it in the
+    // bar; line 2's notes already carry their sharps
+    auto line1 = [&](const std::string& end2) {
+      return n("F", 4, 1) + n("F", 4, 1, "<accidental>natural</accidental>") + n("F", 4, 1) + n("C", 5, 1) + "</measure><measure number=\"2\">" +
+             n("F", 5, 4) + end2 + "</measure>";
+    };
+    const std::string line2 = "<measure number=\"3\"><print new-system=\"yes\"/><attributes><key><fifths>2</fifths></key></attributes>" +
+                              n("F", 4, 2, "", 1) + n("C", 5, 2, "", 1) + "</measure>";
+    const std::string plain = "<divisions>1</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time>";
+    std::string read = score(plain, line1("") + line2);
+    auto k = checkFirstLineKey(read);
+    assert(k && k->first == 0 && k->rest == 2 && k->fixed);
+    auto fixed = importMusicXml(read);
+    assert(fixed.song.key.fifths == 2 && fixed.warnings.empty());
+    std::vector<int> midis;
+    for (auto& e : fixed.song.events) if (e.kind == Kind::Note) midis.push_back(e.midi);
+    assert((midis == std::vector<int>{66, 65, 65, 73, 78, 66, 73}));
+    std::string again = read;
+    assert(!checkFirstLineKey(again) && again == read);  // fixed: one key now
+    // a repeat where the lines meet changes nothing (Drowsy Maggie's first line is its A part)
+    std::string atRepeat = score(plain, line1("<barline location=\"right\"><repeat direction=\"backward\"/></barline>") + line2);
+    assert(checkFirstLineKey(atRepeat)->fixed && importMusicXml(atRepeat).song.key.fifths == 2);
+    // not fixed, only reported: line 1 writes a sharp on an F (with 2 sharps in the key it wouldn't need one, so that
+    // line really has no key signature), or it has a key of its own
+    for (auto [attrs, sharpF, first] : {std::tuple{plain, n("F", 4, 1, "<accidental>sharp</accidental>", 1), 0},
+                                        std::tuple{std::regex_replace(plain, std::regex("<fifths>0"), "<fifths>1"), std::string(), 1}}) {
+      std::string x = score(attrs, sharpF + line1("") + line2), before = x;
+      auto c = checkFirstLineKey(x);
+      assert(c && c->first == first && c->rest == 2 && !c->fixed && x == before);
+    }
+    // nothing to report: one key throughout, no line breaks, or the key changes later than line 2
+    std::string same = score(jigAttrs, jig), nolines = score(plain, line1("") + std::regex_replace(line2, std::regex("<print new-system=\"yes\"/>"), "")),
+                later = score(plain, std::regex_replace(line1(""), std::regex("<measure number=\"2\">"), "<measure number=\"2\"><print new-system=\"yes\"/>") + line2);
+    assert(!checkFirstLineKey(same) && !checkFirstLineKey(nolines) && !checkFirstLineKey(later));
   }
 
   // lessons: installed once, a deleted lesson stays deleted, and every bundled lesson loads
