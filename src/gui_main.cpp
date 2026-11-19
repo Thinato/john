@@ -10,6 +10,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdlib>
+#include <sstream>
 #ifdef __EMSCRIPTEN__
 #include <GLFW/emscripten_glfw3.h>
 #include <emscripten.h>
@@ -96,6 +97,9 @@ struct App {
   bool showImport = false;
   char importPath[1024] = "", importStart[16] = "", importEnd[16] = "", importTempo[16] = "", importMeter[16] = "";
   std::string importInst, importRec, importError;
+  int importSep = 0;            // Demucs stem: 0 off, 1 vocals, 2 other
+  bool importRubato = false;
+  std::string importNote;       // the last import's separation: line, shown until the next import
   std::future<Song> importing;  // valid while transcribing
 #endif
   char comment[2048] = "";
@@ -1027,6 +1031,7 @@ static std::string gDropped;  // a file dropped on the window (GLFW drop callbac
 static void openImport(App& a) {
   a.showImport = true;
   a.importError.clear();
+  a.importNote.clear();
   if (!a.busy) a.importInst = a.set.instrument;  // default from Settings
 }
 
@@ -1042,8 +1047,11 @@ static void importWindow(App& a) {
     a.busy = false;
     try {
       Song s = a.importing.get();
-      a.showImport = false;
       open(a, s.id);
+      std::istringstream notes(s.notes);  // with separation the window stays open to say whether Demucs ran
+      for (std::string l; std::getline(notes, l);)
+        if (l.rfind("separation:", 0) == 0) a.importNote = l;
+      a.showImport = !a.importNote.empty();
     } catch (const std::exception& e) {
       a.importError = trf("Couldn't transcribe this file: %s", e.what());
     }
@@ -1066,7 +1074,19 @@ static void importWindow(App& a) {
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("The instrument the sheet is for"));
   instrumentCombo(L("Recording instrument").c_str(), a.importRec, tr("not set"));
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Who plays the melody in the recording, if you know: John then listens only in its range"));
+  const char* stems[] = {tr("off"), tr("vocals (singer)"), tr("other (instrument)")};
+  ImGui::Combo(L("Separate the melody (Demucs)").c_str(), &a.importSep, stems, 3);
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("%s", tr("For a dense mix where the draft follows the band: Demucs first pulls out the singer (vocals) or the lead instrument (other: whistle, flute, fiddle, piano), and John transcribes only that."));
   ImGui::PopItemWidth();
+  ImGui::Checkbox(L("Rubato").c_str(), &a.importRubato);
+  if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("%s", tr("Turn on when the tempo speeds up and slows down (slow airs, film music, free playing): the beats follow the recording. Leave it off for steady tunes."));
+  if (a.importSep) {
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30);
+    ImGui::TextDisabled("%s", tr("Demucs must be installed (pip install demucs, or set JOHN_DEMUCS to its path). It is slow: transcribe a short section with Start and End."));
+    ImGui::PopTextWrapPos();
+  }
   if (ImGui::Button(L("Transcribe").c_str())) {
     auto num = [](const char* t, double& v) {  // blank = 0
       char* e;
@@ -1079,6 +1099,8 @@ static void importWindow(App& a) {
     o.meter = parseMeter(a.importMeter);
     o.instrument = a.importInst;
     o.recordingInstrument = a.importRec;
+    o.separate = a.importSep == 1 ? "vocals" : a.importSep == 2 ? "other" : "";
+    o.rubato = a.importRubato;
     std::error_code ec;
     if (!fs::is_regular_file(a.importPath, ec)) a.importError = tr("File not found.");
     else if (!num(a.importStart, start) || !num(a.importEnd, end)) a.importError = tr("Start and end are seconds into the recording.");
@@ -1086,6 +1108,7 @@ static void importWindow(App& a) {
     else if (o.meter.empty() && a.importMeter[strspn(a.importMeter, " ")]) a.importError = tr("Meter is like 4/4, 3/4 or 6/8, or blank to detect it.");
     else {
       a.importError.clear();
+      a.importNote.clear();
       o.bpm = bpm;
       a.busy = true;
       a.importing = std::async(std::launch::async, [path = std::string(a.importPath), start, end, o] { return importAudio(path, start, end, o); });
@@ -1096,6 +1119,14 @@ static void importWindow(App& a) {
   if (!a.importError.empty()) {
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30);
     ImGui::TextColored({1, 0.4f, 0.4f, 1}, "%s", a.importError.c_str());
+    ImGui::PopTextWrapPos();
+  }
+  if (!a.importNote.empty()) {  // the report's separation: line (English, like the song notes it comes from)
+    bool mix = a.importNote.find("full mix") != std::string::npos;
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30);
+    ImGui::TextColored(mix ? ImVec4{1, 0.4f, 0.4f, 1} : ImVec4{0.4f, 0.8f, 0.4f, 1}, "%s",
+                       mix ? tr("The song is open, but Demucs didn't separate the melody: John transcribed the full mix.") : tr("The song is open. Demucs separated the melody."));
+    ImGui::TextUnformatted(a.importNote.c_str());
     ImGui::PopTextWrapPos();
   }
   ImGui::End();

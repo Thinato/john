@@ -859,6 +859,12 @@ int main() {
       setenv("PATH", home.string().c_str(), 1);  // no demucs here, even where one is installed
       unsetenv("JOHN_DEMUCS");
       sameAsMix(transcribeFile(wav.string(), 0, 0, o), "demucs not found (pip install demucs, or set JOHN_DEMUCS)");
+      // Import audio (#69) copies the separation line into the song's notes, so the viewer shows why the full mix was used
+      Song imp = importAudio(wav.string(), 0, 0, o);
+      assert(imp.notes.rfind("Automatic transcription\nseparation: demucs not found (pip install demucs, or set JOHN_DEMUCS); "
+                             "transcribed the full mix\ntempo: ", 0) == 0);
+      fs::remove_all(home / "tracks");
+      fs::remove(home / "songs" / (imp.id + ".json"));
       setenv("PATH", path.c_str(), 1);
       std::string missing = (home / "no demucs").string();
       setenv("JOHN_DEMUCS", missing.c_str(), 1);
@@ -892,6 +898,10 @@ int main() {
       setenv("JOHN_DEMUCS", stub.string().c_str(), 1);
       Transcription t = transcribeFile(wav.string(), 0, 0, o);
       assert(t.report.rfind("separation: transcribed the demucs vocals stem\ntempo: ", 0) == 0);
+      Song imp2 = importAudio(wav.string(), 0, 0, o);
+      assert(imp2.notes.rfind("Automatic transcription\nseparation: transcribed the demucs vocals stem\ntempo: ", 0) == 0);
+      fs::remove_all(home / "tracks");
+      fs::remove(home / "songs" / (imp2.id + ".json"));
       int fromStem = common(melodyOf(other), melodyOf(t.song)), fromMix = common(want, melodyOf(t.song));
       printf("separate (stub): %d/%zu notes of the stem, %d/%zu of the mix\n", fromStem, melodyOf(other).size(), fromMix, want.size());
       assert(fromStem >= (int)melodyOf(other).size() * 9 / 10 && fromMix < (int)want.size() / 2);
