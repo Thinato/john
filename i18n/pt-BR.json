@@ -194,13 +194,19 @@
  "1st position plays in the harmonica's key. 2nd position (cross harp), a fifth above, is the usual choice for blues and folk.": "A 1ª posição toca no tom da gaita. A 2ª posição (cross harp), uma quinta acima, é a escolha comum no blues e no folk.",
  "Your harmonica's key, used when a song is switched to harmonica or imported for it": "O tom da sua gaita, usado quando uma música passa para gaita ou é importada para ela",
  "Import song": "Importar música",
- "Add songs from ABC notation: paste it or open a file": "Adiciona músicas em notação ABC: cole o texto ou abra um arquivo",
+ "Add songs from ABC notation or MusicXML: paste ABC or open a file": "Adiciona músicas em notação ABC ou MusicXML: cole o ABC ou abra um arquivo",
  "Find tunes on thesession.org or abcnotation.com, copy the ABC and paste it here.": "Encontre músicas em thesession.org ou abcnotation.com, copie o ABC e cole aqui.",
  "Import": "Importar",
  "Open a file...": "Abrir um arquivo...",
- "or drop an .abc file on the window, or type its path:": "ou solte um arquivo .abc na janela, ou digite o caminho dele:",
+ "or drop an ABC or MusicXML file on the window, or type its path:": "ou solte um arquivo ABC ou MusicXML na janela, ou digite o caminho dele:",
+ "ABC or MusicXML (.musicxml, .mxl)": "ABC ou MusicXML (.musicxml, .mxl)",
  "Open": "Abrir",
  "pasted": "colado",
  "Imported %d song(s).": "%d música(s) importada(s).",
- "No tune found: ABC needs a K: (key) line and notes.": "Nenhuma música encontrada: o ABC precisa de uma linha K: (tom) e de notas."
+ "No tune found: ABC needs a K: (key) line and notes.": "Nenhuma música encontrada: o ABC precisa de uma linha K: (tom) e de notas.",
+ "Could not read the .mxl file.": "Não foi possível ler o arquivo .mxl.",
+ "Could not read the MusicXML file.": "Não foi possível ler o arquivo MusicXML.",
+ "Timewise MusicXML is not supported: export it as partwise.": "MusicXML timewise não é suportado: exporte como partwise.",
+ "Not a MusicXML score.": "Não é uma partitura MusicXML.",
+ "No notes found in the first part.": "Nenhuma nota encontrada na primeira parte."
 }

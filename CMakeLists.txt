@@ -22,10 +22,13 @@ FetchContent_Declare(imgui GIT_REPOSITORY https://github.com/ocornut/imgui.git G
 # miniaudio (public domain / MIT-0): speaker + microphone + mp3/wav/flac decoding, header only
 FetchContent_Declare(miniaudio GIT_REPOSITORY https://github.com/mackron/miniaudio.git GIT_TAG 0.11.26 GIT_SHALLOW TRUE)
 FetchContent_Populate(miniaudio)
+# MusicXML import: pugixml (MIT) reads the XML, miniz (MIT) unzips .mxl; both compile into john_core
+FetchContent_Declare(pugixml URL https://github.com/zeux/pugixml/releases/download/v1.15/pugixml-1.15.tar.gz)
+FetchContent_Declare(miniz URL https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(json imgui)
+FetchContent_MakeAvailable(json imgui pugixml miniz)
 if(NOT EMSCRIPTEN)  # the web uses emscripten's GLFW port
   FetchContent_MakeAvailable(glfw)
 endif()
@@ -41,12 +44,13 @@ if(NOT EXISTS ${NOTO})
   file(DOWNLOAD https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSans/hinted/ttf/NotoSans-Regular.ttf ${NOTO} STATUS st)
 endif()
 
-add_library(john_core STATIC src/song.cpp src/abc.cpp src/analyze.cpp src/sound.cpp src/transcribe.cpp src/miniaudio.cpp)
-target_include_directories(john_core PUBLIC src ${miniaudio_SOURCE_DIR})
+add_library(john_core STATIC src/song.cpp src/abc.cpp src/analyze.cpp src/sound.cpp src/transcribe.cpp src/miniaudio.cpp
+  src/musicxml.cpp ${miniz_SOURCE_DIR}/miniz.c)
+target_include_directories(john_core PUBLIC src ${miniaudio_SOURCE_DIR} ${miniz_SOURCE_DIR})
 target_compile_definitions(john_core PUBLIC MA_NO_ENCODING MA_NO_RESOURCE_MANAGER MA_NO_NODE_GRAPH MA_NO_ENGINE MA_NO_GENERATION)
 # transcription crunches minutes of audio; keep it fast in Debug builds too
 set_source_files_properties(src/transcribe.cpp src/miniaudio.cpp PROPERTIES COMPILE_OPTIONS $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O2>)  # MSVC: /O2 clashes with Debug /RTC1
-target_link_libraries(john_core PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(john_core PUBLIC nlohmann_json::nlohmann_json PRIVATE pugixml::pugixml)
 if(APPLE)
   target_link_libraries(john_core PUBLIC "-framework CoreFoundation")  # systemLanguage(): CFLocaleCopyPreferredLanguages
 endif()

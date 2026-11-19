@@ -245,11 +245,18 @@ Song fromJson(const json& j);
 // ---- import / analysis ----
 struct ImportResult { Song song; std::vector<std::string> warnings; };
 ImportResult importAbc(const std::string& abc);
-// Import every tune (X:) of `abc` as a new saved song: instrument, whistle, harp and folder from `like`, source too when
-// set (else the ABC's C:/S:/Z:). Ids come from uniqueId(title); the first tune's from like.id when set (slug(like.id) as
-// is with overwrite). Warnings name their tune when there are several. A tune needs a K: line and notes; throws if none has. Used by import_abc
-// and the viewer's Import song.
-std::vector<ImportResult> importAbcSongs(const std::string& abc, const Song& like, bool overwrite = false);
+// MusicXML (musicxml.cpp): .musicxml/.xml text or the bytes of a zipped .mxl. The first part's first voice, chords
+// reduced to their top note, one key and meter (the first); what is dropped or rounded becomes a warning. Throws when
+// the file can't be read or has no notes.
+ImportResult importMusicXml(const std::string& data);
+bool isMusicXml(const std::string& data);         // an .mxl (zip) or text with a <score-partwise>/<score-timewise> root
+std::string graceTechnique(const std::vector<int>& graces, int midi);  // grace pitches before a note: cut, tap, roll, double_cut
+// Import MusicXML (isMusicXml) as one song, or every tune (X:) of ABC, as new saved songs: instrument, whistle, harp and
+// folder from `like`, source too when set (else the ABC's C:/S:/Z:, the MusicXML composer). Ids come from
+// uniqueId(title); the first song's from like.id when set (slug(like.id) as is with overwrite). Warnings name their
+// tune when there are several. An ABC tune needs a K: line and notes; throws if none has. Used by import_abc,
+// import_musicxml and the viewer's Import song.
+std::vector<ImportResult> importSongs(const std::string& data, const Song& like, bool overwrite = false);
 std::string listing(const Song& s);          // compact text table of every event, for the agent
 std::string analyze(const Song& s);          // deterministic technique candidates + range report
 

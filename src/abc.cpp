@@ -33,6 +33,12 @@ static std::string decoration(const std::string& d, const std::set<std::string>&
   return catalog.count(d) ? d : "";
 }
 
+std::string graceTechnique(const std::vector<int>& graces, int midi) {
+  int above = 0, below = 0;
+  for (int g : graces) { above += g > midi; below += g < midi; }
+  return above && below ? "roll" : below ? "tap" : above >= 2 ? "double_cut" : "cut";
+}
+
 ImportResult importAbc(const std::string& abc) {
   ImportResult r;
   Song& s = r.song;
@@ -167,13 +173,7 @@ ImportResult importAbc(const std::string& abc) {
       else if (!t.empty() && k == Kind::Note) addTechnique(e, t);
     }
     decos.clear();
-    if (k == Kind::Note && !graces.empty()) {
-      bool above = false, below = false;
-      for (int g : graces) { above |= g > midi; below |= g < midi; }
-      int nAbove = 0;
-      for (int g : graces) nAbove += g > midi;
-      addTechnique(e, above && below ? "roll" : below ? "tap" : nAbove >= 2 ? "double_cut" : "cut");
-    }
+    if (k == Kind::Note && !graces.empty()) addTechnique(e, graceTechnique(graces, midi));
     graces.clear();
     ev.push_back(e);
     lastNote = (int)ev.size() - 1;
@@ -348,14 +348,15 @@ static std::vector<std::string> splitAbc(const std::string& abc) {
   return tunes;
 }
 
-std::vector<ImportResult> importAbcSongs(const std::string& abc, const Song& like, bool overwrite) {
-  auto tunes = splitAbc(abc);
+std::vector<ImportResult> importSongs(const std::string& data, const Song& like, bool overwrite) {
+  const bool xml = isMusicXml(data);
+  auto tunes = xml ? std::vector<std::string>{data} : splitAbc(data);
   std::vector<ImportResult> out;
   std::vector<std::string> empty;
   for (auto& t : tunes) {
-    ImportResult r = importAbc(t);
+    ImportResult r = xml ? importMusicXml(t) : importAbc(t);  // MusicXML throws rather than return an empty song
     Song& s = r.song;
-    bool hasKey = t.rfind("K:", 0) == 0 || t.find("\nK:") != std::string::npos;  // without one, any text "has notes"
+    bool hasKey = xml || t.rfind("K:", 0) == 0 || t.find("\nK:") != std::string::npos;  // without one, any text "has notes"
     if (s.events.empty() || !hasKey) { empty.push_back(s.title + ": no K: line or no notes, not imported"); continue; }
     if (tunes.size() > 1)
       for (auto& w : r.warnings) w = s.title + ": " + w;
