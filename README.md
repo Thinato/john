@@ -112,3 +112,7 @@ Durations are in ticks (192 per whole note).
 Contributors: see [CONTRIBUTING.md](CONTRIBUTING.md). Lessons learned about the code are in the searchable knowledge base, [`kb/`](kb/README.md).
 
 Dev aid: `JOHN_SNAPSHOT=out.tga ./build/john` renders a few frames, writes the window to a TGA file and exits.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Third-party parts (fonts, libraries) keep their own licences.
