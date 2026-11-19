@@ -1,0 +1,15 @@
+{
+  "/img/clean-the-kesh.png": ["demo/the-kesh.json"],
+  "/img/clean-drowsy-maggie.png": ["demo/drowsy-maggie.json"],
+  "/img/clean-greensleeves.png": ["demo/greensleeves.json"],
+  "/img/clean-the-silver-spear.png": ["demo/the-silver-spear.json"],
+  "/img/pdf-minuet-in-g.pdf": ["demo/minuet-in-g.json"],
+  "/img/two-tunes.png": ["demo/the-butterfly.json", "demo/britches-full-of-stitches.json"],
+  "/img/photo-the-kesh.jpg": ["demo/the-kesh.json"],
+  "/scan/oneills-p190.jpg": ["tmp/omr/scan/gthome/songs/old-as-the-hills.json", "tmp/omr/scan/gthome/songs/long-john-s-wedding.json",
+    "tmp/omr/scan/gthome/songs/the-lark-in-the-morning.json", "tmp/omr/scan/gthome/songs/the-lark-in-the-morning-2.json",
+    "tmp/omr/scan/gthome/songs/kit-o-mahony-s-jig.json"],
+  "/scan/oneills-p190-2x.png": ["tmp/omr/scan/gthome/songs/old-as-the-hills.json", "tmp/omr/scan/gthome/songs/long-john-s-wedding.json",
+    "tmp/omr/scan/gthome/songs/the-lark-in-the-morning.json", "tmp/omr/scan/gthome/songs/the-lark-in-the-morning-2.json",
+    "tmp/omr/scan/gthome/songs/kit-o-mahony-s-jig.json"]
+}

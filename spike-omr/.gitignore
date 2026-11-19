@@ -1,0 +1,7 @@
+node_modules/
+vendor/
+dist/
+public/models/
+public/img
+public/scan
+results/

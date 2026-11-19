@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>John OMR spike (#74)</title>
+  <script>
+    // ?coi=1: register coi-serviceworker so a header-less host (GitHub Pages) becomes cross-origin isolated
+    if (new URLSearchParams(location.search).has("coi")) document.write('<script src="coi-serviceworker.js"><\/script>');
+  </script>
+</head>
+<body style="font: 14px system-ui; margin: 1em">
+  <h3>John OMR spike (#74): homr-web vs copisteria in the browser</h3>
+  <p>Throwaway test page. Reader: <select id="reader"><option>homr</option><option>copista-2m</option><option>copista-28m</option></select>
+    backend: <select id="prefer"><option>webgpu</option><option>wasm</option></select>
+    <input type="file" id="file" accept="image/*,application/pdf"></p>
+  <pre id="log"></pre>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
