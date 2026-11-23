@@ -354,7 +354,7 @@ int main() {
       assert(early > 0.05f && (decays ? late < 0.6f * early : late > 0.8f * early));
       assert(rms(window(x, 4.2), n) < 0.01f);  // silent after the note
     }
-    Song w = v;  // the octave comes from the song's instrument, not the sound: a whistle song on guitar still sounds A5
+    Song w = v;  // the octave comes from the player's instrument (by default the song's), not the sound: a whistle song on guitar still sounds A5
     w.instrument = "whistle";
     Performance pg = perform(w, 60, 0, false, "guitar");
     assert(pg.octave == 1 && perform(w, 60, 0, false, "kazoo").sound == "whistle" && perform(w, 60).sound == "whistle");
@@ -364,6 +364,22 @@ int main() {
     std::vector<float> x(n);
     syn.render(pg, sp, x.data(), n);
     assert(std::abs(detectPitch(x.data(), n, sr) - 880) < 5);
+
+    // played on my instrument (#90): a violin-written A4 on a D whistle sounds A5 (written + 12), with the whistle's
+    // timbre by default; the mic reads it back with my octave as the written A4, so play-along counts it right
+    const Instrument dw = *findInstrument("whistle", "D");
+    Performance pm = perform(v, 60, 0, false, "", dw);
+    assert(pm.octave == 1 && pm.sound == "whistle" && perform(v, 60, 0, false, "piano", dw).octave == 1);
+    Synth mine;
+    mine.metronome = false;
+    sp = sr / 10;
+    mine.render(pm, sp, x.data(), n);
+    float heard = detectPitch(x.data(), n, sr, (float)soundingFreq(dw.low, dw.octave) * 0.8f, (float)soundingFreq(dw.high, dw.octave) * 1.15f);
+    assert(std::abs(heard - 880) < 5 && std::lround(writtenMidiFromFreq(heard, dw.octave)) == pm.voices[0].midi);
+    // a song written for my instrument plays as before (whistle song on a D whistle; violin song on a violin)
+    Performance same = perform(w, 60, 0, false, "", dw), before = perform(w, 60, 0, false);
+    assert(same.octave == before.octave && same.sound == before.sound && same.voices.size() == before.voices.size());
+    assert(perform(v, 60, 0, false, "", *findInstrument("violin")).octave == 0);
 
     // which ornaments each voice plays (kb/notes/playback-voice-ornaments.md)
     Song o = importAbc("X:1\nT:o\nM:4/4\nL:1/4\nK:D\n{g}A !breath! B !slide!c !vibrato!d|\n").song;
@@ -1329,7 +1345,7 @@ int main() {
     assert(!strcmp(tr("Play"), "Tocar") && tr(std::string("Settings")) == "Configurações");
     const char* missing = "No such text";
     assert(tr(missing) == missing);  // fallback: the English itself
-    assert(trf("%s (song)", "Piano") == "Piano (da música)");
+    assert(trf("%s (mine)", "Piano") == "Piano (meu instrumento)");
     assert(keyName({2, "maj"}) == "D maior" && keyName({1, "dor"}) == "A dórico" && keyName({3, "min"}) == "F# menor");
     assert(durationName(dq) == "semínima pontuada" && durationName(trip) == "colcheia (quiáltera de 3)");
     assert(durationName({Kind::Note, 62, WHOLE * 7 / 8}) == "mínima com dois pontos");

@@ -191,7 +191,7 @@ std::vector<int> playOrder(const Song& s);   // note/rest event indices in perfo
 struct Voice {                 // one note as played by the backing voice
   int ev = -1;                 // event index
   int ord = -1;                // index into playOrder()
-  int midi = 0;                // written pitch (sounds an octave higher)
+  int midi = 0;                // written pitch (sounds at written + 12 * Performance::octave)
   double start = 0, dur = 0;   // seconds
   double gap = 0;              // silence at the end of the note (breath, staccato, next note tongued/repeated)
   bool tongued = false, vibrato = false;
@@ -202,13 +202,16 @@ struct Performance {
   std::vector<std::pair<double, bool>> clicks;  // metronome: time, bar accent
   double length = 0;                            // seconds
   double countIn = 0;                           // seconds of clicks before the first note
-  int octave = 1;                               // sounding = written + 12 * octave (the song's instrument)
+  int octave = 1;                               // sounding = written + 12 * octave (the player's instrument)
   std::string sound = "whistle";                // instrument id whose timbre plays the notes
 };
 // fromOrder: index into playOrder() to start at. bpm = quarter notes per minute.
-// sound: an INSTRUMENTS id to play with, "" = the song's instrument. It changes the timbre and which
-// ornaments/breaths are played, never the pitch (the octave always comes from the song's instrument).
-Performance perform(const Song& s, double bpm, int fromOrder = 0, bool countIn = true, const std::string& sound = "");
+// player: the instrument the tune is played on (the GUI passes Settings' instrument), default the song's own. The
+// octave always comes from it: a violin-written tune played on a whistle sounds an octave above the written notes.
+// sound: an INSTRUMENTS id to play with, "" = the player's. It changes the timbre and which ornaments/breaths are
+// played, never the pitch.
+Performance perform(const Song& s, double bpm, int fromOrder = 0, bool countIn = true, const std::string& sound = "",
+                    const std::optional<Instrument>& player = std::nullopt);
 double soundingFreq(int writtenMidi, int octave);   // octave: Instrument::octave (whistle music sounds an octave up)
 double writtenMidiFromFreq(double hz, int octave);  // fractional written MIDI
 
