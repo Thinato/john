@@ -76,8 +76,10 @@ check 'instrument: A harmonica'
 check 'Range on the A harmonica (playable A3 .. A6)'
 check "unknown harmonica key 'H'"
 reply() { printf "%s\n" "$OUT" | grep "\"id\":$1,"; }
-reply 20 | grep -q 'fiddle - Fiddle' || { echo "violin filter lost fiddle"; exit 1; }
-! reply 20 | grep -q 'smoke-reel' || { echo "violin filter kept smoke-reel"; exit 1; }
+reply 20 | grep -q 'fiddle - Fiddle (G major, 4/4, Violin): fits as written' || { echo "violin playability lost fiddle"; exit 1; }
+reply 20 | grep -q 'Playability on the Violin:' && reply 20 | grep -q 'smoke-reel - Smoke Reel (D major, 4/4, D whistle): fits as written' || { echo "songs are filtered by their instrument"; exit 1; }
+reply 19 | grep -q 'fiddle - Fiddle (G major, 4/4, Violin): fits an octave up (transpose +12)' || { echo "no playability on the Settings whistle"; exit 1; }
+reply 6 | grep -q 'Playability on the D whistle: fits as written' || { echo "analyze_song has no playability"; exit 1; }
 reply 21 | grep -q "unknown instrument 'kazoo'" || { echo "kazoo filter not rejected"; exit 1; }
 ! reply 22 | grep -q 'meter must' && ! reply 23 | grep -q 'meter must' || { echo "C or C| rejected as meter"; exit 1; }
 reply 24 | grep -q 'meter must be N/D' || { echo "bad meter not rejected"; exit 1; }
