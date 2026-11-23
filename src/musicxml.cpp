@@ -93,6 +93,8 @@ ImportResult importMusicXml(const std::string& data) {
   std::string voice;          // the voice kept: the first note's
   std::vector<int> graces;    // grace pitches waiting for their main note
   int last = -1;              // index of the last note/rest event (chord notes merge into it)
+  std::string verse;          // lyrics: the number of the first <lyric> seen; other verses are dropped
+  bool extending = false;     // a syllable's <extend>: notes without a syllable hold it, until a rest or the next one
   auto& ev = s.events;
   auto barBefore = [&]() -> Event& {  // the bar line before the current measure
     if (ev.empty() || ev.back().kind != Kind::Bar) { Event b; b.kind = Kind::Bar; b.bar = "|"; ev.push_back(b); }
@@ -196,6 +198,21 @@ ImportResult importMusicXml(const std::string& data) {
         auto add = [&](const std::string& t) {
           if (std::find(e.techniques.begin(), e.techniques.end(), t) == e.techniques.end()) e.techniques.push_back(t);
         };
+        bool stop = false;  // <extend type="stop"/>: the last note of a held syllable
+        for (auto l : x.children("lyric")) {
+          std::string num = l.attribute("number").as_string("1");
+          if (verse.empty()) verse = num;
+          if (num != verse) { warn("only the first verse of the lyrics was imported"); continue; }
+          if (e.kind != Kind::Note) continue;
+          for (auto t : l.children("text")) e.lyric += (e.lyric.empty() ? "" : " ") + std::string(t.text().get());  // elisions
+          std::string syl = l.child_value("syllabic");
+          e.lyricHyphen = !e.lyric.empty() && (syl == "begin" || syl == "middle");
+          if (!e.lyric.empty()) extending = (bool)l.child("extend");
+          else if (strcmp(l.child("extend").attribute("type").value(), "stop") == 0) stop = true;
+        }
+        if (e.kind == Kind::Rest) extending = false;
+        else if (e.lyric.empty() && extending && !(last >= 0 && ev[last].kind == Kind::Note && ev[last].tie)) e.lyricHeld = true;
+        if (stop) extending = false;
         if (e.kind == Kind::Note && !graces.empty()) add(graceTechnique(graces, midi));
         graces.clear();
         for (auto nt : x.children("notations")) {

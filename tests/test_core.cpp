@@ -1159,6 +1159,60 @@ int main() {
     std::string same = score(jigAttrs, jig), nolines = score(plain, line1("") + std::regex_replace(line2, std::regex("<print new-system=\"yes\"/>"), "")),
                 later = score(plain, std::regex_replace(line1(""), std::regex("<measure number=\"2\">"), "<measure number=\"2\"><print new-system=\"yes\"/>") + line2);
     assert(!checkFirstLineKey(same) && !checkFirstLineKey(nolines) && !checkFirstLineKey(later));
+
+    // #87: <lyric> verse 1 (another verse warns), syllabic begin/end, an <extend> held over the next notes until
+    // the stop; a note without lyrics after the stop holds nothing
+    auto lyr = [](const std::string& body) { return "<lyric number=\"1\">" + body + "</lyric>"; };
+    auto ly = importMusicXml(score(plain, n("D", 4, 1, lyr("<syllabic>begin</syllabic><text>Sun</text>") +
+                                                         "<lyric number=\"2\"><syllabic>single</syllabic><text>x</text></lyric>") +
+                                              n("E", 4, 1, lyr("<syllabic>end</syllabic><text>ny</text><extend type=\"start\"/>")) +
+                                              n("F", 4, 1) + n("G", 4, 1, lyr("<extend type=\"stop\"/>")) + n("A", 4, 1) + "</measure>"));
+    assert(std::count(ly.warnings.begin(), ly.warnings.end(), "only the first verse of the lyrics was imported") == 1);
+    assert(nth(ly.song, 0).lyric == "Sun" && nth(ly.song, 0).lyricHyphen && nth(ly.song, 1).lyric == "ny" && !nth(ly.song, 1).lyricHyphen);
+    assert(nth(ly.song, 2).lyricHeld && nth(ly.song, 3).lyricHeld && !nth(ly.song, 4).lyricHeld && nth(ly.song, 4).lyric.empty());
+  }
+
+  // #87: ABC w: lyrics (words written for this test). Each symbol of ABC 2.1: "-" between syllables, "_" holds,
+  // "*" skips, "~" joins words on one note, "\-" is a hyphen in the text, "|" jumps to the next bar; rests and tied
+  // continuations take no syllable. Extra syllables and a second verse warn. W: is kept as text.
+  {
+    auto lyrics = [](const Song& s) {
+      std::vector<std::tuple<std::string, bool, bool>> r;
+      for (auto& e : s.events) if (e.kind == Kind::Note) r.push_back({e.lyric, e.lyricHyphen, e.lyricHeld});
+      return r;
+    };
+    using L = std::tuple<std::string, bool, bool>;
+    auto r = importAbc("X:1\nT:Lyric Test\nM:4/4\nL:1/4\nK:D\nD E F G|A B c d|\nw:Hap-py_ | on~it * co\\-op\n"
+                       "e2 z2|f2- f2|g4|]\nw:rest tie end extra\nw:second verse\nW:Words after the tune,\nW:two lines.\n");
+    auto got = lyrics(r.song);
+    std::vector<L> want = {{"Hap", true, false}, {"py", false, false}, {"", false, true}, {"", false, false},       // D E F G
+                           {"on it", false, false}, {"", false, false}, {"co-op", false, false}, {"", false, false},  // A B c d
+                           {"rest", false, false}, {"tie", false, false}, {"", false, false}, {"end", false, false}};  // e f- f g
+    assert(got == want);
+    assert(std::count(r.warnings.begin(), r.warnings.end(), "a w: line has more syllables than its notes; the extra ones were dropped") == 1);
+    assert(std::count(r.warnings.begin(), r.warnings.end(), "only the first verse of the lyrics (w:) was imported") == 1);
+    assert(r.song.words == "Words after the tune,\ntwo lines.");
+    // a hyphen alone is a syllable: the note gets nothing and the word goes on; a w: under two music lines covers both
+    auto two = importAbc("X:1\nT:t\nM:3/4\nL:1/4\nK:D\nD E F|\nG A B|\nw:a--b c d e\n").song;
+    assert(lyrics(two) == (std::vector<L>{{"a", true, false}, {"", false, false}, {"b", false, false}, {"c", false, false},
+                                          {"d", false, false}, {"e", false, false}}));
+    // a song without lyrics writes nothing new: no w: lines, no lyric keys
+    Song plainSong = importAbc("X:1\nT:t\nM:3/4\nL:1/4\nK:D\nD E F|\n").song;
+    assert(toAbc(plainSong).find("w:") == std::string::npos && toJson(plainSong).dump().find("lyric") == std::string::npos);
+    // an old song file (no lyric or words keys) loads with no lyrics
+    json old = toJson(plainSong);
+    assert(lyrics(fromJson(old)) == (std::vector<L>(3)) && fromJson(old).words.empty());
+    // saved and reloaded, and written by toAbc and imported again: the same lyrics and words
+    Song s = r.song;
+    s.id = "lyric-test";
+    saveSong(s);
+    assert(toJson(*loadSong("lyric-test")) == toJson(s));
+    fs::remove(dataDir() / "songs" / "lyric-test.json");
+    std::string abc = toAbc(s);
+    assert(abc.find("w:Hap-py _ * on~it * co\\-op") != std::string::npos);
+    Song back = importAbc(abc).song;
+    assert(lyrics(back) == lyrics(s) && back.words == s.words);
+    assert(lyrics(importAbc(toAbc(two)).song) == lyrics(two));
   }
 
   // lessons: installed once, a deleted lesson stays deleted, and every bundled lesson loads

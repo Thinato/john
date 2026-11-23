@@ -296,6 +296,12 @@ std::vector<Accidental> accidentals(const Song& s) {
   return out;
 }
 
+bool tiedFrom(const Song& s, int i) {
+  for (int j = i - 1; j >= 0; j--)
+    if (s.events[j].kind != Kind::Bar) return s.events[i].kind == Kind::Note && s.events[j].kind == Kind::Note && s.events[j].tie;
+  return false;
+}
+
 std::vector<Pos> positions(const Song& s) {
   const int m = meterTicks(s.meter);
   int pickup = 0;
@@ -552,6 +558,9 @@ json toJson(const Song& s) {
       if (e.tupletStart) x["tuplet_start"] = true;
       if (!e.techniques.empty()) x["techniques"] = e.techniques;
       if (!e.comment.empty()) x["comment"] = e.comment;
+      if (!e.lyric.empty()) x["lyric"] = e.lyric;
+      if (e.lyricHyphen) x["lyric_hyphen"] = true;
+      if (e.lyricHeld) x["lyric_held"] = true;
     }
     ev.push_back(x);
   }
@@ -562,6 +571,7 @@ json toJson(const Song& s) {
   if (s.harp != "C") j["harp"] = s.harp;  // C harp songs stay as before
   if (s.transposed) j["transposed"] = s.transposed;
   if (!s.i18n.empty()) j["i18n"] = s.i18n;
+  if (!s.words.empty()) j["words"] = s.words;
   return j;
 }
 
@@ -601,8 +611,12 @@ Song fromJson(const json& j) {
     e.comment = x.value("comment", "");
     e.bar = x.value("bar", "");
     e.ending = x.value("ending", "");
+    e.lyric = x.value("lyric", "");
+    e.lyricHyphen = x.value("lyric_hyphen", false);
+    e.lyricHeld = x.value("lyric_held", false);
     s.events.push_back(e);
   }
+  s.words = j.value("words", "");
   s.i18n = j.value("i18n", decltype(s.i18n){});
   return s;
 }
@@ -893,6 +907,7 @@ std::string listing(const Song& s) {
     << "  instrument: " << in.name << "  tempo: " << (s.tempo ? std::to_string(s.tempo) : "?") << "\n";
   if (!s.source.empty()) o << "source: " << s.source << "\n";
   if (!s.notes.empty()) o << "notes: " << s.notes << "\n";
+  if (!s.words.empty()) o << "words (W:): " << s.words << "\n";
   o << "\n#idx  bar beat  note  length                   " << (whistle ? "fingering    " : "range        ") << " techniques  // comment\n";
   auto pos = positions(s);
   for (size_t i = 0; i < s.events.size(); i++) {
@@ -910,6 +925,8 @@ std::string listing(const Song& s) {
     snprintf(buf, sizeof buf, "#%-4zu %-3d %-5s %-5s %-24s %-13s %s", i, pos[i].bar, beatLabel(s, pos[i].tick).c_str(), name.c_str(),
              (durationName(e) + (e.tie ? " tie" : "")).c_str(), fing.c_str(), tech.c_str());
     std::string row = buf;
+    if (!e.lyric.empty()) row += "  lyric \"" + e.lyric + (e.lyricHyphen ? "-" : "") + "\"";
+    else if (e.lyricHeld) row += "  lyric _";
     while (!row.empty() && row.back() == ' ') row.pop_back();
     o << row;
     if (!e.comment.empty()) o << "  // " << e.comment;

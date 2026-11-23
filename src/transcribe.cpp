@@ -11,6 +11,7 @@
 #include <map>
 #include <numeric>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 
 namespace john {
@@ -984,14 +985,30 @@ std::string toAbc(const Song& s) {
   if (s.tempo > 0) out += "Q:1/4=" + std::to_string(s.tempo) + "\n";
   out += "K:" + keyName(s.key) + "\n";
   auto acc = accidentals(s);
+  // lyrics: a w: line under every music line (each aligns to the notes since the previous w:)
+  const bool lyrics = std::any_of(s.events.begin(), s.events.end(), [](const Event& e) { return !e.lyric.empty() || e.lyricHeld; });
+  std::string w;
+  auto wLine = [&] {
+    while (w.size() >= 2 && w.compare(w.size() - 2, 2, "* ") == 0) w.resize(w.size() - 2);  // notes left without words
+    if (lyrics) out += "\nw:" + w;
+    w.clear();
+  };
   int bars = 0;
   for (size_t i = 0; i < s.events.size(); i++) {
     const Event& e = s.events[i];
     if (e.kind == Kind::Bar) {
       out += " " + e.bar;
       if (!e.ending.empty()) out += "[" + e.ending;
-      out += ++bars % 4 == 0 && i + 1 < s.events.size() ? "\n" : " ";
+      if (++bars % 4 == 0 && i + 1 < s.events.size()) wLine(), out += "\n";
+      else out += " ";
       continue;
+    }
+    if (e.kind == Kind::Note && !tiedFrom(s, (int)i)) {
+      if (e.lyric.empty()) w += e.lyricHeld ? "_ " : "* ";
+      else {
+        for (char c : e.lyric) w += c == ' ' ? "~" : c == '-' ? "\\-" : std::string(1, c);
+        w += e.lyricHyphen ? "-" : " ";
+      }
     }
     if (e.tupletStart)
       out += e.tuplet == 3 && e.tupletQ == 2 ? "(3" : "(" + std::to_string(e.tuplet) + ":" + std::to_string(e.tupletQ);
@@ -1012,7 +1029,11 @@ std::string toAbc(const Song& s) {
     if (e.tie) out += "-";
     out += " ";
   }
-  return out + "\n";
+  wLine();
+  out += "\n";
+  std::istringstream words(s.words);
+  for (std::string line; std::getline(words, line);) out += "W:" + line + "\n";
+  return out;
 }
 
 }  // namespace john

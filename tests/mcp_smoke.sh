@@ -49,6 +49,7 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"import_musicxml","arguments":{"xml":"<score-partwise><work><work-title>Smoke XML</work-title></work><part id=\"P1\"><measure><attributes><divisions>2</divisions><key><fifths>1</fifths></key></attributes><note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration></note><note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><chord/></note></measure></part></score-partwise>","instrument":"violin","folder":"Beginner"}}}' \
 '{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"import_musicxml","arguments":{"path":"/no/such.mxl"}}}' \
 '{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"import_musicxml","arguments":{"xml":"X:1\nT:a\nK:D\nABc|"}}}' \
+'{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Sung\nM:3/4\nL:1/4\nK:D\nD E F|A3|]\nw:Ev-er_ on\nW:After the tune."}}}' \
 | JOHN_DEMUCS="$STUB" "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -93,8 +94,9 @@ reply 34 | grep -q "Saved as 'smoke-xml'" && reply 34 | grep -q 'warning: chords
 reply 34 | grep -q 'instrument: Violin' && reply 34 | grep -q 'B4' || { echo "import_musicxml lost the instrument or the top note"; exit 1; }
 reply 35 | grep -q 'cannot read /no/such.mxl' || { echo "missing .mxl not reported"; exit 1; }
 reply 36 | grep -q 'not MusicXML' || { echo "ABC passed as MusicXML not rejected"; exit 1; }
+reply 37 | grep -q 'lyric \\"Ev-\\"' && reply 37 | grep -q 'lyric _' && reply 37 | grep -q 'words (W:): After the tune.' || { echo "import_abc lost the lyrics"; exit 1; }
 case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 36 ] || { echo "expected 36 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 37 ] || { echo "expected 37 replies"; exit 1; }
 echo "mcp smoke passed"
