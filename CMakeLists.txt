@@ -76,12 +76,14 @@ if(EMSCRIPTEN)
   set_target_properties(john PROPERTIES SUFFIX .html LINK_DEPENDS "${CMAKE_SOURCE_DIR}/web/pre.js;${CMAKE_SOURCE_DIR}/web/shell.html")
 
   # Image import (#75): the sheet-music reader is served next to john.html, in omr/. web/omr/ (John's scripts and the
-  # vendored copisteria port) is copied on every build. The copista-2m model (its ONNX
-  # export on Hugging Face), ONNX Runtime Web and pdf.js are downloaded at pinned versions, SHA-256 checked, into
+  # vendored copisteria port) is copied on every build. The copista-2m model (its ONNX export, mirrored on this
+  # repo's models-v1 release, #80), ONNX Runtime Web and pdf.js are downloaded at pinned versions, SHA-256 checked, into
   # downloads/<sha256> (a new pin downloads again). omr/manifest.json lists what the reader caches in the browser.
   set(OMR ${CMAKE_BINARY_DIR}/omr)
+  # The upstream commit of huggingface.co/pauldubois98/musicocr-models the mirror was taken from. It names the
+  # manifest version, so the same bytes keep the browser's cached copy. A new model means a new release (models-v2).
   set(OMR_MODELS_COMMIT 049d45cf85545b169392bc4376b7cf0570408f44)
-  set(OMR_MODELS https://huggingface.co/pauldubois98/musicocr-models/resolve/${OMR_MODELS_COMMIT})
+  set(OMR_MODELS https://github.com/Thinato/john/releases/download/models-v1)
   set(ORT_VERSION 1.30.0)
   set(PDFJS_VERSION 6.5.438)
   function(omr_download url sha256)  # sets DOWNLOADED to the checked file
