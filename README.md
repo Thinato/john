@@ -50,7 +50,7 @@ python3 -m http.server -d build-web 8000
 
 Then open <http://localhost:8000/john.html>. Sound starts on the first click; the mic needs `localhost` or HTTPS.
 
-The image reader (`web/omr/`) needs no npm or bundler: at configure time CMake downloads the copista-2m model (its ONNX export on Hugging Face), ONNX Runtime Web and PDF.js at pinned versions and checks their SHA-256, into `build-web/omr/`. Pages sends no COOP/COEP headers, so the reader uses WebGPU where the browser has it and single-threaded WASM otherwise.
+The image reader (`web/omr/`) needs no npm or bundler: at configure time CMake downloads the copista-2m model (its ONNX export, mirrored on this repo's `models-v1` release), ONNX Runtime Web and PDF.js at pinned versions and checks their SHA-256, into `build-web/omr/`. Pages sends no COOP/COEP headers, so the reader uses WebGPU where the browser has it and single-threaded WASM otherwise.
 
 ## Use
 

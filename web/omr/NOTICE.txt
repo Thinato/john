@@ -18,7 +18,8 @@ copista-2m model, by KobiMusic - Apache License 2.0
   This product includes the copista-2m model, developed by KobiMusic (https://kobi.music):
   https://huggingface.co/kobimusic/copista-2m
   models/ holds its weights converted from PyTorch to ONNX, as published in
-  https://huggingface.co/pauldubois98/musicocr-models (commit 049d45cf85545b169392bc4376b7cf0570408f44).
+  https://huggingface.co/pauldubois98/musicocr-models (commit 049d45cf85545b169392bc4376b7cf0570408f44), mirrored
+  unchanged in John's release https://github.com/Thinato/john/releases/tag/models-v1.
   Notices: licenses/copista-2m-NOTICE.txt, licenses/copista-models-NOTICE.txt (the ONNX export).
   Licence: licenses/copista-models-LICENSE.txt.
 
