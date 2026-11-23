@@ -275,9 +275,13 @@ static void drawScore(App& a, Song& s) {
   const float bassDy = grand ? sp * 10 : 0;  // treble top line to bass top line
   const PitchTrack* trk = a.track && a.track->sync.size() >= 2 ? &*a.track : nullptr;
   const float stripH = trk ? sp * 5 : 0;  // pitch track strip at the bottom of each system
+  const float lyS = sp * 1.6f;  // lyrics text size
+  auto lyricW = [&](const Event& e) { return gText->CalcTextSizeA(lyS, FLT_MAX, 0, e.lyric.c_str()).x; };
   auto slotW = [&](const Event& e, int i) -> float {
     if (e.kind == Kind::Bar) return sp * (e.bar == "|" ? 1.4f : 2.4f);
-    return sp * (1.7f + 1.7f * std::sqrt(e.len / 24.0f)) + (acc[i].shown ? accW : 0);
+    float w = sp * (1.7f + 1.7f * std::sqrt(e.len / 24.0f)) + (acc[i].shown ? accW : 0);
+    if (!e.lyric.empty()) w = std::max(w, lyricW(e) + sp * (e.lyricHyphen ? 1.6f : 0.8f));  // room for the syllable (and its hyphen)
+    return w;
   };
 
   // ---- line breaking: measures end at bar events; justify full lines ----
@@ -325,14 +329,19 @@ static void drawScore(App& a, Song& s) {
   }
 
   // each system grows above and below for its far notes (and by a bass staff on a grand staff)
+  // and by a line of lyrics under the note names when it has any
   std::vector<Room> room;
   std::vector<float> sysY{origin.y};  // system tops, then the end of the last one
   for (auto [f, t] : lines) {
     room.push_back(f < t ? systemRoom(s, slots[f].ev, slots[t - 1].ev + 1, whistle ? 4 : 6) : Room{});
-    sysY.push_back(sysY.back() + sysH + bassDy + (room.back().above + room.back().below) * sp / 2 + stripH);
+    bool words = std::any_of(slots.begin() + f, slots.begin() + t, [&](const Slot& sl) { return !s.events[sl.ev].lyric.empty(); });
+    sysY.push_back(sysY.back() + sysH + bassDy + (room.back().above + room.back().below) * sp / 2 + stripH + (words ? sp * 2.4f : 0));
   }
   auto sysHOf = [&](int sys) { return sysY[sys + 1] - sysY[sys]; };
   auto staffTop = [&](int sys) { return sysY[sys] + sp * 8 + room[sys].above * sp / 2; };  // treble staff top line
+  // below the lowest note: the fingering charts, then the note names, then the lyrics
+  auto chartTopOf = [&](int sys) { return staffTop(sys) + bassDy + sp * 7.5f + room[sys].below * sp / 2; };
+  auto lyricTop = [&](int sys) { return chartTopOf(sys) + sp * (whistle ? 10.0f : 2.6f); };
   auto yOf = [&](int sys, int step, bool bass) { return staffTop(sys) + (bass ? bassDy - sp * 6 : 0) + sp * 4 - (step - 30) * sp / 2; };
   std::vector<int> slotOf(s.events.size(), -1);
   for (int k = 0; k < (int)slots.size(); k++) slotOf[slots[k].ev] = k;
@@ -546,7 +555,7 @@ static void drawScore(App& a, Song& s) {
       sc.text(sym, sl.cx, tTop, sp * 2.2f, techCol);
     }
     // fingering chart: six holes, top hand first
-    float chartTop = bottom + sp * 3.5f + room[sl.sys].below * sp / 2, r = sp * 0.42f;  // below the lowest note
+    float chartTop = chartTopOf(sl.sys), r = sp * 0.42f;
     if (whistle && f.ok) {
       for (int h = 0; h < 6; h++) {
         ImVec2 c{sl.cx, chartTop + sp * (0.5f + h * 1.05f + (h >= 3 ? 0.5f : 0))};
@@ -562,6 +571,31 @@ static void drawScore(App& a, Song& s) {
     std::string nm = noteName(spell(s.key, e.midi));
     nm.pop_back();
     sc.text(nm, sl.cx, chartTop + sp * (whistle ? 8.4f : 1.0f), sp * 1.4f, IM_COL32(110, 110, 110, 255));
+  }
+
+  // ---- lyrics: a hyphen before the next syllable of a word, a line under the notes that hold a syllable ----
+  for (int k = 0; k < (int)slots.size(); k++) {
+    const Slot& sl = slots[k];
+    const Event& e = s.events[sl.ev];
+    if (e.kind != Kind::Note || e.lyric.empty()) continue;
+    const float y = lyricTop(sl.sys), x0 = sl.cx + lyricW(e) / 2;
+    sc.text(e.lyric, sl.cx, y, lyS, ink);
+    if (e.lyricHyphen) {  // centred between this syllable and the next one, or after it at the end of the line
+      int nk = k + 1;
+      while (nk < (int)slots.size() && slots[nk].sys == sl.sys && s.events[slots[nk].ev].lyric.empty()) nk++;
+      bool here = nk < (int)slots.size() && slots[nk].sys == sl.sys;
+      float x1 = here ? slots[nk].cx - lyricW(s.events[slots[nk].ev]) / 2 : x0 + sp * 1.2f;
+      sc.text("-", (x0 + x1) / 2, y, lyS, ink);
+      continue;
+    }
+    float end = 0;  // right edge of the last note holding the syllable (tied notes pass it on)
+    for (int j = k + 1; j < (int)slots.size() && slots[j].sys == sl.sys; j++) {
+      const Event& h = s.events[slots[j].ev];
+      if (h.kind == Kind::Bar) continue;
+      if (h.kind != Kind::Note || !(h.lyricHeld || tiedFrom(s, slots[j].ev))) break;
+      if (h.lyricHeld) end = slots[j].headX + headW;
+    }
+    if (end > x0) sc.line(x0 + sp * 0.2f, y + lyS * 0.85f, end, y + lyS * 0.85f, thin, ink);
   }
 
   // ---- pitch track (Import audio): the recording's melody under each line, placed through its beat times ----
@@ -624,6 +658,7 @@ static void drawScore(App& a, Song& s) {
   }
 
   ImGui::Dummy({width, totalH});
+  if (!s.words.empty()) ImGui::TextWrapped("%s", s.words.c_str());  // ABC W: lines, printed after the tune
   if (stripHovered) ImGui::SetTooltip("%s", tr("Pitch heard in the recording (faint where it is unclear)"));
 
   if (hovered >= 0) {

@@ -52,6 +52,7 @@ ImportResult importAbc(const std::string& abc) {
   std::string line, body, unit, tempo;
   bool inBody = false, sawX = false;
   int octaveShift = 0;  // octaves added to every note: K: octave=
+  std::vector<std::pair<size_t, std::string>> wLines;  // w: lines and where they sit in the body
   while (std::getline(in, line)) {
     if (!line.empty() && line.back() == '\r') line.pop_back();
     std::string t = trim(line);
@@ -73,6 +74,8 @@ ImportResult importAbc(const std::string& abc) {
       }
       else if (f == 'L' && !inBody) unit = v;
       else if (f == 'Q') tempo = v;
+      else if (f == 'W') s.words += (s.words.empty() ? "" : "\n") + v;
+      else if (f == 'w' && inBody) wLines.push_back({body.size(), v});
       else if (f == 'K' && !inBody) {
         // ABC 2.1: K:<key> [clef=]<clef>[line][+8|-8] [octave=N] [transpose=N] [middle=..] ...
         // Clefs only draw (pitches are absolute); octave= moves every written note. Clef +8/-8 and
@@ -136,6 +139,51 @@ ImportResult importAbc(const std::string& abc) {
   int lastNote = -1;     // index of last note/rest event
   auto& ev = s.events;
   const char* p = body.c_str();
+
+  // ---- lyrics (ABC 2.1 w:): syllables go to the notes since the previous w: line ----
+  size_t lyricFrom = 0, wNext = 0;  // first event the next w: line aligns to; next w: line to apply
+  bool sawW = false;
+  auto applyLyrics = [&](const std::string& w) {
+    if (sawW && lyricFrom == ev.size()) { warn("only the first verse of the lyrics (w:) was imported"); return; }
+    sawW = true;
+    size_t i = lyricFrom;
+    int lastSyl = -1, extra = 0;
+    auto nextNote = [&]() -> int {  // rests, graces (not events) and tied continuations take no syllable
+      while (i < ev.size() && (ev[i].kind != Kind::Note || tiedFrom(s, (int)i))) i++;
+      if (i < ev.size()) return (int)i++;
+      extra++;
+      return -1;
+    };
+    std::string cur;
+    char prev = ' ';
+    auto flush = [&](bool hyphen) {
+      if (cur.empty()) return;
+      if (int n = nextNote(); n >= 0) { ev[n].lyric = cur; ev[n].lyricHyphen = hyphen; lastSyl = n; }
+      cur.clear();
+    };
+    for (size_t k = 0; k < w.size(); prev = w[k++]) {
+      char c = w[k];
+      if (c == ' ' || c == '\t') flush(false);
+      else if (c == '-') {
+        if (!cur.empty()) flush(true);
+        else if (prev == ' ' || prev == '-') {  // a hyphen alone is a syllable: the word goes on over this note
+          nextNote();
+          if (lastSyl >= 0) ev[lastSyl].lyricHyphen = true;
+        }
+      } else if (c == '_') { flush(false); if (int n = nextNote(); n >= 0) ev[n].lyricHeld = true; }
+      else if (c == '*') { flush(false); nextNote(); }
+      else if (c == '|') {
+        flush(false);
+        while (i < ev.size() && ev[i].kind != Kind::Bar) i++;
+        if (i < ev.size()) i++;
+      } else if (c == '~') cur += ' ';
+      else if (c == '\\' && k + 1 < w.size() && w[k + 1] == '-') { cur += '-'; k++; }
+      else cur += c;
+    }
+    flush(false);
+    if (extra) warn("a w: line has more syllables than its notes; the extra ones were dropped");
+    lyricFrom = ev.size();
+  };
 
   auto readLength = [&](int& num, int& den) {
     num = 1; den = 1;
@@ -220,6 +268,7 @@ ImportResult importAbc(const std::string& abc) {
   };
 
   while (*p) {
+    while (wNext < wLines.size() && (size_t)(p - body.c_str()) >= wLines[wNext].first) applyLyrics(wLines[wNext++].second);
     char c = *p;
     if (isspace((unsigned char)c) || c == '`' || c == '\\' || c == 'y' || c == ')') { p++; continue; }
     if (c == '%') { while (*p && *p != '\n') p++; continue; }
@@ -352,6 +401,7 @@ ImportResult importAbc(const std::string& abc) {
     p = before + 1;
     warn(std::string("ignored unsupported ABC symbol '") + c + "'");
   }
+  while (wNext < wLines.size()) applyLyrics(wLines[wNext++].second);
   while (!ev.empty() && ev.back().kind == Kind::Bar && ev.back().bar == "|" && ev.back().ending.empty() && ev.size() > 1 &&
          ev[ev.size() - 2].kind == Kind::Bar)
     ev.pop_back();

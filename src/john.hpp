@@ -28,6 +28,11 @@ struct Event {
   std::string comment;   // why the techniques were chosen (shown in the GUI)
   std::string bar;       // Bar only: "|", "||", "|]", "|:", ":|", "::"
   std::string ending;    // Bar only: volta number that starts after this bar ("1", "2")
+  // Note only, first verse of the lyrics (ABC w:, MusicXML <lyric>): the syllable sung on this note, whether the word
+  // goes on (a hyphen before the next syllable), or, with no syllable, whether the previous syllable is held over it.
+  std::string lyric;
+  bool lyricHyphen = false;
+  bool lyricHeld = false;
 };
 
 struct Key {
@@ -49,6 +54,7 @@ struct Song {
   int transposed = 0;                  // semitones transpose() moved it since import; 0 = the original sheet
   std::string harp = "C";              // diatonic harmonica key (used when instrument is "harmonica"), one of HARP_KEYS
   std::vector<Event> events;
+  std::string words;       // text printed after the tune (ABC W: lines), one line per W:
   // translations of the title, notes and comments: language -> English text -> translation ("pt-BR" -> ...)
   std::map<std::string, std::map<std::string, std::string>> i18n;
 };
@@ -157,6 +163,8 @@ std::vector<Accidental> accidentals(const Song& s);
 // bars around a repeat sign count as one, and 2nd/3rd endings restart at the time the 1st ending started.
 struct Pos { int bar = 0, tick = 0; };
 std::vector<Pos> positions(const Song& s);
+// Note i continues a tie from the previous note: the same sound, so it takes no lyric syllable.
+bool tiedFrom(const Song& s, int i);
 
 // ---- sound: performance, synth, pitch detection ----
 std::vector<int> playOrder(const Song& s);   // note/rest event indices in performance order, repeats and endings unrolled

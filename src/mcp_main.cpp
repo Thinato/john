@@ -37,6 +37,7 @@ Getting a tune into John (via ABC -> import_abc, with instrument = what the user
   Then import_abc (source = the file name, and the same instrument you transcribed for). In update_song notes, say it is an automatic transcription, which bars are uncertain, and the feel (tempo, swing, where to breathe). Comment on notes you changed or doubt (set_techniques comment, e.g. "unclear in the recording, check by ear"). Finally ask the user to play it in John next to the recording and tell you what sounds wrong: they are the ears, you are the eyes.
 - Tin whistle tabs (letters or hole diagrams): convert to ABC pitches for the given whistle (D whistle: XXXXXX=D, XXXXXO=E, XXXXOO=F#, XXXOOO=G, XXOOOO=A, XOOOOO=B, OXXOOO=c natural, OOOOOO=c#, + or 'blow harder' = next octave, lowercase in ABC). If the tab has no rhythm, ask the user or infer from the tune type and say so.
 - ABC can already carry techniques: ~ or !roll! = roll, {g}A = cut, {F}G = tap, !tap! !cran! !slide! !tongue! !breath! (any technique id works as !id!).
+- Lyrics: a w: line under a music line gives its notes syllables (ABC 2.1: "-" between syllables, "_" holds the previous syllable over a note, "*" skips a note, "~" joins words on one note, "\-" is a literal hyphen, "|" jumps to the next bar; rests and tied notes take none). First verse only. W: lines (words after the tune) are kept as text. MusicXML <lyric> verse 1 is imported too.
 
 Then:
 1. analyze_song: range check, best transposition, and candidate spots for cuts, rolls, crans, slides, breaths, tonguing. These are hints only.
@@ -69,7 +70,7 @@ static json toolList() {
            {{"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "only songs for this instrument (any whistle key); default all"}}}}),
       tool("import_abc",
            "Create a song from ABC notation (full tune with X/T/M/L/K headers; each X: tune of a multi-tune file becomes its own song, id applies to the first). Returns warnings and the note listing. "
-           "Techniques in the ABC (~, {g}A grace cuts, !id! decorations) are kept.",
+           "Techniques in the ABC (~, {g}A grace cuts, !id! decorations) and lyrics (w: first verse, W:) are kept.",
            {{"abc", str},
             {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
             {"source", {{"type", "string"}, {"description", "where the tune came from (URL, 'photo of ...')"}}},
@@ -93,7 +94,7 @@ static json toolList() {
             {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
             {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}}),
       tool("get_song",
-           "Show a song as a table: event index, bar, beat, note, length, whistle fingering (X covered, O open, H half, + upper octave; other instruments: out-of-range marks), techniques, comment.",
+           "Show a song as a table: event index, bar, beat, note, length, whistle fingering (X covered, O open, H half, + upper octave; other instruments: out-of-range marks), techniques, lyric syllable (\"syl-\" = the word goes on, _ = holds the previous syllable), comment.",
            {{"id", str}}, {"id"}),
       tool("analyze_song",
            "Deterministic hints: range check on the song's instrument, best transpositions, and candidate notes for cuts, rolls, crans, slides, tonguing and breaths.",
