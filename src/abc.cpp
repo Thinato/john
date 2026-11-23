@@ -51,7 +51,7 @@ ImportResult importAbc(const std::string& abc) {
   std::istringstream in(abc);
   std::string line, body, unit, tempo;
   bool inBody = false, sawX = false;
-  int octaveShift = 0;  // octaves added to every note: K: octave= and clef +8/-8
+  int octaveShift = 0;  // octaves added to every note: K: octave=
   while (std::getline(in, line)) {
     if (!line.empty() && line.back() == '\r') line.pop_back();
     std::string t = trim(line);
@@ -75,8 +75,8 @@ ImportResult importAbc(const std::string& abc) {
       else if (f == 'Q') tempo = v;
       else if (f == 'K' && !inBody) {
         // ABC 2.1: K:<key> [clef=]<clef>[line][+8|-8] [octave=N] [transpose=N] [middle=..] ...
-        // Clefs only draw (pitches are absolute), but their +8/-8 and octave= move every note.
-        // transpose= is a playback hint, middle=/stafflines= are layout: ignored.
+        // Clefs only draw (pitches are absolute); octave= moves every written note. Clef +8/-8 and
+        // transpose= only change the sounding pitch (the instrument's octave does that), middle=/stafflines= are layout: ignored.
         std::string kv, tok;
         for (std::istringstream ks(v); ks >> tok;) {
           std::string low = tok;
@@ -91,17 +91,14 @@ ImportResult importAbc(const std::string& abc) {
             continue;
           }
           if (!name.empty() && name != "clef") continue;
-          int shift = 0;
           std::string c = val;
-          if (c.size() > 2 && (c.compare(c.size() - 2, 2, "+8") == 0 || c.compare(c.size() - 2, 2, "-8") == 0)) {
-            shift = c[c.size() - 2] == '+' ? 1 : -1;
-            c.resize(c.size() - 2);
-          }
+          if (c.size() > 2 && (c.compare(c.size() - 2, 2, "+8") == 0 || c.compare(c.size() - 2, 2, "-8") == 0))
+            c.resize(c.size() - 2);  // sounding octave (like transpose=12): written pitch stays
           if (c.size() > 1 && c.back() >= '1' && c.back() <= '5') c.pop_back();  // staff line: bass3, alto2
           static const std::set<std::string> clefs = {"treble", "bass", "alto", "tenor", "baritone", "perc", "none"};
           bool known = clefs.count(c) || (name == "clef" && (c == "g" || c == "f" || c == "c"));
-          if (known) octaveShift += shift;
-          else if (name == "clef") warn("unknown clef '" + val + "', ignored");
+          if (known) continue;
+          if (name == "clef") warn("unknown clef '" + val + "', ignored");
           else kv += tok;  // part of the key, e.g. "G" "mix"
         }
         if (auto k = parseKey(kv)) s.key = *k;
