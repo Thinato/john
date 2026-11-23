@@ -225,6 +225,7 @@ static void poll(App& a) {
   reloadInstruments();  // the agent may have defined or deleted one (define_instrument)
   if (auto cat = instruments(); cat != a.catalog) {
     a.catalog = cat;
+    if (!findInstrument(a.set.instrument, a.set.whistle, a.set.harp)) a.set.instrument = "whistle", a.set.whistle = "D";  // deleted
     for (auto& [id, m] : a.meta) m.mtime = {};  // judged again below
   }
   std::error_code ec;
@@ -1094,7 +1095,7 @@ static void instrumentEditor(App& a) {
   if (!a.editing) return;
   Instrument& in = *a.editing;
   bool open = true;
-  ImGui::SetNextWindowPos({520, 80}, ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowPos({660, 80}, ImGuiCond_FirstUseEver);  // right of Settings
   ImGui::SetNextWindowBgAlpha(1);
   if (!ImGui::Begin(L("Instrument").c_str(), &open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
     ImGui::End();
