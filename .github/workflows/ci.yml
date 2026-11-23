@@ -75,6 +75,13 @@ jobs:
       - name: Build
         run: cmake --build build-web --parallel
 
+      # john.data bundles the built-in instrument profiles (#85): the preload list in john.js names each file
+      - name: Check the bundled instruments
+        run: |
+          for f in instruments/*.json; do
+            grep -q "\"/$f\"" build-web/john.js || { echo "$f is not bundled in john.data"; exit 1; }
+          done
+
       # the image reader (#75) the Pages deploy copies: CMake downloaded and checked its model and runtimes
       - name: Check the image reader files
         run: |

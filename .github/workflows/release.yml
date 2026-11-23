@@ -1,6 +1,6 @@
 # Builds the desktop apps and attaches them to a GitHub Release when a v* tag is pushed (git tag v1.0 && git push
 # origin v1.0). A manual run builds and uploads the packages as workflow artifacts only, without a release.
-# Each package holds john, john-mcp, lessons/, i18n/ and fonts/; the apps look for them next to themselves
+# Each package holds john, john-mcp, lessons/, i18n/, instruments/ and fonts/; the apps look for them next to themselves
 # first (bundled() in src/song.cpp), so the folder works from anywhere.
 name: Release
 
@@ -55,7 +55,7 @@ jobs:
           mkdir -p $d/fonts
           if [ "$RUNNER_OS" = Windows ]; then cp build/Release/john.exe build/Release/john-mcp.exe $d/  # Visual Studio: one folder per config
           else cp build/john build/john-mcp $d/; fi
-          cp -R lessons i18n $d/
+          cp -R lessons i18n instruments $d/
           cp build/Bravura.otf build/NotoSans-Regular.ttf $d/fonts/
           curl -fsSL -o $d/fonts/Bravura-LICENSE.txt https://raw.githubusercontent.com/steinbergmedia/bravura/master/LICENSE.txt
           curl -fsSL -o $d/fonts/NotoSans-LICENSE.txt https://raw.githubusercontent.com/notofonts/latin-greek-cyrillic/main/OFL.txt
