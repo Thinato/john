@@ -51,6 +51,7 @@ ImportResult importAbc(const std::string& abc) {
   std::istringstream in(abc);
   std::string line, body, unit, tempo;
   bool inBody = false, sawX = false;
+  int octaveShift = 0;  // octaves added to every note: K: octave= and clef +8/-8
   while (std::getline(in, line)) {
     if (!line.empty() && line.back() == '\r') line.pop_back();
     std::string t = trim(line);
@@ -73,8 +74,36 @@ ImportResult importAbc(const std::string& abc) {
       else if (f == 'L' && !inBody) unit = v;
       else if (f == 'Q') tempo = v;
       else if (f == 'K' && !inBody) {
-        std::string kv, tok;  // drop "clef=..." style options
-        for (std::istringstream ks(v); ks >> tok;) if (tok.find('=') == std::string::npos) kv += tok;
+        // ABC 2.1: K:<key> [clef=]<clef>[line][+8|-8] [octave=N] [transpose=N] [middle=..] ...
+        // Clefs only draw (pitches are absolute), but their +8/-8 and octave= move every note.
+        // transpose= is a playback hint, middle=/stafflines= are layout: ignored.
+        std::string kv, tok;
+        for (std::istringstream ks(v); ks >> tok;) {
+          std::string low = tok;
+          for (char& ch : low) ch = (char)tolower((unsigned char)ch);
+          size_t eq = low.find('=');
+          std::string name = eq == std::string::npos ? "" : low.substr(0, eq), val = low.substr(eq == std::string::npos ? 0 : eq + 1);
+          if (name == "octave") {
+            char* end = nullptr;
+            long n = strtol(val.c_str(), &end, 10);
+            if (!val.empty() && !*end && n >= -4 && n <= 4) octaveShift += (int)n;
+            else warn("could not read '" + tok + "', ignored");
+            continue;
+          }
+          if (!name.empty() && name != "clef") continue;
+          int shift = 0;
+          std::string c = val;
+          if (c.size() > 2 && (c.compare(c.size() - 2, 2, "+8") == 0 || c.compare(c.size() - 2, 2, "-8") == 0)) {
+            shift = c[c.size() - 2] == '+' ? 1 : -1;
+            c.resize(c.size() - 2);
+          }
+          if (c.size() > 1 && c.back() >= '1' && c.back() <= '5') c.pop_back();  // staff line: bass3, alto2
+          static const std::set<std::string> clefs = {"treble", "bass", "alto", "tenor", "baritone", "perc", "none"};
+          bool known = clefs.count(c) || (name == "clef" && (c == "g" || c == "f" || c == "c"));
+          if (known) octaveShift += shift;
+          else if (name == "clef") warn("unknown clef '" + val + "', ignored");
+          else kv += tok;  // part of the key, e.g. "G" "mix"
+        }
         if (auto k = parseKey(kv)) s.key = *k;
         else warn("could not read key '" + v + "', assumed D major");
         inBody = true;
@@ -138,7 +167,7 @@ ImportResult importAbc(const std::string& abc) {
     int octave = islower((unsigned char)*q) ? 5 : 4;
     q++;
     while (*q == '\'' || *q == ',') octave += *q++ == '\'' ? 1 : -1;
-    octave = std::clamp(octave, 0, 8);
+    octave = std::clamp(octave + octaveShift, 0, 8);
     p = q;
     if (explicitAcc) { if (remember) barAcc[{li, octave}] = acc; }
     else if (auto it = barAcc.find({li, octave}); it != barAcc.end()) acc = it->second;

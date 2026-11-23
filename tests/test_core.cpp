@@ -126,6 +126,19 @@ int main() {
   // review regressions: header comments, volta at start, zero/huge lengths, odd meters, voltas restart time
   auto hc = importAbc("%abc-2.1\nX:1\nT:G jig\n% comment\nM:6/8\nL:1/8\nK:G\nGAB cBc|\n");
   assert(hc.song.key.fifths == 1 && hc.song.meter == "6/8" && nth(hc.song, 3).midi == 72);
+  // K: clef and octave options (#81): clef names are not part of the key; octave= and clef +8/-8 move the notes
+  auto kb = importAbc("X:1\nK:G bass\nG,|\n");
+  assert(kb.warnings.empty() && kb.song.key.fifths == 1 && kb.song.key.mode == "maj" && nth(kb.song, 0).midi == 55);
+  auto kc = importAbc("X:1\nK:Am clef=bass3 transpose=-2 middle=d\nA,|\n");
+  assert(kc.warnings.empty() && kc.song.key.fifths == 0 && kc.song.key.mode == "min" && nth(kc.song, 0).midi == 57);
+  auto ko = importAbc("X:1\nK:D clef=bass octave=-1\nD d ^c|\n");
+  assert(ko.warnings.empty() && nth(ko.song, 0).midi == 50 && nth(ko.song, 1).midi == 62 && nth(ko.song, 2).midi == 61);
+  assert(nth(importAbc("X:1\nK:D clef=bass-8\nD|\n").song, 0).midi == 50);
+  assert(nth(importAbc("X:1\nK:D treble+8\nD|\n").song, 0).midi == 74);
+  auto ku = importAbc("X:1\nK:D clef=banjo\nD|\n");
+  assert(ku.song.key.fifths == 2 && ku.warnings == std::vector<std::string>{"unknown clef 'banjo', ignored"} && nth(ku.song, 0).midi == 62);
+  Song kr = importAbc(toAbc(ko.song)).song;  // stored pitches already carry the shift; toAbc writes no octave=
+  assert(nth(kr, 0).midi == 50 && nth(kr, 1).midi == 62 && nth(kr, 2).midi == 61);
   assert(!importAbc("[1 AB|").song.events.empty());
   assert(!importAbc("|1 AB|").song.events.empty());
   assert(nth(importAbc("X:1\nK:D\nA/0 B|").song, 0).len > 0);
