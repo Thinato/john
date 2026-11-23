@@ -1,0 +1,35 @@
+John's sheet-music reader (Import song: images and PDFs, web version)
+https://github.com/Thinato/john - John itself is under the MIT licence (LICENSE in the repository).
+
+The reader runs in your browser; the image never leaves your device. It is made of the software and model below.
+Paths are relative to this file (omr/ on the site).
+
+copisteria, by KobiMusic - Apache License 2.0
+  This product includes software developed by KobiMusic (https://kobi.music):
+  copisteria, https://github.com/kobimusic/copisteria
+  copisteria/ is the JavaScript port of copisteria's reader (copisteria commit
+  c685f280914d91a694494588d9f6a376d7917eba) made in MusicOCR and its fork brunombo/OpticalMusicRecognition
+  (https://github.com/brunombo/OpticalMusicRecognition, commit 93ee338c196d2aef0d8eccfb86c4cec8446e743f): translated
+  from Python to JavaScript, the OCR-text features left out, fingerings.js added. John changed write.js: every line
+  after the first starts with <print new-system="yes"/>.
+  Licence: licenses/copisteria-Apache-2.0.txt. Notice: licenses/copisteria-NOTICE.txt.
+
+copista-2m model, by KobiMusic - Apache License 2.0
+  This product includes the copista-2m model, developed by KobiMusic (https://kobi.music):
+  https://huggingface.co/kobimusic/copista-2m
+  models/ holds its weights converted from PyTorch to ONNX, as published in
+  https://huggingface.co/pauldubois98/musicocr-models (commit 049d45cf85545b169392bc4376b7cf0570408f44).
+  Notices: licenses/copista-2m-NOTICE.txt, licenses/copista-models-NOTICE.txt (the ONNX export).
+  Licence: licenses/copista-models-LICENSE.txt.
+
+MusicOCR and brunombo/OpticalMusicRecognition
+  join.js (joins the pages of a score) is MusicOCR's code, Copyright 2026 the MusicOCR authors, MIT licence:
+  licenses/MusicOCR-MIT.txt. The fork's own additions are under the Apache License 2.0:
+  licenses/OpticalMusicRecognition-Apache-2.0.txt.
+
+ONNX Runtime Web 1.30.0, by Microsoft - MIT licence
+  ort/ (npm package onnxruntime-web, unchanged). Licence: licenses/onnxruntime-MIT.txt. Third-party notices:
+  licenses/onnxruntime-ThirdPartyNotices.txt.
+
+PDF.js 6.5.438, by Mozilla - Apache License 2.0
+  pdfjs/ (npm package pdfjs-dist, unchanged). Licence: pdfjs/LICENSE. Its image decoders: pdfjs/wasm/LICENSE_*.
