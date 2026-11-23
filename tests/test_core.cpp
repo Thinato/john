@@ -209,7 +209,7 @@ int main() {
 
   // instruments: ranges, written vs sounding octave, JSON, playback pitch, range hints
   {
-    for (auto& id : INSTRUMENTS) assert(findInstrument(id));
+    for (auto& id : instrumentIds()) assert(findInstrument(id));
     assert(!findInstrument("kazoo") && !findInstrument("whistle", "Dm"));
     Instrument cw = *findInstrument("whistle", "C");
     assert(cw.low == 60 && cw.high == 83 && cw.octave == 1 && cw.name == "C whistle");
@@ -267,6 +267,235 @@ int main() {
     assert(instrumentOf(hs).name == "D whistle");  // unknown key: falls back like a bad whistle key
   }
 
+  // instruments as data (#85): the catalog from instruments/, the same results as the old hard-coded instruments, the
+  // harmonica's real layout, custom instruments (save, override, broken files, deleted ones), instrument_name
+  {
+    assert((instrumentIds() == std::vector<std::string>{"whistle", "violin", "piano", "guitar", "electric-guitar", "harmonica"}));
+    assert(instrumentWarnings().empty());
+    for (auto& in : instruments()) assert(in.builtin && !in.custom && in.sound == in.id && in.hints == (in.id == "whistle"));
+    assert(parseNote("D4") == 62 && parseNote("C#6") == 85 && parseNote("Bb3") == 58 && parseNote("A0") == 21 && parseNote("Cb4") == 59);
+    assert(parseNote("H4") < 0 && parseNote("D") < 0 && parseNote("D4x") < 0 && parseNote("d4") < 0 && parseNote("G9") == 127 && parseNote("A9") < 0);
+
+    // The old code, verbatim in behaviour: findInstrument() and rangeCost() before #85.
+    auto oldInstrument = [](const std::string& id, const std::string& wk, const std::string& hk) -> std::optional<Instrument> {
+      Instrument r;
+      r.id = id;
+      if (id == "whistle") {
+        int b = whistleBase(wk);
+        if (b < 0) return std::nullopt;
+        r.name = wk + " whistle", r.low = b, r.high = b + 23, r.octave = 1, r.key = wk;
+        return r;
+      }
+      if (id == "harmonica" && hk != "C") {
+        if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), hk) == HARP_KEYS.end()) return std::nullopt;
+        int b = whistleBase(hk);
+        if (b >= 67) b -= 12;
+        r.name = hk + " harmonica", r.low = b, r.high = b + 36;
+        return r;
+      }
+      static const std::tuple<const char*, const char*, int, int, int> FIXED[] = {
+          {"violin", "Violin", 55, 100, 0}, {"piano", "Piano", 21, 108, 0}, {"guitar", "Guitar", 52, 96, -1},
+          {"electric-guitar", "Electric guitar", 52, 100, -1}, {"harmonica", "Harmonica", 60, 96, 0}};
+      for (auto& [i, n, lo, hi, o] : FIXED)
+        if (id == i) { r.name = n, r.low = lo, r.high = hi, r.octave = o; return r; }
+      return std::nullopt;
+    };
+    auto oldCost = [](const Song& s, const Instrument& in, int semis) {
+      RangeCost c;
+      for (auto& e : s.events) {
+        if (e.kind != Kind::Note) continue;
+        if (in.id != "whistle") { c.out += !in.plays(e.midi + semis); continue; }
+        Fingering f = finger(in.key, e.midi + semis);
+        if (!f.ok) c.out++;
+        else if (f.holes.find('H') != std::string::npos) c.half++;
+        else if (f.holes == "OXXOOO") c.cross++;
+      }
+      return std::tuple(c.out, c.half, c.cross, c.half * 10 + c.cross * 2);
+    };
+    auto newCost = [](const Song& s, const Instrument& in, int semis) {
+      RangeCost c = rangeCost(s, in, semis);
+      return std::tuple(c.out, c.half, c.cross, c.hard());
+    };
+    std::vector<std::string> keys = {"", "H", "Dm", "D#", "E#", "Fb", "B#", "G#", "A#", "C##"};
+    for (const char* l : {"C", "D", "E", "F", "G", "A", "B"})
+      for (const char* acc : {"", "#", "b"}) keys.push_back(std::string(l) + acc), keys.push_back(char(std::tolower(*l)) + std::string(acc));
+    keys.push_back("DB"), keys.push_back("bB");
+    auto spelled = [](std::string k) {  // keys match case-insensitively (#85): the old code got the spelling the list has
+      for (size_t i = 0; i < k.size(); i++) k[i] = char(i ? std::tolower((unsigned char)k[i]) : std::toupper((unsigned char)k[i]));
+      return k;
+    };
+    Song sweep, tune = importAbc("X:1\nT:t\nM:4/4\nL:1/8\nK:D\nDEFG ABcd|efga bc'd'e'|=c=F^G_B c'=f'g2|\n").song;
+    for (int m = 30; m <= 115; m++) { Event e; e.midi = m; e.len = WHOLE / 8; sweep.events.push_back(e); }
+    for (auto& id : instrumentIds())
+      for (auto& k : keys) {
+        auto was = oldInstrument(id, spelled(k), spelled(k)), now = findInstrument(id, k, k);
+        assert(was.has_value() == now.has_value());
+        if (!was) continue;
+        assert(was->name == now->name && was->low == now->low && was->high == now->high && was->octave == now->octave);
+        if (id == "whistle") assert(was->key == now->key);
+        if (id == "harmonica") continue;  // the harmonica gets its real layout below (#85)
+        for (int m = 30; m <= 115; m++) {  // every pitch on its own
+          Song one;
+          one.events = {sweep.events[m - 30]};
+          assert(oldCost(one, *was, 0) == newCost(one, *now, 0));
+        }
+        for (int t = -14; t <= 14; t++) assert(oldCost(tune, *was, t) == newCost(tune, *now, t) && oldCost(sweep, *was, t) == newCost(sweep, *now, t));
+      }
+    assert(findInstrument("whistle", "c")->low == 60 && findInstrument("whistle", "c")->name == "C whistle" && findInstrument("whistle", "bb")->key == "Bb");
+    assert(findInstrument("harmonica", "D", "a")->low == 57 && !findInstrument("harmonica", "D", "c#"));  // only the listed harps
+    // songs saved before #85 load and save back unchanged (no instrument_name for built-ins)
+    for (const fs::path& d : {lessonsDir(), lessonsDir().parent_path() / "demo"})
+      for (auto& e : fs::directory_iterator(d)) {
+        std::ifstream f(e.path());
+        json j = json::parse(f);
+        json back = toJson(fromJson(j));
+        if (!j.contains("instrument")) back.erase("instrument");  // the lessons leave out the default
+        assert(back == j);
+      }
+
+    // the harmonica (10-hole Richter): blow and draw notes easy, bends hard, overblows and overdraws hard x3
+    const std::set<int> easy = {0, 2, 4, 7, 11, 12, 14, 16, 17, 19, 21, 23, 24, 26, 28, 29, 31, 33, 36};
+    const std::set<int> bends = {1, 5, 6, 8, 9, 10, 13, 20, 27, 30, 34, 35}, overblows = {3, 15, 18, 22, 25, 32};
+    for (const char* hk : {"C", "A"}) {
+      Instrument h = *findInstrument("harmonica", "D", hk);
+      assert(h.high - h.low == 36);
+      for (int at = 0; at <= 36; at++) {
+        NoteLevel n = h.level(h.low + at);
+        if (easy.count(at)) assert(n.level == NoteLevel::Easy);
+        if (bends.count(at)) assert(n.level == NoteLevel::Hard && n.how == "bend" && n.weight == 1);
+        if (overblows.count(at)) assert(n.level == NoteLevel::Hard && n.how == "overblow" && n.weight == 3);
+        assert(h.plays(h.low + at) && easy.count(at) + bends.count(at) + overblows.count(at) == 1);
+      }
+    }
+    Instrument ch = *findInstrument("harmonica");
+    assert(ch.level(60).level == NoteLevel::Easy && ch.level(61).how == "bend" && ch.level(63).how == "overblow");  // C4, Db4, Eb4
+    assert(ch.level(69).how == "bend" && ch.level(81).level == NoteLevel::Easy && ch.level(87).how == "bend");      // A4 3-draw, A5, Eb6
+    Instrument ah = *findInstrument("harmonica", "D", "A");
+    assert(ah.low == 57 && ah.level(62).how == "bend" && ah.level(60).how == "overblow" && ah.level(64).level == NoteLevel::Easy);
+    // a scale in the bottom octave needs bends (F, A on a C harp; D, F# on an A harp); the octave up is all blow/draw
+    auto p = playability(importAbc("X:1\nT:s\nM:4/4\nL:1/8\nK:C\nCDEF GABc|\n").song, ch);
+    assert(p.verdict == Playability::OtherKey && p.shift == 12 && p.cost.other == 0 && p.cost.out == 0);
+    RangeCost low = rangeCost(importAbc("X:1\nT:s\nM:4/4\nL:1/8\nK:C\nCDEF GABc|\n").song, ch, 0);
+    assert(low.other == 2 && low.hard() == 20 && low.half == 0);
+    p = playability(importAbc("X:1\nT:s\nM:4/4\nL:1/8\nK:A\nA,B,CD EFGA|\n").song, ah);
+    assert(p.verdict == Playability::OtherKey && p.shift == 12);
+    assert(analyze([&] { Song x = importAbc("X:1\nT:s\nM:4/4\nL:1/8\nK:C\nCDEF GABc|\n").song; x.instrument = "harmonica"; return x; }())
+               .find("current: 0 out of range, 2 hard") != std::string::npos);
+
+    // a custom instrument: "a C flute, low D to high A", diatonic
+    fs::path dir = home / "instruments";
+    Instrument fl = parseInstrument({{"id", "c-flute"}, {"name", "C flute"}, {"low", "D4"}, {"high", "A6"}, {"key", "C"},
+                                     {"techniques", {"cut", "roll"}}, {"sound", "whistle"}});
+    applyPreset(fl, true);
+    assert(fl.low == 62 && fl.high == 93 && fl.level(66).level == NoteLevel::Hard && fl.level(67).level == NoteLevel::Easy);  // F#4, G4
+    assert(fl.notes.size() == 13 && !fl.custom);  // 5 of every 12 in D4..A6
+    saveInstrument(fl);
+    assert(fs::exists(dir / "c-flute.json") && !toJson(fl).contains("id"));
+    Instrument got = *findInstrument("c-flute");
+    assert(got.custom && !got.builtin && got.name == "C flute" && got.notes == fl.notes && got.techniques == fl.techniques);
+    assert(instrumentIds().back() == "c-flute");  // custom ones after the built-ins
+    p = playability(importAbc("X:1\nT:f\nM:4/4\nL:1/8\nK:C\nDEFG ABcd|\n").song, got);
+    assert(p.verdict == Playability::AsWritten);
+    p = playability(importAbc("X:1\nT:f\nM:4/4\nL:1/8\nK:D\nDEFG ABcd|\n").song, got);  // F#, C#: in C it fits
+    assert(p.verdict == Playability::OtherKey && keyName(p.key) == "C major");
+    Instrument imp = got;
+    imp.notes[0] = {NoteLevel::Impossible};
+    assert(!imp.plays(62) && imp.plays(64) && rangeCost(importAbc("X:1\nT:f\nM:4/4\nL:1/8\nK:C\nDE|\n").song, imp, 0).out == 1);
+    // songs save the name of a custom instrument, never of a built-in
+    Song fs1 = importAbc("X:1\nT:f\nM:4/4\nL:1/8\nK:C\nDEFG|\n").song;
+    assert(!toJson(fs1).contains("instrument_name"));
+    fs1.instrument = "c-flute";
+    assert(toJson(fs1)["instrument_name"] == "C flute" && fromJson(toJson(fs1)).instrumentName == "C flute");
+    assert(instrumentOf(fs1).name == "C flute" && instrumentLabel(fs1) == "C flute");
+    Settings mine;
+    mine.instrument = "c-flute";
+    mine.whistle = "C";
+    saveSettings(mine);
+    assert(loadSettings().instrument == "c-flute");
+    // deleted: the song keeps working on the D whistle, named "(deleted)"; Settings fall back to the D whistle
+    Song kept = fromJson(toJson(fs1));
+    assert(deleteInstrument("c-flute") && !deleteInstrument("c-flute") && !deleteInstrument("violin") && !findInstrument("c-flute"));
+    assert(instrumentOf(kept).name == "D whistle" && instrumentLabel(kept) == "C flute (deleted)" && listing(kept).find("instrument: C flute (deleted)") != std::string::npos);
+    assert(toJson(kept)["instrument_name"] == "C flute");  // still saved, so it stays named
+    assert(loadSettings().instrument == "whistle" && loadSettings().whistle == "D");  // deleteInstrument() reset it
+    // a custom file that is only broken or missing for a while leaves the Settings alone
+    saveInstrument(fl);
+    saveSettings(mine);
+    std::string saved;
+    { std::ifstream f(home / "settings.json"); saved.assign(std::istreambuf_iterator<char>(f), {}); }
+    std::ofstream(dir / "c-flute.json") << "{broken";
+    reloadInstruments();
+    assert(!findInstrument("c-flute") && loadSettings() == mine);
+    fs::remove(dir / "c-flute.json");
+    reloadInstruments();
+    assert(loadSettings() == mine);
+    { std::ifstream f(home / "settings.json"); assert(std::string(std::istreambuf_iterator<char>(f), {}) == saved); }
+    saveInstrument(fl);
+    assert(loadSettings() == mine && findInstrument("c-flute"));
+    deleteInstrument("c-flute");
+    fs::remove(home / "settings.json");
+    // saveInstrument never writes a file the loader would skip (the editor shows the reason)
+    Instrument bad = *findInstrument("whistle");
+    bad.id = "my-whistle", bad.key = "H";
+    bool threw = false;
+    try { saveInstrument(bad); } catch (const std::runtime_error& e) { threw = std::string(e.what()).find("key must be") == 0; }
+    assert(threw && !fs::exists(dir / "my-whistle.json"));
+    bad.key = "G", bad.keys = {"C", "D"};  // a key its own list doesn't have
+    threw = false;
+    try { saveInstrument(bad); } catch (const std::runtime_error& e) { threw = std::string(e.what()) == "keys must include key"; }
+    assert(threw && !fs::exists(dir / "my-whistle.json"));
+    // a hard note's how and weight survive a trip through easy in the editor's map, and easy entries aren't saved
+    Instrument cyc = *findInstrument("whistle");
+    cyc.id = "cyc", cyc.notes[1].level = NoteLevel::Easy;
+    assert(!toJson(cyc)["notes"].contains("1") && cyc.notes[1].how == "half-hole");
+
+    // a custom file with a built-in's id overrides it, in the built-in's place; deleting it brings the built-in back
+    std::ofstream(dir / "violin.json") << R"({"name": "My violin", "low": "C3", "high": "E7", "sound": "violin"})";
+    reloadInstruments();
+    Instrument mv = *findInstrument("violin");
+    assert(mv.name == "My violin" && mv.low == 48 && mv.custom && mv.builtin && instrumentIds()[1] == "violin");
+    Song vs = fs1;
+    vs.instrument = "violin";
+    assert(!toJson(vs).contains("instrument_name"));
+    assert(deleteInstrument("violin") && findInstrument("violin")->name == "Violin" && !findInstrument("violin")->custom);
+
+    // a broken file drops only that instrument, with a warning naming the file and the problem
+    std::ofstream(dir / "kazoo.json") << "{not json";
+    std::ofstream(dir / "flute.json") << R"({"name": "Flute", "low": "H4", "high": "A6"})";
+    std::ofstream(dir / "lute.json") << R"({"name": "Lute", "low": "C3", "high": "C6", "notes": {"40": "hard"}})";
+    std::ofstream(dir / "pipe.json") << R"({"name": "Pipe", "low": "D4", "high": "D6", "notes": {"1": {"level": "hard", "how": "lip"}}})";
+    std::ofstream(dir / "harp2.json") << R"({"name": "Harp", "low": "C4", "high": "C7", "notes": {"1": "bend"}, "sound": "harp"})";
+    std::ofstream(dir / "fife.json") << R"({"name": "Fife", "low": 74, "high": 98, "notes": {"1": "hard", "2": {"level": "impossible"}}})";
+    reloadInstruments();
+    auto warn = instrumentWarnings();
+    auto warned = [&](const char* file, const char* what) {
+      return std::any_of(warn.begin(), warn.end(), [&](auto& w) { return w.find(file) != std::string::npos && w.find(what) != std::string::npos; });
+    };
+    assert(warn.size() == 5 && warned("kazoo.json", "not valid JSON") && warned("flute.json", "low must be a note"));
+    assert(warned("lute.json", "notes \"40\"") && warned("pipe.json", "how must be") && warned("harp2.json", "level must be"));
+    assert(findInstrument("fife") && findInstrument("fife")->level(75).level == NoteLevel::Hard && !findInstrument("fife")->plays(76));
+    assert(!findInstrument("kazoo") && !findInstrument("flute") && findInstrument("whistle") && instrumentIds().size() == 7);
+    for (const char* f : {"kazoo", "flute", "lute", "pipe", "harp2", "fife"}) fs::remove(dir / (std::string(f) + ".json"));
+    reloadInstruments();
+    assert(instrumentWarnings().empty() && instrumentIds().size() == 6);
+    // clear errors for each field (MCP define_instrument shows them)
+    auto err = [](const json& j) {
+      try { parseInstrument(j); } catch (const std::runtime_error& e) { return std::string(e.what()); }
+      return std::string();
+    };
+    json ok = {{"id", "x"}, {"name", "X"}, {"low", 60}, {"high", 72}};
+    assert(err(ok).empty());
+    auto with = [&](const char* k, json v) { json j = ok; j[k] = v; return err(j); };
+    assert(with("id", "Bad Id").find("id must be") == 0 && with("name", "").find("name is missing") == 0);
+    for (const char* dev : {"con", "prn", "aux", "nul", "com1", "lpt9"}) assert(with("id", dev).find("id must be") == 0);
+    assert(with("id", "com").empty() && with("id", "console").empty() && with("id", "com10").empty());
+    assert(with("high", 50).find("low must not be above high") == 0 && with("octave", 3).find("octave must be") == 0);
+    assert(with("key", "H").find("key must be") == 0 && with("sound", "harp").find("sound must be") == 0);
+    assert(with("techniques", "cut").find("techniques must be") == 0 && with("notes", {{"x", "hard"}}).find("notes \"x\"") == 0);
+    assert(with("notes", {{"3", {{"level", "hard"}, {"weight", 0}}}}).find("weight must be") != std::string::npos);
+    assert(err({{"id", "x"}, {"name", "X"}, {"high", 72}}).find("low is missing") == 0);
+  }
+
   // play in another key (#67): smallest interval, then the octave that fits the instrument; back = the original
   {
     Song s = importAbc("X:1\nT:k\nM:4/4\nL:1/8\nK:D\nDEFG ABcd|\n").song;  // D4..D5 on a D whistle
@@ -286,11 +515,13 @@ int main() {
     Song m = importAbc("X:1\nT:m\nM:4/4\nL:1/8\nK:Edor\nEFGA Bcde|\n").song;
     transposeToKey(m, 2, instrumentOf(m));
     assert(keyName(m.key) == "D dorian" && m.events[0].midi == 62);  // the mode stays
-    Song h = importAbc("X:1\nT:h\nM:4/4\nL:1/8\nK:A\nA,B,CD EFGA|\n").song;  // A3..A4: the bottom of an A harp
+    // A3..E5 from the bottom of an A harp, blow and draw notes only (#85: D and F# there are bends, so the low octave
+    // of "A,B,CD EFGA" would no longer tie with the octave up)
+    Song h = importAbc("X:1\nT:h\nM:4/4\nL:1/8\nK:A\nA,B,CE GAce|\n").song;
     h.instrument = "harmonica";
     h.harp = "A";
     const Song hOrig = h;
-    assert(transposeToKey(h, 7, instrumentOf(h)) == 10 && keyName(h.key) == "G major");  // down 2 would leave G3, G#3 out
+    assert(transposeToKey(h, 7, instrumentOf(h)) == 10 && keyName(h.key) == "G major");  // down 2 would leave G3 out
     // back to A: +2 and -10 both fit; the tie goes to the original octave, so the sheet is exactly the original
     assert(transposeToKey(h, 9, instrumentOf(h)) == -10 && toJson(h) == toJson(hOrig));
     for (int k = 0; k < 12; k++) transposeToKey(h, k, instrumentOf(h));  // a walk through every key and back
@@ -336,7 +567,7 @@ int main() {
     Song v = importAbc("X:1\nT:v\nM:4/4\nL:1/4\nK:D\nA4|\n").song;  // 4 s whole note
     v.instrument = "violin";                                         // written A4 sounds 440 Hz
     auto window = [&](const std::vector<float>& x, double at) { return x.data() + (int)(at * sr); };
-    for (auto& id : INSTRUMENTS) {
+    for (auto& id : SOUNDS) {
       Performance p = perform(v, 60, 0, false, id);
       assert(p.sound == id && p.octave == 0);
       Synth syn;
@@ -1424,7 +1655,8 @@ int main() {
     assert(loadSettings() == Settings{});
     write(R"({"sound": "banjo", "instrument": "kazoo", "songFilter": "lute", "zoom": 0, "volume": 9, "harp": "H", "whistle": "Dm"})");  // values the GUI can't use; songFilter is the old filter (#84), now ignored
     Settings c = loadSettings();
-    assert(c.sound.empty() && c.instrument == "whistle" && c.whistle == "D" && !c.allSongs && c.zoom == 6 && c.volume == 1 && c.harp == "C");
+    // an unknown instrument stays (#85: a custom file may be missing for a while; the readers fall back to the D whistle)
+    assert(c.sound.empty() && c.instrument == "kazoo" && c.whistle == "D" && !c.allSongs && c.zoom == 6 && c.volume == 1 && c.harp == "C");
     fs::remove(home / "settings.json");
   }
 

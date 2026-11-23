@@ -1,0 +1,25 @@
+{
+ "name": "D whistle",
+ "order": 1,
+ "low": "D4",
+ "high": "C#6",
+ "octave": 1,
+ "key": "D",
+ "keys": ["C", "C#", "Db", "D", "Eb", "E", "F", "F#", "Gb", "G", "Ab", "A", "Bb", "B", "Cb"],
+ "keyed_name": "%s whistle",
+ "notes": {
+  "1": {"level": "hard", "how": "half-hole"},
+  "3": {"level": "hard", "how": "half-hole"},
+  "6": {"level": "hard", "how": "half-hole"},
+  "8": {"level": "hard", "how": "half-hole"},
+  "10": {"level": "hard", "how": "cross-fingering", "weight": 0.2},
+  "13": {"level": "hard", "how": "half-hole"},
+  "15": {"level": "hard", "how": "half-hole"},
+  "18": {"level": "hard", "how": "half-hole"},
+  "20": {"level": "hard", "how": "half-hole"},
+  "22": {"level": "hard", "how": "cross-fingering", "weight": 0.2}
+ },
+ "techniques": ["cut", "tap", "roll", "short_roll", "cran", "slide", "tongue", "breath", "staccato", "accent", "vibrato", "trill", "double_cut"],
+ "sound": "whistle",
+ "hints": true
+}

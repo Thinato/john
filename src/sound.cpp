@@ -60,8 +60,8 @@ Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, cons
   Performance p;
   const Instrument on = player.value_or(instrumentOf(s));
   p.octave = on.octave;  // pitch always follows the player's instrument, whatever the sound
-  p.sound = sound.empty() ? on.id : sound;
-  if (std::find(INSTRUMENTS.begin(), INSTRUMENTS.end(), p.sound) == INSTRUMENTS.end()) p.sound = "whistle";
+  p.sound = sound.empty() ? on.sound : sound;
+  if (std::find(SOUNDS.begin(), SOUNDS.end(), p.sound) == SOUNDS.end()) p.sound = "whistle";
   // What each voice plays (kb/notes/playback-voice-ornaments.md): finger ornaments on whistle, fiddle and guitars
   // (as hammer-ons/pull-offs), slides on all but piano, vibrato on all but piano and guitar, breaths on the winds.
   const std::string& snd = p.sound;

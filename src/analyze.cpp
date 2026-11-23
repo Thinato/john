@@ -1,6 +1,7 @@
 // Deterministic hints about where techniques *could* go. The agent decides what actually fits the tune.
 #include "john.hpp"
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <tuple>
 
@@ -20,11 +21,11 @@ RangeCost rangeCost(const Song& s, const Instrument& in, int semis) {
   RangeCost c;
   for (auto& e : s.events) {
     if (e.kind != Kind::Note) continue;
-    if (in.id != "whistle") { c.out += !in.plays(e.midi + semis); continue; }
-    Fingering f = finger(in.key, e.midi + semis);
-    if (!f.ok) c.out++;
-    else if (f.holes.find('H') != std::string::npos) c.half++;
-    else if (f.holes == "OXXOOO") c.cross++;
+    if (!in.plays(e.midi + semis)) { c.out++; continue; }
+    NoteLevel n = in.level(e.midi + semis);  // the profile's note table (#85)
+    if (n.level != NoteLevel::Hard) continue;
+    (n.how == "half-hole" ? c.half : n.how == "cross-fingering" ? c.cross : c.other)++;
+    c.weight += (int)std::lround(n.weight * 10);
   }
   return c;
 }
@@ -110,7 +111,9 @@ std::string analyze(const Song& s) {
     << noteName(spell(s.key, in.high)) << ") ==\n";
   RangeCost now = rangeCost(s, in, 0);
   o << "current: " << now.out << " out of range";
+  const bool table = !whistle && !in.notes.empty();  // other instruments with hard notes (the harmonica's bends)
   if (whistle) o << ", " << now.half << " half-holed, " << now.cross << " C-natural cross-fingered";
+  else if (table) o << ", " << now.half + now.cross + now.other << " hard";
   o << "\n";
   std::vector<std::pair<int, int>> ranked;  // score, semis
   for (int t = -12; t <= 12; t++) {
@@ -125,13 +128,17 @@ std::string analyze(const Song& s) {
     transpose(tmp, ranked[i].second);
     o << "  [" << (ranked[i].second > 0 ? "+" : "") << ranked[i].second << " -> " << keyName(tmp.key) << ": " << c.out << " out";
     if (whistle) o << ", " << c.half << " half, " << c.cross << " cross";
+    else if (table) o << ", " << c.half + c.cross + c.other << " hard";
     o << "]";
   }
   o << "\n";
   for (auto& n : notes) {
-    Fingering f = whistle ? finger(s.whistle, n.midi) : Fingering{"", 0, in.plays(n.midi)};
+    Fingering f = whistle ? finger(in.key, n.midi) : Fingering{"", 0, in.plays(n.midi)};
     std::string nm = noteName(spell(s.key, n.midi));
-    if (!f.ok) o << "#" << n.idx << " bar " << n.bar << " " << nm << ": OUT OF RANGE\n";
+    NoteLevel lv = in.level(n.midi);
+    if (!f.ok) o << "#" << n.idx << " bar " << n.bar << " " << nm << (n.midi >= in.low && n.midi <= in.high ? ": NOT PLAYABLE\n" : ": OUT OF RANGE\n");
+    else if (table && lv.level == NoteLevel::Hard)
+      o << "#" << n.idx << " bar " << n.bar << " " << nm << ": hard" << (lv.how.empty() ? "" : " (" + lv.how + ")") << "\n";
     else if (f.holes.find('H') != std::string::npos)
       o << "#" << n.idx << " bar " << n.bar << " " << nm << ": half-hole " << fingeringText(f) << " (hard; consider transposing or an alternative note)\n";
   }

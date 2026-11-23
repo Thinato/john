@@ -1,0 +1,9 @@
+{
+ "name": "Guitar",
+ "order": 4,
+ "low": "E3",
+ "high": "C7",
+ "octave": -1,
+ "techniques": ["cut", "tap", "roll", "short_roll", "slide", "staccato", "accent", "trill", "double_cut"],
+ "sound": "guitar"
+}

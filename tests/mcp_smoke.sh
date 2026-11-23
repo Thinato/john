@@ -50,6 +50,17 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"import_musicxml","arguments":{"path":"/no/such.mxl"}}}' \
 '{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"import_musicxml","arguments":{"xml":"X:1\nT:a\nK:D\nABc|"}}}' \
 '{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Sung\nM:3/4\nL:1/4\nK:D\nD E F|A3|]\nw:Ev-er_ on\nW:After the tune."}}}' \
+'{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"list_instruments","arguments":{}}}' \
+'{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"C flute","low":"D4","high":"A6","key":"C","preset":"diatonic","notes":{"0":"impossible"},"techniques":["cut","roll"]}}}' \
+'{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Bad","low":"H4","high":"A6"}}}' \
+'{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Odd","low":60,"high":72,"techniques":["nope"]}}}' \
+'{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Flute Air\nM:4/4\nL:1/4\nK:C\nE F G A|","instrument":"c-flute"}}}' \
+'{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"list_songs","arguments":{"instrument":"c-flute"}}}' \
+'{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"delete_instrument","arguments":{"id":"c-flute"}}}' \
+'{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"get_song","arguments":{"id":"flute-air"}}}' \
+'{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"delete_instrument","arguments":{"id":"violin"}}}' \
+'{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Low C\nM:4/4\nL:1/4\nK:C\nC D E F|","whistle":"c"}}}' \
+'{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Charts","low":60,"high":72,"hints":true}}}' \
 | JOHN_DEMUCS="$STUB" "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -68,7 +79,7 @@ check '"name":"delete_bars"'
 check 'instrument: Violin'
 check "unknown instrument 'kazoo'"
 check 'Range on the Violin'
-check '"enum":\["whistle","violin"'
+check 'an instrument id (list_instruments)'
 check "unknown recording_instrument 'kazoo'"
 check 'smoke-reel - Smoke Reel (D major, 4/4, D whistle)'
 check 'fiddle - Fiddle (G major, 4/4, Violin)'
@@ -97,8 +108,17 @@ reply 34 | grep -q 'instrument: Violin' && reply 34 | grep -q 'B4' || { echo "im
 reply 35 | grep -q 'cannot read /no/such.mxl' || { echo "missing .mxl not reported"; exit 1; }
 reply 36 | grep -q 'not MusicXML' || { echo "ABC passed as MusicXML not rejected"; exit 1; }
 reply 37 | grep -q 'lyric \\"Ev-\\"' && reply 37 | grep -q 'lyric _' && reply 37 | grep -q 'words (W:): After the tune.' || { echo "import_abc lost the lyrics"; exit 1; }
+reply 38 | grep -q 'whistle - D whistle (built-in): written D4..C#6' && reply 38 | grep -q 'D#4 overblow x3' || { echo "list_instruments lost the built-ins"; exit 1; }
+reply 39 | grep -q "Instrument 'c-flute' created" && reply 39 | grep -q 'impossible: D4' && reply 39 | grep -q 'hard: D#4, F#4' || { echo "define_instrument failed"; exit 1; }
+reply 40 | grep -q 'low must be a note' || { echo "bad low note not rejected"; exit 1; }
+reply 41 | grep -q "unknown technique 'nope'" || { echo "unknown technique not rejected"; exit 1; }
+reply 42 | grep -q 'instrument: C flute' && reply 43 | grep -q 'Playability on the C flute' && reply 43 | grep -q 'flute-air - Flute Air (C major, 4/4, C flute): fits as written' || { echo "custom instrument not usable"; exit 1; }
+reply 44 | grep -q '1 song(s) are written for it' && reply 45 | grep -q 'instrument: C flute (deleted)' || { echo "deleted instrument not named"; exit 1; }
+reply 46 | grep -q "'violin' is not a custom instrument" || { echo "built-in deleted"; exit 1; }
+reply 47 | grep -q 'instrument: C whistle' && reply 47 | grep -q 'C4    quarter                  XXX XXX' || { echo "lowercase whistle key lost"; exit 1; }
+reply 48 | grep -q "unknown field 'hints'" || { echo "define_instrument took hints"; exit 1; }
 case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 37 ] || { echo "expected 37 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 48 ] || { echo "expected 48 replies"; exit 1; }
 echo "mcp smoke passed"

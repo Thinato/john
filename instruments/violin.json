@@ -1,0 +1,9 @@
+{
+ "name": "Violin",
+ "order": 2,
+ "low": "G3",
+ "high": "E7",
+ "octave": 0,
+ "techniques": ["cut", "tap", "roll", "short_roll", "cran", "slide", "staccato", "accent", "vibrato", "trill", "double_cut"],
+ "sound": "violin"
+}
