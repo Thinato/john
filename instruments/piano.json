@@ -1,0 +1,9 @@
+{
+ "name": "Piano",
+ "order": 3,
+ "low": "A0",
+ "high": "C8",
+ "octave": 0,
+ "techniques": ["staccato", "accent", "trill"],
+ "sound": "piano"
+}

@@ -49,10 +49,11 @@ struct Song {
   std::string meter = "4/4";
   Key key;
   int tempo = 0;           // quarter notes per minute, 0 = unknown
-  std::string instrument = "whistle";  // one of INSTRUMENTS
+  std::string instrument = "whistle";  // an instrument id (instrumentIds())
   std::string whistle = "D";           // whistle key (used when instrument is "whistle")
   int transposed = 0;                  // semitones transpose() moved it since import; 0 = the original sheet
   std::string harp = "C";              // diatonic harmonica key (used when instrument is "harmonica"), one of HARP_KEYS
+  std::string instrumentName;          // a custom instrument's name ("instrument_name"), so a deleted one is still named
   std::vector<Event> events;
   std::string words;       // text printed after the tune (ABC W: lines), one line per W:
   // translations of the title, notes and comments: language -> English text -> translation ("pt-BR" -> ...)
@@ -79,21 +80,55 @@ struct Spelled {
   int step() const { return octave * 7 + letter; }  // diatonic position, E4 = 30 is the bottom staff line
 };
 
-// ---- instruments ----
-inline const std::vector<std::string> INSTRUMENTS = {"whistle", "violin", "piano", "guitar", "electric-guitar", "harmonica"};
+// ---- instruments (#85): one JSON profile per instrument ----
+// Built-ins ship in instruments/<id>.json (instrumentsDir()); custom ones live in dataDir()/instruments/<id>.json and
+// override a built-in with the same id. The file name is the id. See kb/notes/instrument-profile-files.md.
+inline const std::vector<std::string> SOUNDS = {"whistle", "violin", "piano", "guitar", "electric-guitar", "harmonica"};  // synth voices
+inline const std::vector<std::string> NOTE_HOWS = {"half-hole", "cross-fingering", "bend", "overblow"};
+struct NoteLevel {  // how hard one note is on an instrument
+  enum Level { Easy, Hard, Impossible } level = Easy;
+  std::string how;    // hard notes: one of NOTE_HOWS, or ""
+  double weight = 1;  // hard notes: 1 = a whistle half-hole (the whistle's cross-fingered C is 0.2)
+  bool operator==(const NoteLevel&) const = default;
+};
 struct Instrument {
-  std::string id, name;    // "violin", "Violin"; the whistle's name includes its key ("D whistle")
+  std::string id, name;    // "violin", "Violin"; a keyed instrument's name includes its key ("D whistle", "A harmonica")
   int low = 0, high = 0;   // playable range, written pitch (MIDI)
   int octave = 0;          // sounding pitch = written + 12 * octave (whistle +1, guitar -1, others 0)
-  std::string key;         // whistle key ("D", "Bb"); "" for other instruments
-  bool plays(int midi) const { return midi >= low && midi <= high; }
+  std::string key;         // the key low..high are for ("D", "Bb"); "" = no key
+  std::map<int, NoteLevel> notes;       // semitones above low -> level; missing in range = easy
+  std::vector<std::string> techniques;  // technique ids it can play (stored for #86)
+  std::string sound = "whistle";        // one of SOUNDS
+  bool hints = false;                   // John has fingering charts for it (tin whistle charts, on `key`)
+  std::vector<std::string> keys;        // the keys it comes in, lowest instrument first; empty = only `key`
+  std::string keyedName;                // name in another key, "%s whistle"
+  int order = 1000;                     // built-ins: place in the lists
+  bool builtin = false, custom = false; // the id ships with John / the profile comes from the data folder
+  NoteLevel level(int midi) const { auto it = notes.find(midi - low); return it == notes.end() ? NoteLevel{} : it->second; }
+  bool plays(int midi) const { return midi >= low && midi <= high && level(midi).level != NoteLevel::Impossible; }
+  bool operator==(const Instrument&) const = default;
 };
 // Diatonic harmonica keys, lowest harp first: G..B harps sit below C (an A harp starts on A3), Db..F# above it.
 inline const std::vector<std::string> HARP_KEYS = {"G", "Ab", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#"};
-// whistleKey is only used for "whistle", harpKey for "harmonica". Returns nullopt for an unknown id or key.
+// whistleKey is only used for "whistle", harpKey for "harmonica" (the range moves to that key, see Instrument::keys).
+// Returns nullopt for an unknown id or key.
 std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey = "D",
                                          const std::string& harpKey = "C");
 Instrument instrumentOf(const Song& s);           // the song's instrument; a D whistle if the song's values are unknown
+std::string instrumentLabel(const Song& s);       // its name, or "<instrument_name> (deleted)" when it no longer exists
+fs::path instrumentsDir();                        // instruments/ next to the executable, else the repo's
+std::vector<Instrument> instruments();            // the catalog: built-ins by order (custom overrides in place), then custom by name
+std::vector<std::string> instrumentIds();         // the catalog's ids, same order
+std::vector<std::string> instrumentWarnings();    // files the last load skipped, and why
+void reloadInstruments();                         // read the files again (another process may have changed them)
+int parseNote(const std::string& s);              // "D4" -> 62, "C#6" -> 85 (C4 = 60); -1 if not a note
+// A profile from JSON (the file format, plus "id"). Throws std::runtime_error naming the bad field.
+Instrument parseInstrument(const json& j);
+json toJson(const Instrument& in);                // the file format, without the id (the file name is the id)
+void saveInstrument(const Instrument& in);        // dataDir()/instruments/<id>.json, then reloads the catalog
+bool deleteInstrument(const std::string& id);     // removes the custom file; false if there was none
+void applyPreset(Instrument& in, bool diatonic);  // chromatic: all easy; diatonic: notes outside the major scale of key
+                                                  // (else of the bottom note) hard
 
 // ---- viewer language (gettext style: the English text is the key) ----
 // Only the GUI calls setLanguage()/setSolfege(); until then tr() returns its argument and note names are letters,
@@ -133,9 +168,16 @@ Fingering finger(const std::string& whistle, int midi);
 std::string fingeringText(const Fingering& f);     // "XXX XXO +"
 std::string durationName(const Event& e);          // "dotted quarter", "eighth (3-tuplet)"; translated by tr()
 void transpose(Song& s, int semitones);         // also adds to s.transposed
-// Notes out of range, half-holed and C-natural cross-fingered (whistle only, fingered on in's key) if s were transposed
-// by semis. Written pitches are compared, whatever instrument the song is for. hard() weighs the fingerings as analyze()'s ranking of transpositions does.
-struct RangeCost { int out = 0, half = 0, cross = 0; int hard() const { return half * 10 + cross * 2; } };
+// Notes out of range (or impossible) and hard notes (in's note table) if s were transposed by semis. Written pitches are
+// compared, whatever instrument the song is for. half/cross count hard notes played by half-holing / cross-fingering,
+// other the rest (bends, overblows, ...). hard() weighs them all, 10 per weight-1 note: a whistle half-hole is 10, its
+// cross-fingered C 2. weight defaults to that formula so a literal RangeCost{out, half, cross} means what it did.
+struct RangeCost {
+  int out = 0, half = 0, cross = 0;
+  int weight = half * 10 + cross * 2;
+  int other = 0;
+  int hard() const { return weight; }
+};
 RangeCost rangeCost(const Song& s, const Instrument& in, int semis);
 // Play the song in the key whose tonic is pitch class `tonic` (same mode): transposes by the smallest interval, then
 // moves whole octaves to the octave that fits `in` best (rangeCost: fewest out, then hard()). On a tie, the octave
@@ -208,7 +250,7 @@ struct Performance {
 // fromOrder: index into playOrder() to start at. bpm = quarter notes per minute.
 // player: the instrument the tune is played on (the GUI passes Settings' instrument), default the song's own. The
 // octave always comes from it: a violin-written tune played on a whistle sounds an octave above the written notes.
-// sound: an INSTRUMENTS id to play with, "" = the player's. It changes the timbre and which ornaments/breaths are
+// sound: a SOUNDS id to play with, "" = the player's instrument's sound. It changes the timbre and which ornaments/breaths are
 // played, never the pitch.
 Performance perform(const Song& s, double bpm, int fromOrder = 0, bool countIn = true, const std::string& sound = "",
                     const std::optional<Instrument>& player = std::nullopt);
@@ -246,7 +288,7 @@ struct Settings {
   bool countIn = true;              // one bar of clicks before Play
   bool metronome = true;
   float volume = 0.6f;
-  std::string sound;                // playback sound, an INSTRUMENTS id; "" = the song's instrument
+  std::string sound;                // playback sound, a SOUNDS id; "" = my instrument's
   float gate = 0.01f;               // mic level below which nothing is heard
   float latencyMs = 80;             // mic + speaker delay, for grading play-along
   float tolerance = 40;             // cents from the note that still count as right

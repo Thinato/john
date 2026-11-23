@@ -1,0 +1,32 @@
+{
+ "name": "Harmonica",
+ "order": 6,
+ "low": "C4",
+ "high": "C7",
+ "octave": 0,
+ "key": "C",
+ "keys": ["G", "Ab", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#"],
+ "keyed_name": "%s harmonica",
+ "notes": {
+  "1": {"level": "hard", "how": "bend"},
+  "3": {"level": "hard", "how": "overblow", "weight": 3},
+  "5": {"level": "hard", "how": "bend"},
+  "6": {"level": "hard", "how": "bend"},
+  "8": {"level": "hard", "how": "bend"},
+  "9": {"level": "hard", "how": "bend"},
+  "10": {"level": "hard", "how": "bend"},
+  "13": {"level": "hard", "how": "bend"},
+  "15": {"level": "hard", "how": "overblow", "weight": 3},
+  "18": {"level": "hard", "how": "overblow", "weight": 3},
+  "20": {"level": "hard", "how": "bend"},
+  "22": {"level": "hard", "how": "overblow", "weight": 3},
+  "25": {"level": "hard", "how": "overblow", "weight": 3},
+  "27": {"level": "hard", "how": "bend"},
+  "30": {"level": "hard", "how": "bend"},
+  "32": {"level": "hard", "how": "overblow", "weight": 3},
+  "34": {"level": "hard", "how": "bend"},
+  "35": {"level": "hard", "how": "bend"}
+ },
+ "techniques": ["slide", "tongue", "breath", "staccato", "accent", "vibrato", "trill"],
+ "sound": "harmonica"
+}

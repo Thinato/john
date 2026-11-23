@@ -1,0 +1,9 @@
+{
+ "name": "Electric guitar",
+ "order": 5,
+ "low": "E3",
+ "high": "E7",
+ "octave": -1,
+ "techniques": ["cut", "tap", "roll", "short_roll", "slide", "staccato", "accent", "vibrato", "trill", "double_cut"],
+ "sound": "electric-guitar"
+}

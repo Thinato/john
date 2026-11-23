@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <mutex>
 #include <random>
 #include <set>
 #include <sstream>
@@ -170,34 +171,18 @@ int whistleBase(const std::string& w) {
   return 60 + mod12(k->fifths * 7);  // C whistle = C4 (60) ... B whistle = B4 (71); D = 62
 }
 
-std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey, const std::string& harpKey) {
-  if (id == "whistle") {
-    int b = whistleBase(whistleKey);
-    if (b < 0) return std::nullopt;
-    return Instrument{id, whistleKey + " whistle", b, b + 23, 1, whistleKey};
-  }
-  if (id == "harmonica" && harpKey != "C") {  // the C harp is the fixed entry below
-    if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), harpKey) == HARP_KEYS.end()) return std::nullopt;
-    int b = whistleBase(harpKey);  // 60 + pitch class; G..B harps sit below C: an A harp starts on A3
-    if (b >= 67) b -= 12;
-    return Instrument{id, harpKey + " harmonica", b, b + 36, 0};
-  }
-  // ponytail: ranges only. Harmonica = 10-hole diatonic without bends (it can't play every note in range);
-  // add holes/bends when harmonica hints are needed.
-  static const Instrument FIXED[] = {
-      {"violin", "Violin", 55, 100, 0},                      // G3..E7
-      {"piano", "Piano", 21, 108, 0},                        // A0..C8
-      {"guitar", "Guitar", 52, 96, -1},                      // written E3..C7, sounds an octave lower (20 frets)
-      {"electric-guitar", "Electric guitar", 52, 100, -1},   // 24 frets
-      {"harmonica", "Harmonica", 60, 96, 0},                 // C4..C7
-  };
-  for (auto& i : FIXED) if (i.id == id) return i;
-  return std::nullopt;
-}
-
-Instrument instrumentOf(const Song& s) {
-  if (auto i = findInstrument(s.instrument, s.whistle, s.harp)) return *i;
-  return *findInstrument("whistle", "D");
+int parseNote(const std::string& s) {
+  static const int SEMI[7] = {9, 11, 0, 2, 4, 5, 7};  // A..G
+  if (s.size() < 2 || s[0] < 'A' || s[0] > 'G') return -1;
+  int m = SEMI[s[0] - 'A'];
+  size_t i = 1;
+  if (s[i] == '#' || s[i] == 'b') m += s[i++] == '#' ? 1 : -1;
+  if (i == s.size()) return -1;
+  char* end = nullptr;
+  long oct = std::strtol(s.c_str() + i, &end, 10);
+  if (*end || oct < -1 || oct > 9) return -1;
+  m += (int)(oct + 1) * 12;
+  return m >= 0 && m <= 127 ? m : -1;
 }
 
 Fingering finger(const std::string& whistle, int midi) {
@@ -413,6 +398,245 @@ void saveCustomTechnique(const Technique& t) {
   writeJson(p, j);
 }
 
+// ---------------- instruments (#85) ----------------
+
+fs::path instrumentsDir() {
+#ifdef JOHN_INSTRUMENTS
+  return bundled("instruments", JOHN_INSTRUMENTS);
+#else
+  return {};
+#endif
+}
+
+static bool validId(const std::string& id) {  // also a file name
+  return !id.empty() && id.size() <= 60 && id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-_") == std::string::npos;
+}
+
+static int jsonNote(const json& j, const char* field) {
+  if (!j.contains(field)) throw std::runtime_error(std::string(field) + " is missing (a note like \"D4\" or a MIDI number, C4 = 60)");
+  const json& v = j[field];
+  int m = v.is_number_integer() ? v.get<int>() : v.is_string() ? parseNote(v.get<std::string>()) : -1;
+  if (m < 0 || m > 127) throw std::runtime_error(std::string(field) + " must be a note like \"D4\" or \"Bb3\", or a MIDI number 0..127 (C4 = 60)");
+  return m;
+}
+
+Instrument parseInstrument(const json& j) {
+  using E = std::runtime_error;
+  if (!j.is_object()) throw E("an instrument must be a JSON object");
+  auto str = [&](const char* f, const std::string& def) {
+    if (!j.contains(f)) return def;
+    if (!j[f].is_string()) throw E(std::string(f) + " must be a string");
+    return j[f].get<std::string>();
+  };
+  auto strings = [&](const char* f) {
+    std::vector<std::string> r;
+    if (!j.contains(f)) return r;
+    if (!j[f].is_array()) throw E(std::string(f) + " must be a list of strings");
+    for (auto& x : j[f]) {
+      if (!x.is_string()) throw E(std::string(f) + " must be a list of strings");
+      r.push_back(x.get<std::string>());
+    }
+    return r;
+  };
+  Instrument in;
+  in.id = str("id", "");
+  if (!validId(in.id)) throw E("id must be 1-60 characters: lowercase letters, digits, - or _");
+  in.name = str("name", "");
+  if (in.name.empty()) throw E("name is missing");
+  in.low = jsonNote(j, "low");
+  in.high = jsonNote(j, "high");
+  if (in.low > in.high) throw E("low must not be above high");
+  if (j.contains("octave")) {
+    if (!j["octave"].is_number_integer() || j["octave"].get<int>() < -2 || j["octave"].get<int>() > 2)
+      throw E("octave must be -2..2 (sounding = written + 12 * octave: whistle 1, guitar -1)");
+    in.octave = j["octave"].get<int>();
+  }
+  in.key = str("key", "");
+  if (!in.key.empty() && whistleBase(in.key) < 0) throw E("key must be a note name like D, Bb or F#");
+  in.keys = strings("keys");
+  for (auto& k : in.keys) if (whistleBase(k) < 0) throw E("keys: '" + k + "' is not a note name like D, Bb or F#");
+  if (!in.keys.empty() && std::find(in.keys.begin(), in.keys.end(), in.key) == in.keys.end()) throw E("keys must include key");
+  in.keyedName = str("keyed_name", "");
+  if (!in.keys.empty() && in.keyedName.find("%s") == std::string::npos) throw E("keyed_name must contain %s (the key)");
+  if (j.contains("notes")) {
+    if (!j["notes"].is_object()) throw E("notes must be an object: semitones above low -> easy, hard or impossible");
+    for (auto& [k, v] : j["notes"].items()) {
+      const std::string at = "notes \"" + k + "\": ";
+      if (k.empty() || k.size() > 3 || k.find_first_not_of("0123456789") != std::string::npos || std::stoi(k) > in.high - in.low)
+        throw E(at + "must be a number of semitones above low, 0.." + std::to_string(in.high - in.low));
+      if (!v.is_string() && !v.is_object()) throw E(at + "must be \"easy\", \"hard\", \"impossible\" or {\"level\", \"how\", \"weight\"}");
+      std::string lv = v.is_string() ? v.get<std::string>() : v.value("level", "");
+      NoteLevel n;
+      if (lv == "hard") n.level = NoteLevel::Hard;
+      else if (lv == "impossible") n.level = NoteLevel::Impossible;
+      else if (lv != "easy") throw E(at + "level must be easy, hard or impossible");
+      if (v.is_object()) {
+        if (v.contains("how")) {
+          if (!v["how"].is_string()) throw E(at + "how must be a string");
+          n.how = v["how"].get<std::string>();
+          if (std::find(NOTE_HOWS.begin(), NOTE_HOWS.end(), n.how) == NOTE_HOWS.end())
+            throw E(at + "how must be half-hole, cross-fingering, bend or overblow");
+        }
+        if (v.contains("weight")) {
+          if (!v["weight"].is_number() || v["weight"].get<double>() <= 0 || v["weight"].get<double>() > 10)
+            throw E(at + "weight must be a number above 0, at most 10 (1 = a whistle half-hole)");
+          n.weight = v["weight"].get<double>();
+        }
+      }
+      in.notes[std::stoi(k)] = n;
+    }
+  }
+  in.techniques = strings("techniques");
+  in.sound = str("sound", "whistle");
+  if (std::find(SOUNDS.begin(), SOUNDS.end(), in.sound) == SOUNDS.end())
+    throw E("sound must be one of whistle, violin, piano, guitar, electric-guitar, harmonica");
+  if (j.contains("hints") && !j["hints"].is_boolean()) throw E("hints must be true or false");
+  in.hints = j.value("hints", false);
+  if (j.contains("order") && !j["order"].is_number_integer()) throw E("order must be a whole number");
+  in.order = j.value("order", 1000);
+  return in;
+}
+
+json toJson(const Instrument& in) {
+  json notes = json::object();
+  for (auto& [at, n] : in.notes) {
+    if (n.level == NoteLevel::Easy) continue;  // missing = easy
+    json x = {{"level", n.level == NoteLevel::Hard ? "hard" : "impossible"}};
+    if (!n.how.empty()) x["how"] = n.how;
+    if (n.level == NoteLevel::Hard && n.weight != 1) x["weight"] = n.weight;
+    notes[std::to_string(at)] = x;
+  }
+  json j = {{"name", in.name}, {"low", in.low}, {"high", in.high}, {"octave", in.octave}, {"notes", notes},
+            {"techniques", in.techniques}, {"sound", in.sound}};
+  if (!in.key.empty()) j["key"] = in.key;
+  if (!in.keys.empty()) { j["keys"] = in.keys; j["keyed_name"] = in.keyedName; }
+  if (in.hints) j["hints"] = true;
+  return j;
+}
+
+// The catalog, read from the files once and again on reloadInstruments(). Guarded: Import audio's worker thread
+// calls findInstrument() while the GUI may reload.
+static std::mutex gInstMu;
+static std::vector<Instrument> gInst;
+static std::vector<std::string> gInstWarn;
+static bool gInstLoaded = false;
+
+static void loadInstrumentsLocked() {
+  gInst.clear();
+  gInstWarn.clear();
+  auto read = [](const fs::path& dir, bool custom) {
+    std::error_code ec;
+    std::vector<fs::path> files;
+    for (auto& f : fs::directory_iterator(dir, ec)) if (f.path().extension() == ".json") files.push_back(f.path());
+    std::sort(files.begin(), files.end());
+    for (auto& f : files) {
+      try {
+        json j = readJson(f);
+        if (j.is_discarded()) throw std::runtime_error("not valid JSON");
+        if (j.is_object()) j["id"] = f.stem().string();  // the file name is the id
+        Instrument in = parseInstrument(j);
+        in.custom = custom;
+        auto it = std::find_if(gInst.begin(), gInst.end(), [&](auto& b) { return b.id == in.id; });
+        in.builtin = !custom || it != gInst.end();
+        if (it == gInst.end()) gInst.push_back(in);
+        else { in.order = it->order; *it = in; }  // a custom file overrides the built-in with its id
+      } catch (const std::exception& e) {
+        gInstWarn.push_back(f.string() + " skipped: " + e.what());
+      }
+    }
+  };
+  read(instrumentsDir(), false);
+  read(dataDir() / "instruments", true);
+  if (std::none_of(gInst.begin(), gInst.end(), [](auto& i) { return i.id == "whistle"; })) {
+    // ponytail: instrumentOf() falls back to the whistle, so there always is one, even without instruments/
+    Instrument w;
+    w.id = "whistle", w.name = "D whistle", w.low = 62, w.high = 85, w.octave = 1, w.key = "D", w.builtin = true, w.order = 0;
+    gInst.push_back(w);
+    gInstWarn.push_back("no whistle profile in " + instrumentsDir().string() + ": using a plain D whistle");
+  }
+  std::stable_sort(gInst.begin(), gInst.end(), [](auto& a, auto& b) { return std::tie(a.order, a.name) < std::tie(b.order, b.name); });
+  gInstLoaded = true;
+}
+
+void reloadInstruments() {
+  std::lock_guard lock(gInstMu);
+  loadInstrumentsLocked();
+}
+
+std::vector<Instrument> instruments() {
+  std::lock_guard lock(gInstMu);
+  if (!gInstLoaded) loadInstrumentsLocked();
+  return gInst;
+}
+
+std::vector<std::string> instrumentIds() {
+  std::vector<std::string> r;
+  for (auto& i : instruments()) r.push_back(i.id);
+  return r;
+}
+
+std::vector<std::string> instrumentWarnings() {
+  std::lock_guard lock(gInstMu);
+  if (!gInstLoaded) loadInstrumentsLocked();
+  return gInstWarn;
+}
+
+std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey, const std::string& harpKey) {
+  std::optional<Instrument> r;
+  for (auto& i : instruments()) if (i.id == id) { r = i; break; }
+  if (!r || r->keys.empty()) return r;
+  Instrument& in = *r;  // a keyed instrument: move the range (and so the note table) to the asked key
+  const std::string& k = id == "whistle" ? whistleKey : id == "harmonica" ? harpKey : in.key;
+  if (std::find(in.keys.begin(), in.keys.end(), k) == in.keys.end()) return std::nullopt;
+  auto pos = [&](const std::string& x) { return mod12(whistleBase(x) - whistleBase(in.keys[0])); };  // above the lowest key
+  int shift = pos(k) - pos(in.key);
+  in.low += shift;
+  in.high += shift;
+  if (k != in.key) {
+    in.name = in.keyedName;
+    in.name.replace(in.name.find("%s"), 2, k);
+    in.key = k;
+  }
+  return r;
+}
+
+Instrument instrumentOf(const Song& s) {
+  if (auto i = findInstrument(s.instrument, s.whistle, s.harp)) return *i;
+  if (auto i = findInstrument("whistle", "D")) return *i;
+  auto all = instruments();
+  for (auto& i : all) if (i.id == "whistle") return i;  // a custom whistle that doesn't come in D
+  return all.front();                                    // unreachable: the catalog always has a whistle
+}
+
+std::string instrumentLabel(const Song& s) {
+  if (findInstrument(s.instrument, s.whistle, s.harp) || s.instrumentName.empty()) return instrumentOf(s).name;
+  return s.instrumentName + " (deleted)";
+}
+
+void saveInstrument(const Instrument& in) {
+  if (!validId(in.id)) throw std::runtime_error("bad instrument id '" + in.id + "'");
+  fs::create_directories(dataDir() / "instruments");
+  writeJson(dataDir() / "instruments" / (in.id + ".json"), toJson(in));
+  reloadInstruments();
+}
+
+bool deleteInstrument(const std::string& id) {
+  std::error_code ec;
+  bool done = validId(id) && fs::remove(dataDir() / "instruments" / (id + ".json"), ec);
+  persist();
+  reloadInstruments();
+  return done;
+}
+
+void applyPreset(Instrument& in, bool diatonic) {
+  in.notes.clear();
+  if (!diatonic) return;
+  static const bool MAJOR[12] = {1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1};
+  const int tonic = in.key.empty() ? in.low : whistleBase(in.key);
+  for (int m = in.low; m <= in.high; m++)
+    if (!MAJOR[mod12(m - tonic)]) in.notes[m - in.low] = {NoteLevel::Hard};
+}
+
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Settings, hints, zoom, light, tempo, countIn, metronome, volume, sound,
                                                 gate, latencyMs, tolerance, instrument, whistle, allSongs, language,
                                                 solfege, solfegeKeys, harp)
@@ -421,9 +645,9 @@ Settings loadSettings() {
   Settings s;
   try { s = readJson(dataDir() / "settings.json").get<Settings>(); }
   catch (const json::exception&) { return {}; }  // missing, garbage, or a key of the wrong type
-  auto known = [](const std::string& id) { return std::count(INSTRUMENTS.begin(), INSTRUMENTS.end(), id) > 0; };
-  if (!s.sound.empty() && !known(s.sound)) s.sound.clear();
-  if (!known(s.instrument)) s.instrument = "whistle";
+  if (!s.sound.empty() && !std::count(SOUNDS.begin(), SOUNDS.end(), s.sound)) s.sound.clear();
+  auto ids = instrumentIds();
+  if (!std::count(ids.begin(), ids.end(), s.instrument)) s.instrument = "whistle", s.whistle = "D";  // deleted: the D whistle
   if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), s.harp) == HARP_KEYS.end()) s.harp = "C";
   if (whistleBase(s.whistle) < 0) s.whistle = "D";
   s.zoom = std::clamp(s.zoom, 6.0f, 16.0f);  // values the GUI could choke on
@@ -569,6 +793,9 @@ json toJson(const Song& s) {
           {"tempo", s.tempo}, {"instrument", s.instrument}, {"whistle", s.whistle}, {"events", ev}};
   if (!s.folder.empty()) j["folder"] = s.folder;
   if (s.harp != "C") j["harp"] = s.harp;  // C harp songs stay as before
+  std::string name = s.instrumentName;     // a custom instrument's name, kept for when it is deleted (#85)
+  for (auto& i : instruments()) if (i.id == s.instrument) name = i.builtin ? "" : i.name;
+  if (!name.empty()) j["instrument_name"] = name;
   if (s.transposed) j["transposed"] = s.transposed;
   if (!s.i18n.empty()) j["i18n"] = s.i18n;
   if (!s.words.empty()) j["words"] = s.words;
@@ -596,6 +823,7 @@ Song fromJson(const json& j) {
   s.instrument = j.value("instrument", "whistle");
   s.whistle = j.value("whistle", "D");
   s.harp = j.value("harp", "C");
+  s.instrumentName = j.value("instrument_name", "");
   s.transposed = j.value("transposed", 0);
   for (auto& x : j.value("events", json::array())) {
     Event e;
@@ -904,7 +1132,7 @@ std::string listing(const Song& s) {
   const Instrument in = instrumentOf(s);
   const bool whistle = in.id == "whistle";
   o << "id: " << s.id << "\ntitle: " << s.title << "\nkey: " << keyName(s.key) << "  meter: " << s.meter
-    << "  instrument: " << in.name << "  tempo: " << (s.tempo ? std::to_string(s.tempo) : "?") << "\n";
+    << "  instrument: " << instrumentLabel(s) << "  tempo: " << (s.tempo ? std::to_string(s.tempo) : "?") << "\n";
   if (!s.source.empty()) o << "source: " << s.source << "\n";
   if (!s.notes.empty()) o << "notes: " << s.notes << "\n";
   if (!s.words.empty()) o << "words (W:): " << s.words << "\n";
