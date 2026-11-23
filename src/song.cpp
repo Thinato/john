@@ -408,8 +408,10 @@ fs::path instrumentsDir() {
 #endif
 }
 
-static bool validId(const std::string& id) {  // also a file name
-  return !id.empty() && id.size() <= 60 && id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-_") == std::string::npos;
+static bool validId(const std::string& id) {  // also a file name, so none of Windows' reserved device names
+  static const std::set<std::string> RESERVED = {"con", "prn", "aux", "nul"};
+  bool device = RESERVED.count(id) || (id.size() == 4 && (!id.compare(0, 3, "com") || !id.compare(0, 3, "lpt")) && id[3] >= '1' && id[3] <= '9');
+  return !id.empty() && id.size() <= 60 && id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-_") == std::string::npos && !device;
 }
 
 static int jsonNote(const json& j, const char* field) {
@@ -440,7 +442,7 @@ Instrument parseInstrument(const json& j) {
   };
   Instrument in;
   in.id = str("id", "");
-  if (!validId(in.id)) throw E("id must be 1-60 characters: lowercase letters, digits, - or _");
+  if (!validId(in.id)) throw E("id must be 1-60 characters: lowercase letters, digits, - or _ (not con, prn, aux, nul, com1-9, lpt1-9)");
   in.name = str("name", "");
   if (in.name.empty()) throw E("name is missing");
   in.low = jsonNote(j, "low");
@@ -583,11 +585,18 @@ std::vector<std::string> instrumentWarnings() {
 
 std::optional<Instrument> findInstrument(const std::string& id, const std::string& whistleKey, const std::string& harpKey) {
   std::optional<Instrument> r;
-  for (auto& i : instruments()) if (i.id == id) { r = i; break; }
+  {
+    std::lock_guard lock(gInstMu);  // copy only the match: called per frame and per note by the GUI
+    if (!gInstLoaded) loadInstrumentsLocked();
+    for (auto& i : gInst) if (i.id == id) { r = i; break; }
+  }
   if (!r || r->keys.empty()) return r;
   Instrument& in = *r;  // a keyed instrument: move the range (and so the note table) to the asked key
-  const std::string& k = id == "whistle" ? whistleKey : id == "harmonica" ? harpKey : in.key;
-  if (std::find(in.keys.begin(), in.keys.end(), k) == in.keys.end()) return std::nullopt;
+  std::string k = id == "whistle" ? whistleKey : id == "harmonica" ? harpKey : in.key;
+  auto lower = [](std::string x) { for (auto& c : x) c = (char)std::tolower((unsigned char)c); return x; };
+  auto it = std::find_if(in.keys.begin(), in.keys.end(), [&](auto& x) { return lower(x) == lower(k); });  // "bb" is Bb
+  if (it == in.keys.end()) return std::nullopt;
+  k = *it;
   auto pos = [&](const std::string& x) { return mod12(whistleBase(x) - whistleBase(in.keys[0])); };  // above the lowest key
   int shift = pos(k) - pos(in.key);
   in.low += shift;
@@ -614,9 +623,12 @@ std::string instrumentLabel(const Song& s) {
 }
 
 void saveInstrument(const Instrument& in) {
-  if (!validId(in.id)) throw std::runtime_error("bad instrument id '" + in.id + "'");
+  json j = toJson(in);
+  json check = j;
+  check["id"] = in.id;
+  parseInstrument(check);  // never write a file the loader would skip: throws with the reason instead
   fs::create_directories(dataDir() / "instruments");
-  writeJson(dataDir() / "instruments" / (in.id + ".json"), toJson(in));
+  writeJson(dataDir() / "instruments" / (in.id + ".json"), j);
   reloadInstruments();
 }
 
@@ -625,6 +637,13 @@ bool deleteInstrument(const std::string& id) {
   bool done = validId(id) && fs::remove(dataDir() / "instruments" / (id + ".json"), ec);
   persist();
   reloadInstruments();
+  // A real delete resets a Settings instrument that is gone now (not a built-in that came back). A file that is only
+  // broken or missing doesn't: myInstrument()/playsOn() fall back to the D whistle while reading.
+  Settings s = loadSettings();
+  if (done && s.instrument == id && !findInstrument(id)) {
+    s.instrument = "whistle", s.whistle = "D";
+    saveSettings(s);
+  }
   return done;
 }
 
@@ -646,8 +665,8 @@ Settings loadSettings() {
   try { s = readJson(dataDir() / "settings.json").get<Settings>(); }
   catch (const json::exception&) { return {}; }  // missing, garbage, or a key of the wrong type
   if (!s.sound.empty() && !std::count(SOUNDS.begin(), SOUNDS.end(), s.sound)) s.sound.clear();
-  auto ids = instrumentIds();
-  if (!std::count(ids.begin(), ids.end(), s.instrument)) s.instrument = "whistle", s.whistle = "D";  // deleted: the D whistle
+  // An unknown instrument id stays (a custom file may be broken or missing for a while): the readers fall back to the
+  // D whistle, and only deleteInstrument() resets it (#85).
   if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), s.harp) == HARP_KEYS.end()) s.harp = "C";
   if (whistleBase(s.whistle) < 0) s.whistle = "D";
   s.zoom = std::clamp(s.zoom, 6.0f, 16.0f);  // values the GUI could choke on
@@ -1147,7 +1166,7 @@ std::string listing(const Song& s) {
       continue;
     }
     std::string name = e.kind == Kind::Note ? noteName(spell(s.key, e.midi)) : "rest";
-    std::string fing = e.kind != Kind::Note ? "" : whistle ? fingeringText(finger(s.whistle, e.midi)) : in.plays(e.midi) ? "" : "out-of-range";
+    std::string fing = e.kind != Kind::Note ? "" : whistle ? fingeringText(finger(in.key, e.midi)) : in.plays(e.midi) ? "" : "out-of-range";
     std::string tech;
     for (auto& t : e.techniques) tech += (tech.empty() ? "" : ",") + t;
     snprintf(buf, sizeof buf, "#%-4zu %-3d %-5s %-5s %-24s %-13s %s", i, pos[i].bar, beatLabel(s, pos[i].tick).c_str(), name.c_str(),

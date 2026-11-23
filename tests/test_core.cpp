@@ -318,12 +318,17 @@ int main() {
     };
     std::vector<std::string> keys = {"", "H", "Dm", "D#", "E#", "Fb", "B#", "G#", "A#", "C##"};
     for (const char* l : {"C", "D", "E", "F", "G", "A", "B"})
-      for (const char* acc : {"", "#", "b"}) keys.push_back(std::string(l) + acc);
+      for (const char* acc : {"", "#", "b"}) keys.push_back(std::string(l) + acc), keys.push_back(char(std::tolower(*l)) + std::string(acc));
+    keys.push_back("DB"), keys.push_back("bB");
+    auto spelled = [](std::string k) {  // keys match case-insensitively (#85): the old code got the spelling the list has
+      for (size_t i = 0; i < k.size(); i++) k[i] = char(i ? std::tolower((unsigned char)k[i]) : std::toupper((unsigned char)k[i]));
+      return k;
+    };
     Song sweep, tune = importAbc("X:1\nT:t\nM:4/4\nL:1/8\nK:D\nDEFG ABcd|efga bc'd'e'|=c=F^G_B c'=f'g2|\n").song;
     for (int m = 30; m <= 115; m++) { Event e; e.midi = m; e.len = WHOLE / 8; sweep.events.push_back(e); }
     for (auto& id : instrumentIds())
       for (auto& k : keys) {
-        auto was = oldInstrument(id, k, k), now = findInstrument(id, k, k);
+        auto was = oldInstrument(id, spelled(k), spelled(k)), now = findInstrument(id, k, k);
         assert(was.has_value() == now.has_value());
         if (!was) continue;
         assert(was->name == now->name && was->low == now->low && was->high == now->high && was->octave == now->octave);
@@ -336,7 +341,8 @@ int main() {
         }
         for (int t = -14; t <= 14; t++) assert(oldCost(tune, *was, t) == newCost(tune, *now, t) && oldCost(sweep, *was, t) == newCost(sweep, *now, t));
       }
-    assert(findInstrument("whistle", "d") == std::nullopt && whistleBase("d") == 62);  // lowercase keys: see the PR
+    assert(findInstrument("whistle", "c")->low == 60 && findInstrument("whistle", "c")->name == "C whistle" && findInstrument("whistle", "bb")->key == "Bb");
+    assert(findInstrument("harmonica", "D", "a")->low == 57 && !findInstrument("harmonica", "D", "c#"));  // only the listed harps
     // songs saved before #85 load and save back unchanged (no instrument_name for built-ins)
     for (const fs::path& d : {lessonsDir(), lessonsDir().parent_path() / "demo"})
       for (auto& e : fs::directory_iterator(d)) {
@@ -411,8 +417,37 @@ int main() {
     assert(deleteInstrument("c-flute") && !deleteInstrument("c-flute") && !deleteInstrument("violin") && !findInstrument("c-flute"));
     assert(instrumentOf(kept).name == "D whistle" && instrumentLabel(kept) == "C flute (deleted)" && listing(kept).find("instrument: C flute (deleted)") != std::string::npos);
     assert(toJson(kept)["instrument_name"] == "C flute");  // still saved, so it stays named
-    assert(loadSettings().instrument == "whistle" && loadSettings().whistle == "D");
+    assert(loadSettings().instrument == "whistle" && loadSettings().whistle == "D");  // deleteInstrument() reset it
+    // a custom file that is only broken or missing for a while leaves the Settings alone
+    saveInstrument(fl);
+    saveSettings(mine);
+    std::string saved;
+    { std::ifstream f(home / "settings.json"); saved.assign(std::istreambuf_iterator<char>(f), {}); }
+    std::ofstream(dir / "c-flute.json") << "{broken";
+    reloadInstruments();
+    assert(!findInstrument("c-flute") && loadSettings() == mine);
+    fs::remove(dir / "c-flute.json");
+    reloadInstruments();
+    assert(loadSettings() == mine);
+    { std::ifstream f(home / "settings.json"); assert(std::string(std::istreambuf_iterator<char>(f), {}) == saved); }
+    saveInstrument(fl);
+    assert(loadSettings() == mine && findInstrument("c-flute"));
+    deleteInstrument("c-flute");
     fs::remove(home / "settings.json");
+    // saveInstrument never writes a file the loader would skip (the editor shows the reason)
+    Instrument bad = *findInstrument("whistle");
+    bad.id = "my-whistle", bad.key = "H";
+    bool threw = false;
+    try { saveInstrument(bad); } catch (const std::runtime_error& e) { threw = std::string(e.what()).find("key must be") == 0; }
+    assert(threw && !fs::exists(dir / "my-whistle.json"));
+    bad.key = "G", bad.keys = {"C", "D"};  // a key its own list doesn't have
+    threw = false;
+    try { saveInstrument(bad); } catch (const std::runtime_error& e) { threw = std::string(e.what()) == "keys must include key"; }
+    assert(threw && !fs::exists(dir / "my-whistle.json"));
+    // a hard note's how and weight survive a trip through easy in the editor's map, and easy entries aren't saved
+    Instrument cyc = *findInstrument("whistle");
+    cyc.id = "cyc", cyc.notes[1].level = NoteLevel::Easy;
+    assert(!toJson(cyc)["notes"].contains("1") && cyc.notes[1].how == "half-hole");
 
     // a custom file with a built-in's id overrides it, in the built-in's place; deleting it brings the built-in back
     std::ofstream(dir / "violin.json") << R"({"name": "My violin", "low": "C3", "high": "E7", "sound": "violin"})";
@@ -452,6 +487,8 @@ int main() {
     assert(err(ok).empty());
     auto with = [&](const char* k, json v) { json j = ok; j[k] = v; return err(j); };
     assert(with("id", "Bad Id").find("id must be") == 0 && with("name", "").find("name is missing") == 0);
+    for (const char* dev : {"con", "prn", "aux", "nul", "com1", "lpt9"}) assert(with("id", dev).find("id must be") == 0);
+    assert(with("id", "com").empty() && with("id", "console").empty() && with("id", "com10").empty());
     assert(with("high", 50).find("low must not be above high") == 0 && with("octave", 3).find("octave must be") == 0);
     assert(with("key", "H").find("key must be") == 0 && with("sound", "harp").find("sound must be") == 0);
     assert(with("techniques", "cut").find("techniques must be") == 0 && with("notes", {{"x", "hard"}}).find("notes \"x\"") == 0);
@@ -1618,7 +1655,8 @@ int main() {
     assert(loadSettings() == Settings{});
     write(R"({"sound": "banjo", "instrument": "kazoo", "songFilter": "lute", "zoom": 0, "volume": 9, "harp": "H", "whistle": "Dm"})");  // values the GUI can't use; songFilter is the old filter (#84), now ignored
     Settings c = loadSettings();
-    assert(c.sound.empty() && c.instrument == "whistle" && c.whistle == "D" && !c.allSongs && c.zoom == 6 && c.volume == 1 && c.harp == "C");
+    // an unknown instrument stays (#85: a custom file may be missing for a while; the readers fall back to the D whistle)
+    assert(c.sound.empty() && c.instrument == "kazoo" && c.whistle == "D" && !c.allSongs && c.zoom == 6 && c.volume == 1 && c.harp == "C");
     fs::remove(home / "settings.json");
   }
 

@@ -56,16 +56,19 @@ static std::string keyLabel(const std::string& k) {
 }
 
 // Instrument name in the viewer's language; a whistle's or harp's key is spelled like key names ("Flauta irlandesa em Ré").
+// A custom profile (#85) keeps its own name, even with a built-in's id ("Low D Clarke" for whistle).
 static std::string instName(const Instrument& in) {
-  std::string key = keyLabel(in.name.substr(0, in.name.find(' ')));  // "Bb whistle" -> Bb
-  if (in.id == "whistle") return trf("%s whistle", key.c_str());
-  if (in.id == "harmonica" && in.name != "Harmonica") return trf("%s harmonica", key.c_str());  // "A harmonica"; C = "Harmonica"
+  if (!in.custom && in.id == "whistle") return trf("%s whistle", keyLabel(in.key).c_str());
+  if (!in.custom && in.id == "harmonica" && in.key != "C") return trf("%s harmonica", keyLabel(in.key).c_str());  // C = "Harmonica"
   return tr(in.name);
 }
 
-// The Settings instrument (#84): the song list shows what it can play.
-// A deleted instrument (#85) falls back to the D whistle.
-static Instrument myInstrument(const Settings& s) { return findInstrument(s.instrument, s.whistle, s.harp).value_or(instrumentOf(Song{})); }
+// The Settings instrument (#84): the song list shows what it can play. One whose custom file is missing, broken or
+// deleted reads as the D whistle; Settings keep its id until a real delete (#85).
+static Instrument myInstrument(const Settings& s) {
+  if (auto i = findInstrument(s.instrument, s.whistle, s.harp)) return *i;
+  return instrumentOf(Song{});
+}
 
 // An instrument's name by id, in the given whistle/harp key if it has one; the id itself if it is gone.
 static std::string instName(const std::string& id, const std::string& whistle = "D", const std::string& harp = "C") {
@@ -225,7 +228,6 @@ static void poll(App& a) {
   reloadInstruments();  // the agent may have defined or deleted one (define_instrument)
   if (auto cat = instruments(); cat != a.catalog) {
     a.catalog = cat;
-    if (!findInstrument(a.set.instrument, a.set.whistle, a.set.harp)) a.set.instrument = "whistle", a.set.whistle = "D";  // deleted
     for (auto& [id, m] : a.meta) m.mtime = {};  // judged again below
   }
   std::error_code ec;
@@ -1128,6 +1130,8 @@ static void instrumentEditor(App& a) {
     if (ImGui::Selectable(tr("none"), in.key.empty())) in.key.clear();
     for (auto& k : HARP_KEYS) if (ImGui::Selectable((keyLabel(k) + "###" + k).c_str(), k == in.key)) in.key = k;
     ImGui::EndCombo();
+    // a profile that comes in several keys (a copy of the whistle) must list its own key; otherwise it has just this one
+    if (!in.keys.empty() && !std::count(in.keys.begin(), in.keys.end(), in.key)) in.keys.clear(), in.keyedName.clear();
   }
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("For instruments made in one key (a C flute): Diatonic marks the notes outside its major scale"));
   const char* octaves[] = {tr("an octave lower than written"), tr("as written"), tr("an octave higher than written")};
@@ -1152,12 +1156,11 @@ static void instrumentEditor(App& a) {
     NoteLevel n = in.level(m);
     ImGui::PushStyleColor(ImGuiCol_Button, colors[n.level]);
     if (ImGui::Button((note(m) + "###cell" + std::to_string(at)).c_str(), {ImGui::GetFontSize() * 2.6f, 0})) {
-      NoteLevel next{NoteLevel::Level((n.level + 1) % 3)};
-      if (next.level == NoteLevel::Easy) in.notes.erase(at);
-      else in.notes[at] = next;
+      n.level = NoteLevel::Level((n.level + 1) % 3);
+      in.notes[at] = n;  // how and weight stay for when it comes back to hard (toJson drops easy entries)
     }
     ImGui::PopStyleColor();
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s", levels[n.level], n.how.empty() ? "" : (" (" + n.how + ")").c_str());
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s", levels[n.level], n.how.empty() ? "" : (" (" + tr(n.how) + ")").c_str());  // NOTE_HOWS in pt-BR.json
   }
 
   ImGui::SeparatorText(tr("Techniques it can play"));
@@ -1312,7 +1315,7 @@ static void openImport(App& a) {
   a.showImport = true;
   a.importError.clear();
   a.importNote.clear();
-  if (!a.busy) a.importInst = a.set.instrument;  // default from Settings
+  if (!a.busy) a.importInst = myInstrument(a.set).id;  // default from Settings (the D whistle if mine is missing)
 }
 
 // Import audio: transcribe a recording into a new song. importAudio() runs on a worker thread so the GUI never
@@ -1471,8 +1474,9 @@ static std::optional<std::string> readText(const fs::path& p) {
 // The instrument the Import song window imports for: the user's pick, else Settings' instrument and harp.
 static Song importLike(const App& a) {
   Song like;
-  like.instrument = a.abcInst.empty() ? a.set.instrument : a.abcInst;
-  like.whistle = a.abcWhistle.empty() ? a.set.whistle : a.abcWhistle;
+  const Instrument me = myInstrument(a.set);  // the D whistle while my custom instrument's file is missing
+  like.instrument = a.abcInst.empty() ? me.id : a.abcInst;
+  like.whistle = a.abcWhistle.empty() ? (me.id == "whistle" && !me.key.empty() ? me.key : a.set.whistle) : a.abcWhistle;
   like.harp = a.abcHarp.empty() ? a.set.harp : a.abcHarp;
   return like;
 }

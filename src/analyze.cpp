@@ -133,7 +133,7 @@ std::string analyze(const Song& s) {
   }
   o << "\n";
   for (auto& n : notes) {
-    Fingering f = whistle ? finger(s.whistle, n.midi) : Fingering{"", 0, in.plays(n.midi)};
+    Fingering f = whistle ? finger(in.key, n.midi) : Fingering{"", 0, in.plays(n.midi)};
     std::string nm = noteName(spell(s.key, n.midi));
     NoteLevel lv = in.level(n.midi);
     if (!f.ok) o << "#" << n.idx << " bar " << n.bar << " " << nm << (n.midi >= in.low && n.midi <= in.high ? ": NOT PLAYABLE\n" : ": OUT OF RANGE\n");

@@ -202,6 +202,12 @@ static void checkInstrument(const Song& s) {
   if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), s.harp) == HARP_KEYS.end())
     throw std::runtime_error("unknown harmonica key '" + s.harp + "' (use one of G, Ab, A, Bb, B, C, Db, D, Eb, E, F, F#)");
   if (!findInstrument(s.instrument, s.whistle, s.harp)) {
+    if (auto in = findInstrument(s.instrument)) {  // it exists, but not in that key
+      std::string keys;
+      for (auto& k : in->keys) keys += (keys.empty() ? "" : ", ") + k;
+      throw std::runtime_error("unknown " + std::string(s.instrument == "harmonica" ? "harmonica key '" + s.harp : "whistle key '" + s.whistle) +
+                               "' for the " + in->name + " (use one of " + keys + ")");
+    }
     std::string ids;
     for (auto& i : instrumentIds()) ids += (ids.empty() ? "" : ", ") + i;
     throw std::runtime_error("unknown instrument '" + s.instrument + "' (use one of: " + ids + ", or define_instrument)");
@@ -238,16 +244,21 @@ static Song mustLoad(const json& a) {
   return *s;
 }
 
-// The instrument list_songs / analyze_song judge playability for: the arguments, else the user's (Settings).
-static Instrument playsOn(const json& a) {
+// The arguments' instrument, whistle and harp, else the user's (Settings). A Settings instrument whose custom file is
+// missing or broken reads as the D whistle (#85: Settings are only reset when it is really deleted).
+static Song argsOrSettings(const json& a) {
   Settings set = loadSettings();
+  if (!findInstrument(set.instrument, set.whistle, set.harp)) set.instrument = "whistle", set.whistle = "D";
   Song like;
   like.instrument = a.value("instrument", set.instrument);
   like.whistle = a.value("whistle", set.whistle);
   like.harp = a.value("harp", set.harp);
   checkInstrument(like);
-  return instrumentOf(like);
+  return like;
 }
+
+// The instrument list_songs / analyze_song judge playability for.
+static Instrument playsOn(const json& a) { return instrumentOf(argsOrSettings(a)); }
 
 static std::string fitText(const Playability& p) {
   auto by = [&] { return " (transpose " + std::string(p.shift > 0 ? "+" : "") + std::to_string(p.shift) + ")"; };
@@ -271,14 +282,10 @@ static std::string callTool(const std::string& name, const json& a) {
     return r.empty() ? "No songs yet. Data folder: " + dataDir().string() : "Playability on the " + in.name + ":\n" + r;
   }
   if (name == "import_abc" || name == "import_musicxml") {
-    Song like;
+    Song like = argsOrSettings(a);
     like.id = a.value("id", "");
     like.source = a.value("source", "");
-    like.instrument = a.value("instrument", loadSettings().instrument);
-    like.whistle = a.value("whistle", loadSettings().whistle);
-    like.harp = a.value("harp", loadSettings().harp);
     like.folder = a.value("folder", "");
-    checkInstrument(like);
     std::string data = a.value("abc", "");
     if (name == "import_musicxml") {
       std::string path = a.value("path", "");
@@ -415,13 +422,17 @@ static std::string callTool(const std::string& name, const json& a) {
     return r;
   }
   if (name == "define_instrument") {
-    json j = a;
+    static const std::set<std::string> FIELDS = {"id", "name", "low", "high", "octave", "key", "techniques", "sound"};
+    json j = json::object();  // only what the tool offers: hints, order, keys stay built-in properties
+    for (auto& [k, v] : a.items()) {
+      if (FIELDS.count(k)) j[k] = v;
+      else if (k != "preset" && k != "notes")
+        throw std::runtime_error("unknown field '" + k + "' (define_instrument takes id, name, low, high, octave, key, preset, notes, techniques, sound)");
+    }
     if (!j.contains("id") && a.value("name", "") != "") j["id"] = slug(a.value("name", ""));
     std::string preset = a.value("preset", "chromatic");
     if (preset != "chromatic" && preset != "diatonic") throw std::runtime_error("preset must be \"chromatic\" or \"diatonic\"");
-    j.erase("preset");
-    json notes = j.value("notes", json::object());
-    j.erase("notes");
+    json notes = a.value("notes", json::object());
     Instrument in = parseInstrument(j);  // validates every field
     applyPreset(in, preset == "diatonic");
     j["notes"] = notes;
