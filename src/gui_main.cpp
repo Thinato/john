@@ -1500,7 +1500,7 @@ int main() {
     for (auto& id : a.ids)
       if (a.set.songFilter.empty() || a.meta[id].in.id == a.set.songFilter) byFolder[a.meta[id].folder].push_back(id);
     for (auto& [folder, ids] : byFolder) {
-      std::string label = tr(folder.empty() ? "Unsorted" : folder.c_str()) + std::string(" (") + std::to_string(ids.size()) + ")###" + folder;
+      std::string label = tr(folder.empty() ? "Unsorted" : folder.c_str()) + std::string(" (") + std::to_string(ids.size()) + ")###folder:" + folder;  // never an empty ID: Unsorted is folder ""
       if (!ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth)) continue;
       for (auto& id : ids) {
         auto& m = a.meta[id];
