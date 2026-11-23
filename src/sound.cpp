@@ -55,10 +55,12 @@ double writtenMidiFromFreq(double hz, int octave) { return 69 + 12 * std::log2(h
 
 static bool has(const Event& e, const char* t) { return std::find(e.techniques.begin(), e.techniques.end(), t) != e.techniques.end(); }
 
-Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, const std::string& sound) {
+Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, const std::string& sound,
+                    const std::optional<Instrument>& player) {
   Performance p;
-  p.octave = instrumentOf(s).octave;  // pitch always follows the song's instrument, whatever the sound
-  p.sound = sound.empty() ? instrumentOf(s).id : sound;
+  const Instrument on = player.value_or(instrumentOf(s));
+  p.octave = on.octave;  // pitch always follows the player's instrument, whatever the sound
+  p.sound = sound.empty() ? on.id : sound;
   if (std::find(INSTRUMENTS.begin(), INSTRUMENTS.end(), p.sound) == INSTRUMENTS.end()) p.sound = "whistle";
   // What each voice plays (kb/notes/playback-voice-ornaments.md): finger ornaments on whistle, fiddle and guitars
   // (as hammer-ons/pull-offs), slides on all but piano, vibrato on all but piano and guitar, breaths on the winds.

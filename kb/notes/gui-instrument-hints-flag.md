@@ -1,18 +1,18 @@
 ---
-title: In the GUI, the local `whistle` flag means "show whistle hints"; range markers come from Instrument::plays
-tags: [gui, hints, fingering, instruments, out-of-range]
+title: In the GUI, hints, range markers, playback and the mic follow my instrument (myInstrument), not the song's; the `whistle` flag means "show whistle hints"
+tags: [gui, hints, fingering, instruments, out-of-range, settings, playback, mic]
 ---
 
 # Instrument hints vs out-of-range markers in the GUI
 
 ## Context
-Code in `src/gui_main.cpp` that draws fingering charts or fingering text (`drawScore`, the note tooltip, `detailsPanel`, the mic readout in `transportBar`), or adds a new hint.
+Code in `src/gui_main.cpp` that draws fingering charts or fingering text (`drawScore`, the note tooltip, `detailsPanel`, the legend, the mic readout in `transportBar`), the "Instrument hints" checkbox, the Sound combo, the mic pitch range, or adds a new hint.
 
 ## Rule
-Each of those spots computes `whistle = instrumentOf(song).id == "whistle" && a.set.hints`, so `whistle` means "show the whistle hints", not "the song is for a whistle". Out-of-range markers (red note, "Out of range for the ...") use `inst.plays(midi)` in the non-hint branch, and they stay when hints are off.
+Everything about playing uses `myInstrument(a.set)` (Settings' instrument + whistle + harp, #90), never `instrumentOf(song)`: each hint spot computes `whistle = me.id == "whistle" && a.set.hints` and fingers with `finger(me.key, midi)`, not `song.whistle`. Out-of-range markers (red note, "Out of range for the ...") use `me.plays(midi)` in the non-hint branch, and they stay when hints are off. `instrumentOf(song)` is only for what describes the sheet: "Written for", the song's "Harmonica key" picker, the header line, Play in key's octave choice (`transposeToKey`), the import range hint, the song list's Meta.
 
 ## Why
-The "Instrument hints" checkbox (#16) hides fingerings without hiding range problems. That works because the whistle's `Instrument` range (bottom note to +23) equals the range where `finger()` returns `ok`, so the non-hint branch flags the same notes in red. For instruments without hints the checkbox is disabled and drawn unticked (a local `shown` copy), while `a.set.hints` keeps the user's choice for the next whistle song.
+The owner's model (#84, #90): songs are melodies and the song's instrument is only "written for", so a whistle player opening a fiddle tune gets whistle fingerings, whistle range, a whistle sound and whistle-octave grading. The "Instrument hints" checkbox (#16) hides fingerings without hiding range problems. That works because the whistle's `Instrument` range (bottom note to +23) equals the range where `finger(me.key, ...)` returns `ok`, so the non-hint branch flags the same notes in red. When my instrument has no hints the checkbox is disabled and drawn unticked (a local `shown` copy), while `a.set.hints` keeps the choice for when I switch back to a whistle.
 
 ## How to apply
-Gate any new hint (fingering, "blow harder", hand positions) on that same `whistle && a.set.hints` value, never on the instrument alone. When hints are added for another instrument, update the checks and the checkbox's `noHints` condition next to "Follow agent". If the whistle range or `finger()` ever changes, keep the two ranges equal, or out-of-range notes will show differently with hints on and off. The choice is a saved setting (`Settings::hints`, #18); the Settings window has its own plain checkbox for it.
+Gate any new hint (fingering, "blow harder", hand positions) on that same `whistle && a.set.hints` value from my instrument, never on the song's instrument. When hints are added for another instrument, update the checks and the checkbox's `noHints` condition next to "Follow agent". The harmonica's 1st/2nd position line shows for my harp (`a.set.harp`; `Instrument::key` is empty for harmonicas). If the whistle range or `finger()` ever changes, keep the two ranges equal. The choice is a saved setting (`Settings::hints`, #18); the Settings window has its own plain checkbox for it. The MCP `get_song` listing (`listing()` in song.cpp) and `analyze_song` still use the song's instrument: they describe the sheet for the agent editing it.

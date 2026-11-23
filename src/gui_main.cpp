@@ -286,7 +286,7 @@ static void drawScore(App& a, Song& s) {
   auto acc = accidentals(s);
   const float headW = sp * 1.18f, accW = sp * 1.3f;
   const float margin = sp * 2;
-  const Instrument inst = instrumentOf(s);
+  const Instrument inst = myInstrument(a.set);  // hints and range are for the instrument I play, not the song's (#90)
   const bool whistle = inst.id == "whistle" && a.set.hints;  // fingering charts are whistle-only, and can be hidden
   const float sysH = sp * (whistle ? 26 : 19);  // a system with only near notes on one staff
   const bool grand = grandStaff(s);
@@ -524,7 +524,7 @@ static void drawScore(App& a, Song& s) {
       continue;
     }
     // note
-    Fingering f = whistle ? finger(s.whistle, e.midi) : Fingering{"", 0, inst.plays(e.midi)};
+    Fingering f = whistle ? finger(inst.key, e.midi) : Fingering{"", 0, inst.plays(e.midi)};
     App::Grade g = sl.ev < (int)a.grades.size() ? a.grades[sl.ev] : App::None;
     ImU32 col = !f.ok ? red
                 : g == App::Good ? IM_COL32(30, 150, 60, 255)
@@ -683,7 +683,7 @@ static void drawScore(App& a, Song& s) {
     const Event& e = s.events[hovered];
     ImGui::BeginTooltip();
     ImGui::Text("%s  %s", noteName(spell(s.key, e.midi)).c_str(), durationName(e).c_str());
-    if (whistle) ImGui::Text(tr("fingering: %s"), fingeringText(finger(s.whistle, e.midi)).c_str());
+    if (whistle) ImGui::Text(tr("fingering: %s"), fingeringText(finger(inst.key, e.midi)).c_str());
     else if (!inst.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, tr("out of range for the %s"), instName(inst).c_str());
     for (auto& t : e.techniques) {
       auto it = std::find_if(a.techs.begin(), a.techs.end(), [&](auto& x) { return x.id == t; });
@@ -709,7 +709,7 @@ static bool tiedFromPrev(const App& a, int k) {  // note k only continues a tie,
 static int firstNoteFrom(const App& a, int k) {  // next note the player must actually play
   while (k < (int)a.order.size()) {
     const Event& e = a.song->events[a.order[k]];
-    if (e.kind == Kind::Note && !tiedFromPrev(a, k) && instrumentOf(*a.song).plays(e.midi)) break;
+    if (e.kind == Kind::Note && !tiedFromPrev(a, k) && myInstrument(a.set).plays(e.midi)) break;
     k++;
   }
   return k;
@@ -736,7 +736,7 @@ static void startPlayback(App& a, int fromOrder, bool countIn) {
   a.playFrom = fromOrder;
   a.gradeVi = 0;
   a.frames = a.hits = a.octs = 0;
-  a.audio.play(perform(*a.song, a.bpm, fromOrder, countIn, a.set.sound));
+  a.audio.play(perform(*a.song, a.bpm, fromOrder, countIn, a.set.sound, myInstrument(a.set)));
 }
 
 static void restartHere(App& a) {  // restart playback at the current note, e.g. with a new tempo or sound
@@ -771,7 +771,7 @@ static void practiceUpdate(App& a, float dt) {
     float level = n ? rms(buf.data(), n) : 0;
     recent = n ? rms(buf.data() + n - 512, 512) : 0;
     a.silentFor = level > 1e-5f ? 0 : a.silentFor + dt;
-    Instrument in = instrumentOf(*a.song);
+    Instrument in = myInstrument(a.set);  // I sound in my instrument's octave, whatever the song was written for
     float fmin = (float)soundingFreq(in.low, in.octave) * 0.8f, fmax = (float)soundingFreq(in.high, in.octave) * 1.15f;
     if (level > a.set.gate)
       if (float hz = detectPitch(buf.data(), n, a.audio.micRate(), fmin, fmax)) a.heard = (float)writtenMidiFromFreq(hz, in.octave);
@@ -841,8 +841,8 @@ static void transportBar(App& a) {
   if (ImGui::IsItemDeactivatedAfterEdit() && playing) restartHere(a);  // with the new tempo
   if (ImGui::IsItemHovered()) ImGui::SetTooltip(tr("Quarter notes per minute (song tempo: %s)"), a.song->tempo ? std::to_string(a.song->tempo).c_str() : tr("not set"));
   ImGui::SameLine();
-  auto soundName = [&](const std::string& id) { return instName(findInstrument(id, a.song->whistle).value_or(*findInstrument(id))); };
-  std::string songSound = trf("%s (song)", instName(instrumentOf(*a.song)).c_str());
+  auto soundName = [&](const std::string& id) { return instName(findInstrument(id, a.set.whistle, a.set.harp).value_or(*findInstrument(id))); };
+  std::string songSound = trf("%s (mine)", instName(myInstrument(a.set)).c_str());
   std::string soundLabel = trf("sound: %s", (a.set.sound.empty() ? songSound : soundName(a.set.sound)).c_str());
   ImGui::SetNextItemWidth(std::max(170.0f, ImGui::CalcTextSize(soundLabel.c_str()).x + ImGui::GetFrameHeight() + ImGui::GetStyle().FramePadding.x * 2));  // longer in Portuguese
   if (ImGui::BeginCombo("##sound", soundLabel.c_str())) {
@@ -851,7 +851,7 @@ static void transportBar(App& a) {
       if (ImGui::Selectable(soundName(id).c_str(), a.set.sound == id)) { a.set.sound = id; if (playing) restartHere(a); }
     ImGui::EndCombo();
   }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Which instrument plays the tune (saved, also in Settings). The notes keep the song's pitch."));
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Which instrument plays the tune (saved, also in Settings). The notes sound in your instrument's octave."));
   ImGui::SameLine();
   bool melody = a.audio.melody;
   if (ImGui::Checkbox(L("Melody").c_str(), &melody)) a.audio.melody = melody;
@@ -893,9 +893,10 @@ static void transportBar(App& a) {
       int m = (int)std::lround(a.heard);
       float c = (a.heard - m) * 100;
       ImVec4 col = std::abs(c) <= a.set.tolerance ? ImVec4(0.3f, 0.9f, 0.4f, 1) : ImVec4(1, 0.7f, 0.2f, 1);
-      bool whistle = instrumentOf(*a.song).id == "whistle" && a.set.hints;
+      const Instrument me = myInstrument(a.set);
+      bool whistle = me.id == "whistle" && a.set.hints;
       ImGui::TextColored(col, tr("hearing %s %+.0fc  %s"), noteName(spell(a.song->key, m)).c_str(), c,
-                         whistle ? fingeringText(finger(a.song->whistle, m)).c_str() : "");
+                         whistle ? fingeringText(finger(me.key, m)).c_str() : "");
       if (a.cursor >= 0 && a.cursor < (int)a.song->events.size()) {
         int want = a.song->events[a.cursor].midi;
         if (m == want + 12) { ImGui::SameLine(); ImGui::TextColored({1, 0.7f, 0.2f, 1}, "%s", whistle ? tr("(octave too high: blow softer)") : tr("(octave too high)")); }
@@ -917,8 +918,8 @@ static void detailsPanel(App& a) {
   ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.4f);
   ImGui::TextWrapped("%s", songText(s, s.title).c_str());
   ImGui::PopFont();
-  const Instrument inst = instrumentOf(s);
-  const bool whistle = inst.id == "whistle" && a.set.hints;
+  const Instrument inst = instrumentOf(s), me = myInstrument(a.set);  // written for vs what I play (#90)
+  const bool whistle = me.id == "whistle" && a.set.hints;
   ImGui::TextDisabled("%s  |  %s  |  %s%s", keyName(s.key).c_str(), s.meter.c_str(), instName(inst).c_str(),
                       s.tempo ? ("  |  " + std::to_string(s.tempo) + " bpm").c_str() : "");
   if (!s.source.empty()) ImGui::TextWrapped(tr("Source: %s"), s.source.c_str());
@@ -1005,8 +1006,8 @@ static void detailsPanel(App& a) {
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Transposes the song and saves it. Pick the original key to get it back."));
   }
-  if (inst.id == "harmonica") {  // the usual keys for this harp
-    Key harp = parseKey(s.harp).value_or(Key{0, "maj"}), second{harp.fifths + 1, "maj"};
+  if (me.id == "harmonica") {  // the usual keys for my harp
+    Key harp = parseKey(a.set.harp).value_or(Key{0, "maj"}), second{harp.fifths + 1, "maj"};
     ImGui::TextDisabled(tr("1st position: %s  |  2nd position: %s"), tonicName(harp).c_str(), tonicName(second).c_str());
     if (ImGui::IsItemHovered())
       ImGui::SetTooltip("%s", tr("1st position plays in the harmonica's key. 2nd position (cross harp), a fifth above, is the usual choice for blues and folk."));
@@ -1017,8 +1018,8 @@ static void detailsPanel(App& a) {
   if (a.sel >= 0 && a.sel < (int)s.events.size() && s.events[a.sel].kind == Kind::Note) {
     Event& e = s.events[a.sel];
     ImGui::Text(tr("Note #%d: %s, %s"), a.sel, noteName(spell(s.key, e.midi)).c_str(), durationName(e).c_str());
-    if (whistle) ImGui::Text(tr("Fingering: %s"), fingeringText(finger(s.whistle, e.midi)).c_str());
-    else if (!inst.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, tr("Out of range for the %s"), instName(inst).c_str());
+    if (whistle) ImGui::Text(tr("Fingering: %s"), fingeringText(finger(me.key, e.midi)).c_str());
+    else if (!me.plays(e.midi)) ImGui::TextColored({1, 0.4f, 0.4f, 1}, tr("Out of range for the %s"), instName(me).c_str());
     for (auto& t : a.techs) {
       bool on = std::find(e.techniques.begin(), e.techniques.end(), t.id) != e.techniques.end();
       if (ImGui::Checkbox((t.symbol + "  " + t.name + "###" + t.id).c_str(), &on)) {
@@ -1104,7 +1105,7 @@ static void settingsWindow(App& a) {
   ImGui::Checkbox(L("Count-in bar before playing").c_str(), &s.countIn);
   ImGui::Checkbox(L("Metronome").c_str(), &s.metronome);
   ImGui::SliderFloat(L("Volume").c_str(), &s.volume, 0, 1, "%.1f");
-  instrumentCombo(L("Sound").c_str(), s.sound, tr("The song's instrument"));
+  instrumentCombo(L("Sound").c_str(), s.sound, tr("My instrument"));
   ImGui::SeparatorText(tr("Microphone"));
   ImGui::SliderFloat(L("Tolerance (cents)").c_str(), &s.tolerance, 10, 100, "%.0f");
   ImGui::SliderFloat(L("Noise gate").c_str(), &s.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
@@ -1608,13 +1609,13 @@ int main() {
     ImGui::Checkbox(L("Follow agent").c_str(), &a.follow);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Switch to a song as soon as the agent changes it"));
 #endif
-    const bool noHints = a.song && instrumentOf(*a.song).id != "whistle";  // only the whistle has hints so far
+    const bool noHints = myInstrument(a.set).id != "whistle";  // only the whistle has hints so far
     ImGui::BeginDisabled(noHints);
-    bool shown = a.set.hints && !noHints;  // unticked while disabled; a.set.hints keeps the choice for whistle songs
+    bool shown = a.set.hints && !noHints;  // unticked while disabled; a.set.hints keeps the choice for a whistle
     if (ImGui::Checkbox(L("Instrument hints").c_str(), &shown) && !noHints) a.set.hints = shown;
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-      if (noHints) ImGui::SetTooltip(tr("No hints for the %s yet"), instName(instrumentOf(*a.song)).c_str());
+      if (noHints) ImGui::SetTooltip(tr("No hints for the %s yet"), instName(myInstrument(a.set)).c_str());
       else ImGui::SetTooltip("%s", tr("Show fingering charts and fingerings for the notes"));
     }
     ImGui::SliderFloat(L("Zoom").c_str(), &a.set.zoom, 6, 16, "%.0f");
