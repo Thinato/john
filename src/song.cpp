@@ -174,7 +174,7 @@ std::optional<Instrument> findInstrument(const std::string& id, const std::strin
   if (id == "whistle") {
     int b = whistleBase(whistleKey);
     if (b < 0) return std::nullopt;
-    return Instrument{id, whistleKey + " whistle", b, b + 23, 1};
+    return Instrument{id, whistleKey + " whistle", b, b + 23, 1, whistleKey};
   }
   if (id == "harmonica" && harpKey != "C") {  // the C harp is the fixed entry below
     if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), harpKey) == HARP_KEYS.end()) return std::nullopt;
@@ -414,8 +414,8 @@ void saveCustomTechnique(const Technique& t) {
 }
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Settings, hints, zoom, light, tempo, countIn, metronome, volume, sound,
-                                                gate, latencyMs, tolerance, instrument, songFilter, language, solfege,
-                                                solfegeKeys, harp)
+                                                gate, latencyMs, tolerance, instrument, whistle, allSongs, language,
+                                                solfege, solfegeKeys, harp)
 
 Settings loadSettings() {
   Settings s;
@@ -423,9 +423,9 @@ Settings loadSettings() {
   catch (const json::exception&) { return {}; }  // missing, garbage, or a key of the wrong type
   auto known = [](const std::string& id) { return std::count(INSTRUMENTS.begin(), INSTRUMENTS.end(), id) > 0; };
   if (!s.sound.empty() && !known(s.sound)) s.sound.clear();
-  if (!s.songFilter.empty() && !known(s.songFilter)) s.songFilter.clear();
   if (!known(s.instrument)) s.instrument = "whistle";
   if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), s.harp) == HARP_KEYS.end()) s.harp = "C";
+  if (whistleBase(s.whistle) < 0) s.whistle = "D";
   s.zoom = std::clamp(s.zoom, 6.0f, 16.0f);  // values the GUI could choke on
   s.tempo = std::clamp(s.tempo, 40, 220);
   s.volume = std::clamp(s.volume, 0.0f, 1.0f);

@@ -16,7 +16,7 @@ using namespace john;
 
 static const char* GUIDE = R"(John turns tunes into tin whistle tab sheets with technique markings. Songs are saved to the John data folder and appear live in the John GUI (staff + fingering charts + technique symbols).
 
-Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica (diatonic, with a harp key: G..B harps sit below C, Db..F# above)). Pass it to import_abc / import_musicxml / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts and the technique candidates are for the tin whistle. Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch.
+Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica (diatonic, with a harp key: G..B harps sit below C, Db..F# above)). Pass it to import_abc / import_musicxml / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts and the technique candidates are for the tin whistle. Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch. A song's instrument is what it was written for; the user plays the instrument chosen in John's Settings, and list_songs / analyze_song say whether each song fits it as written, in another key (update_song transpose), or not at all (pass instrument to ask about another one). The GUI's song list shows only the songs that fit.
 
 Getting a tune into John (via ABC -> import_abc, with instrument = what the user will play it on; the song list shows it and list_songs filters by it):
 - MusicXML file (.musicxml, .xml or zipped .mxl, exported by MuseScore, Finale, Sibelius, flat.io or an optical music reader): import_musicxml with path (same options as import_abc). Read its warnings: only the first part and voice are kept, chords keep the top note. Then check get_song.
@@ -65,9 +65,18 @@ static json toolList() {
   json str = {{"type", "string"}};
   json strArr = {{"type", "array"}, {"items", str}};
   json instrumentSchema = {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "instrument the song is for, default whistle"}};
+  json playsOn = {  // playability (#84): which instrument to judge the songs for
+      {"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "judge playability for this instrument; default: the one chosen in John's Settings (the user's instrument)"}}},
+      {"whistle", {{"type", "string"}, {"description", "whistle key for instrument whistle; default: John's Settings (D unless changed)"}}},
+      {"harp", {{"type", "string"}, {"enum", HARP_KEYS}, {"description", "harmonica key for instrument harmonica; default: John's Settings (C unless changed)"}}}};
+  json analyzeArgs = playsOn;
+  analyzeArgs["id"] = str;
   return json::array({
-      tool("list_songs", "List saved songs by folder (id, title, key, meter, instrument).",
-           {{"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "only songs for this instrument (any whistle key); default all"}}}}),
+      tool("list_songs",
+           "List saved songs by folder (id, title, key, meter, the instrument it was written for) and whether each fits an instrument "
+           "(range and hard notes such as half-holes, in any key of the same mode): 'fits as written', 'fits in <key> (transpose N)', or "
+           "'doesn't fit'. Use it for 'what can I play on my A harmonica?'; update_song transpose moves a song.",
+           playsOn),
       tool("import_abc",
            "Create a song from ABC notation (full tune with X/T/M/L/K headers; each X: tune of a multi-tune file becomes its own song, id applies to the first). Returns warnings and the note listing. "
            "Techniques in the ABC (~, {g}A grace cuts, !id! decorations) and lyrics (w: first verse, W:) are kept.",
@@ -75,7 +84,7 @@ static json toolList() {
             {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
             {"source", {{"type", "string"}, {"description", "where the tune came from (URL, 'photo of ...')"}}},
             {"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "instrument the song is for, default: the one chosen in John's Settings (whistle unless changed)"}}},
-            {"whistle", {{"type", "string"}, {"description", "whistle key, default D"}}},
+            {"whistle", {{"type", "string"}, {"description", "whistle key, default: the one chosen in John's Settings (D unless changed)"}}},
             {"harp", {{"type", "string"}, {"enum", HARP_KEYS}, {"description", "harmonica key, default: the one chosen in John's Settings (C unless changed)"}}},
             {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
             {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}},
@@ -89,7 +98,7 @@ static json toolList() {
             {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
             {"source", {{"type", "string"}, {"description", "where the score came from; default the composer in the file"}}},
             {"instrument", {{"type", "string"}, {"enum", INSTRUMENTS}, {"description", "instrument the song is for, default: the one chosen in John's Settings (whistle unless changed)"}}},
-            {"whistle", {{"type", "string"}, {"description", "whistle key, default D"}}},
+            {"whistle", {{"type", "string"}, {"description", "whistle key, default: the one chosen in John's Settings (D unless changed)"}}},
             {"harp", {{"type", "string"}, {"enum", HARP_KEYS}, {"description", "harmonica key, default: the one chosen in John's Settings (C unless changed)"}}},
             {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
             {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}}),
@@ -97,8 +106,9 @@ static json toolList() {
            "Show a song as a table: event index, bar, beat, note, length, whistle fingering (X covered, O open, H half, + upper octave; other instruments: out-of-range marks), techniques, lyric syllable (\"syl-\" = the word goes on, _ = holds the previous syllable), comment.",
            {{"id", str}}, {"id"}),
       tool("analyze_song",
-           "Deterministic hints: range check on the song's instrument, best transpositions, and candidate notes for cuts, rolls, crans, slides, tonguing and breaths.",
-           {{"id", str}}, {"id"}),
+           "Deterministic hints: whether the song fits an instrument (default the user's, from Settings) as written or in which key, "
+           "range check on the song's instrument, best transpositions, and candidate notes for cuts, rolls, crans, slides, tonguing and breaths.",
+           analyzeArgs, {"id"}),
       tool("set_techniques",
            "Edit techniques on notes, by event index from get_song. Each edit may replace the list ('techniques'), or 'add'/'remove' ids, and set a 'comment' explaining the choice. All edits are validated before any is applied.",
            {{"id", str},
@@ -176,25 +186,43 @@ static Song mustLoad(const json& a) {
   return *s;
 }
 
+// The instrument list_songs / analyze_song judge playability for: the arguments, else the user's (Settings).
+static Instrument playsOn(const json& a) {
+  Settings set = loadSettings();
+  Song like;
+  like.instrument = a.value("instrument", set.instrument);
+  like.whistle = a.value("whistle", set.whistle);
+  like.harp = a.value("harp", set.harp);
+  checkInstrument(like);
+  return instrumentOf(like);
+}
+
+static std::string fitText(const Playability& p) {
+  auto by = [&] { return " (transpose " + std::string(p.shift > 0 ? "+" : "") + std::to_string(p.shift) + ")"; };
+  std::string where = p.shift == 0 ? "as written" : p.shift % 12 ? "in " + keyName(p.key) + by() : (p.shift > 0 ? "an octave up" : "an octave down") + by();
+  if (p.verdict != Playability::NoFit) return "fits " + where;
+  if (p.cost.out == 0) return "doesn't fit: too many hard notes in every key";
+  return "doesn't fit: " + std::to_string(p.cost.out) + " of " + std::to_string(p.notes) + " notes out of range at best, " + where;
+}
+
 static std::string callTool(const std::string& name, const json& a) {
   if (name == "list_songs") {
-    std::string inst = a.value("instrument", "");
-    if (!inst.empty() && !findInstrument(inst)) throw std::runtime_error("unknown instrument '" + inst + "'");
+    const Instrument in = playsOn(a);
     std::map<std::string, std::string, decltype(&folderBefore)> byFolder(&folderBefore);
     for (auto& id : listSongs())
-      if (auto s = loadSong(id); s && (inst.empty() || instrumentOf(*s).id == inst))
-        byFolder[s->folder] += "  " + id + " - " + s->title + " (" + keyName(s->key) + ", " + s->meter + ", " + instrumentOf(*s).name + ")\n";
+      if (auto s = loadSong(id))
+        byFolder[s->folder] += "  " + id + " - " + s->title + " (" + keyName(s->key) + ", " + s->meter + ", " + instrumentOf(*s).name +
+                               "): " + fitText(playability(*s, in)) + "\n";
     std::string r;
     for (auto& [f, lines] : byFolder) r += (f.empty() ? "Unsorted" : f) + ":\n" + lines;
-    if (r.empty() && !inst.empty()) return "No songs for instrument '" + inst + "'.";
-    return r.empty() ? "No songs yet. Data folder: " + dataDir().string() : r;
+    return r.empty() ? "No songs yet. Data folder: " + dataDir().string() : "Playability on the " + in.name + ":\n" + r;
   }
   if (name == "import_abc" || name == "import_musicxml") {
     Song like;
     like.id = a.value("id", "");
     like.source = a.value("source", "");
     like.instrument = a.value("instrument", loadSettings().instrument);
-    like.whistle = a.value("whistle", "D");
+    like.whistle = a.value("whistle", loadSettings().whistle);
     like.harp = a.value("harp", loadSettings().harp);
     like.folder = a.value("folder", "");
     checkInstrument(like);
@@ -219,7 +247,11 @@ static std::string callTool(const std::string& name, const json& a) {
     return out;
   }
   if (name == "get_song") return listing(mustLoad(a));
-  if (name == "analyze_song") return analyze(mustLoad(a));
+  if (name == "analyze_song") {
+    const Song s = mustLoad(a);
+    const Instrument in = playsOn(a);
+    return "Playability on the " + in.name + ": " + fitText(playability(s, in)) + "\n\n" + analyze(s);
+  }
   if (name == "set_techniques") {
     Song s = mustLoad(a);
     std::set<std::string> known;

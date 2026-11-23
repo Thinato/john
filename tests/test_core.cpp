@@ -300,6 +300,36 @@ int main() {
     assert(transposeToKey(h, 9, instrumentOf(h)) == 12);  // a C harp starts on C4: the octave up fits
   }
 
+  // playability (#84): fits as written, in another key (or octave), or not at all, on any instrument
+  {
+    auto song = [](const char* body) { return importAbc(std::string("X:1\nT:p\nM:4/4\nL:1/8\n") + body).song; };
+    const Instrument dw = *findInstrument("whistle", "D");
+    Playability p = playability(song("K:D\nDEFG ABcd|\n"), dw);  // D4..D5
+    assert(p.verdict == Playability::AsWritten && p.shift == 0 && p.notes == 8 && keyName(p.key) == "D major");
+    assert(playability(song("K:D\nDEFG ABcd|\n"), *findInstrument("violin")).verdict == Playability::AsWritten);
+    // hard notes: one half-hole (F natural) in 11 notes is under 10 %, in 10 notes it isn't
+    assert(playability(song("K:D\nDEFG ABcd e=Fd|\n"), dw).verdict == Playability::AsWritten);
+    assert(playability(song("K:D\nDEFG ABcd e=F|\n"), dw).verdict != Playability::AsWritten);
+    assert(fits(RangeCost{}, 0) && !fits(RangeCost{1, 0, 0}, 100) && fits(RangeCost{0, 0, 4}, 9) && !fits(RangeCost{0, 0, 5}, 9));
+    // F major: three half-holes; G major (+2, one cross-fingered C) is the nearest key that fits
+    p = playability(song("K:F\nFGAB cdef|\n"), dw);
+    assert(p.verdict == Playability::OtherKey && p.shift == 2 && keyName(p.key) == "G major" && p.cost.out == 0 && p.cost.cross == 1);
+    Song moved = song("K:F\nFGAB cdef|\n");
+    transpose(moved, p.shift);  // the GUI's one click
+    assert(playability(moved, dw).verdict == Playability::AsWritten);
+    // below the whistle: the same key an octave up, before any other key
+    p = playability(song("K:G\nG,A,B,D|\n"), dw);
+    assert(p.verdict == Playability::OtherKey && p.shift == 12 && keyName(p.key) == "G major");
+    // D4 to E6 spans more than the whistle's 23 semitones: no key fits, one note stays out
+    p = playability(song("K:D\nDAe'|\n"), dw);
+    assert(p.verdict == Playability::NoFit && p.cost.out == 1 && p.notes == 3);
+    // the whistle's key is the instrument's, not the song's: C4..C5 fits a C whistle as written, not a D whistle
+    Song c = song("K:C\nCDEF GABc|\n");
+    assert(c.whistle == "D" && playability(c, *findInstrument("whistle", "C")).verdict == Playability::AsWritten);
+    p = playability(c, dw);
+    assert(p.verdict == Playability::OtherKey && keyName(p.key) == "D major" && p.shift == 2);
+  }
+
   // playback sounds: every voice keeps the song's pitch, struck/plucked voices decay, no NaN or clipping
   {
     const int sr = 48000, n = 2048;
@@ -1252,6 +1282,7 @@ int main() {
       Song b = fromJson(json::parse(f));
       assert(!b.events.empty() && !b.notes.empty() && translated(b));
       for (auto& ev : b.events) assert(ev.kind != Kind::Note || finger(b.whistle, ev.midi).ok);  // all playable
+      assert(playability(b, instrumentOf(b)).verdict == Playability::AsWritten);  // listed under Playable on my D whistle (#84)
       bundled++;
     }
     assert(bundled >= 8);
@@ -1271,6 +1302,7 @@ int main() {
       assert(!b.events.empty() && !b.notes.empty() && !b.source.empty() && !b.folder.empty() && translated(b));
       assert(findInstrument(b.instrument, b.whistle));
       for (auto& ev : b.events) assert(ev.kind != Kind::Note || instrumentOf(b).plays(ev.midi));
+      assert(playability(b, instrumentOf(b)).verdict == Playability::AsWritten);
       demos++;
     }
     assert(demos >= 12);
@@ -1362,7 +1394,7 @@ int main() {
     assert(loadSettings() == Settings{});
     Settings s;
     s.hints = false; s.zoom = 12; s.light = true; s.tempo = 90; s.countIn = false; s.metronome = false;
-    s.volume = 0.3f; s.sound = "piano"; s.gate = 0.02f; s.latencyMs = 120; s.tolerance = 25; s.instrument = "violin"; s.songFilter = "piano";
+    s.volume = 0.3f; s.sound = "piano"; s.gate = 0.02f; s.latencyMs = 120; s.tolerance = 25; s.instrument = "violin"; s.whistle = "C"; s.allSongs = true;
     s.language = "pt-BR"; s.solfege = true; s.solfegeKeys = false; s.harp = "A";
     saveSettings(s);
     assert(loadSettings() == s);
@@ -1374,9 +1406,9 @@ int main() {
     assert(loadSettings() == Settings{});
     write(R"({"hints": "yes"})");  // wrong type
     assert(loadSettings() == Settings{});
-    write(R"({"sound": "banjo", "instrument": "kazoo", "songFilter": "lute", "zoom": 0, "volume": 9, "harp": "H"})");  // values the GUI can't use
+    write(R"({"sound": "banjo", "instrument": "kazoo", "songFilter": "lute", "zoom": 0, "volume": 9, "harp": "H", "whistle": "Dm"})");  // values the GUI can't use; songFilter is the old filter (#84), now ignored
     Settings c = loadSettings();
-    assert(c.sound.empty() && c.instrument == "whistle" && c.songFilter.empty() && c.zoom == 6 && c.volume == 1 && c.harp == "C");
+    assert(c.sound.empty() && c.instrument == "whistle" && c.whistle == "D" && !c.allSongs && c.zoom == 6 && c.volume == 1 && c.harp == "C");
     fs::remove(home / "settings.json");
   }
 

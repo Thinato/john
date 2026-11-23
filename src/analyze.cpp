@@ -21,7 +21,7 @@ RangeCost rangeCost(const Song& s, const Instrument& in, int semis) {
   for (auto& e : s.events) {
     if (e.kind != Kind::Note) continue;
     if (in.id != "whistle") { c.out += !in.plays(e.midi + semis); continue; }
-    Fingering f = finger(s.whistle, e.midi + semis);
+    Fingering f = finger(in.key, e.midi + semis);
     if (!f.ok) c.out++;
     else if (f.holes.find('H') != std::string::npos) c.half++;
     else if (f.holes == "OXXOOO") c.cross++;
@@ -29,7 +29,8 @@ RangeCost rangeCost(const Song& s, const Instrument& in, int semis) {
   return c;
 }
 
-int transposeToKey(Song& s, int tonic, const Instrument& in) {
+// transposeToKey's shift, without applying it
+static int keyShift(const Song& s, int tonic, const Instrument& in) {
   int d = ((tonic - tonicPc(s.key)) % 12 + 12) % 12;
   if (d > 6) d -= 12;  // smallest interval: -5..+6
   auto score = [&](int t) { RangeCost c = rangeCost(s, in, t); return std::tuple(c.out, c.hard(), std::abs(s.transposed + t), std::abs(t)); };
@@ -39,8 +40,40 @@ int transposeToKey(Song& s, int tonic, const Instrument& in) {
     for (auto& e : s.events) midi = midi && (e.kind != Kind::Note || (e.midi + t >= 0 && e.midi + t <= 127));
     if (midi && score(t) < score(best)) best = t;
   }
-  transpose(s, best);
   return best;
+}
+
+int transposeToKey(Song& s, int tonic, const Instrument& in) {
+  int t = keyShift(s, tonic, in);
+  transpose(s, t);
+  return t;
+}
+
+bool fits(const RangeCost& c, int notes) {
+  return c.out == 0 && (c.hard() == 0 || c.hard() * 10 < notes * PLAYABLE_PERCENT);  // hard() is 10 per half-hole
+}
+
+Playability playability(const Song& s, const Instrument& in) {
+  Playability p;
+  for (auto& e : s.events) p.notes += e.kind == Kind::Note;
+  p.key = s.key;
+  p.cost = rangeCost(s, in, 0);
+  if (fits(p.cost, p.notes)) return p;
+  auto score = [&](int t, const RangeCost& c) {
+    int d = ((t % 12) + 12) % 12;
+    return std::tuple(c.out, !fits(c, p.notes), std::min(d, 12 - d), c.hard(), std::abs(t));
+  };
+  for (int pc = 0; pc < 12; pc++) {
+    int t = keyShift(s, pc, in);
+    RangeCost c = rangeCost(s, in, t);
+    if (score(t, c) < score(p.shift, p.cost)) { p.shift = t; p.cost = c; }
+  }
+  p.verdict = fits(p.cost, p.notes) ? Playability::OtherKey : Playability::NoFit;
+  Song k;  // no notes: only the key
+  k.key = s.key;
+  transpose(k, p.shift);
+  p.key = k.key;
+  return p;
 }
 
 std::string analyze(const Song& s) {

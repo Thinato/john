@@ -85,6 +85,7 @@ struct Instrument {
   std::string id, name;    // "violin", "Violin"; the whistle's name includes its key ("D whistle")
   int low = 0, high = 0;   // playable range, written pitch (MIDI)
   int octave = 0;          // sounding pitch = written + 12 * octave (whistle +1, guitar -1, others 0)
+  std::string key;         // whistle key ("D", "Bb"); "" for other instruments
   bool plays(int midi) const { return midi >= low && midi <= high; }
 };
 // Diatonic harmonica keys, lowest harp first: G..B harps sit below C (an A harp starts on A3), Db..F# above it.
@@ -132,14 +133,32 @@ Fingering finger(const std::string& whistle, int midi);
 std::string fingeringText(const Fingering& f);     // "XXX XXO +"
 std::string durationName(const Event& e);          // "dotted quarter", "eighth (3-tuplet)"; translated by tr()
 void transpose(Song& s, int semitones);         // also adds to s.transposed
-// Notes out of range, half-holed and C-natural cross-fingered (whistle only) if s were transposed by semis.
-// hard() weighs the fingerings as analyze()'s ranking of transpositions does.
+// Notes out of range, half-holed and C-natural cross-fingered (whistle only, fingered on in's key) if s were transposed
+// by semis. Written pitches are compared, whatever instrument the song is for. hard() weighs the fingerings as analyze()'s ranking of transpositions does.
 struct RangeCost { int out = 0, half = 0, cross = 0; int hard() const { return half * 10 + cross * 2; } };
 RangeCost rangeCost(const Song& s, const Instrument& in, int semis);
 // Play the song in the key whose tonic is pitch class `tonic` (same mode): transposes by the smallest interval, then
 // moves whole octaves to the octave that fits `in` best (rangeCost: fewest out, then hard()). On a tie, the octave
 // closest to the original sheet (s.transposed nearest 0), so the original key restores it exactly. Returns the shift.
 int transposeToKey(Song& s, int tonic, const Instrument& in);
+// The share of notes, in percent, that makes a song hard to play: hard notes (RangeCost::hard() / 10, so a half-hole
+// counts 1 and a cross-fingered C 1/5) at or above it and the song doesn't fit (playability); out-of-range notes at or
+// above it and Import song points to Play in key.
+constexpr int PLAYABLE_PERCENT = 10;
+bool fits(const RangeCost& c, int notes);  // no note out of range and hard notes under PLAYABLE_PERCENT
+// Can `in` play the song (written pitches, see rangeCost)? AsWritten: it fits at shift 0. Otherwise every key in the
+// same mode is tried at its best octave (as transposeToKey); the best is the one with fewest notes out, then one that
+// fits, then the nearest key (the same key an octave away first), then fewest hard notes. OtherKey: transposing by
+// `shift` fits, `key` is the key after it (the same key when shift is a whole octave). NoFit: nothing fits, `cost.out`
+// notes stay out at best.
+struct Playability {
+  enum Verdict { AsWritten, OtherKey, NoFit } verdict = AsWritten;
+  int shift = 0;
+  Key key;
+  RangeCost cost;  // at shift
+  int notes = 0;
+};
+Playability playability(const Song& s, const Instrument& in);
 // Remove bars first..last (numbers from positions(), as get_song shows them) and the bar lines that close them.
 // A closing repeat/end sign or volta mark moves onto the previous plain bar line. Returns notes/rests removed;
 // throws std::invalid_argument if the range matches nothing or would empty the song.
@@ -228,12 +247,13 @@ struct Settings {
   float gate = 0.01f;               // mic level below which nothing is heard
   float latencyMs = 80;             // mic + speaker delay, for grading play-along
   float tolerance = 40;             // cents from the note that still count as right
-  std::string instrument = "whistle";  // for new songs (import_abc without an instrument)
-  std::string songFilter;           // song list shows only this instrument id; "" = all
+  std::string instrument = "whistle";  // my instrument: the song list shows what fits it; new songs are for it
+  std::string whistle = "D";        // my whistle's key, when instrument is "whistle"
+  bool allSongs = false;            // song list shows every song, not only those that fit my instrument
   std::string language;             // viewer language: "" = automatic (system/browser), "en", "pt-BR", ...
   bool solfege = false;             // note names Do Re Mi instead of C D E
   bool solfegeKeys = true;          // key names Do Re Mi ("Ré maior"); only in a language other than English
-  std::string harp = "C";           // harmonica key for songs switched to or imported as harmonica, one of HARP_KEYS
+  std::string harp = "C";           // my harmonica's key (also for songs switched to or imported as harmonica), one of HARP_KEYS
   bool operator==(const Settings&) const = default;
 };
 Settings loadSettings();                    // missing keys -> defaults; unreadable file -> all defaults

@@ -63,6 +63,16 @@ static std::string instName(const Instrument& in) {
   return tr(in.name);
 }
 
+// The Settings instrument (#84): the song list shows what it can play.
+static Instrument myInstrument(const Settings& s) { return findInstrument(s.instrument, s.whistle, s.harp).value_or(*findInstrument("whistle")); }
+
+// Song list badge for a song that fits my instrument in another key: "in G", or the same key an octave away.
+static std::string fitBadge(const Playability& p) {
+  if (p.verdict != Playability::OtherKey) return "";
+  if (p.shift % 12 == 0) return p.shift > 0 ? tr("octave up") : tr("octave down");
+  return trf("in %s", tonicName(p.key).c_str());
+}
+
 // Displayed note value: base length (192 whole .. 6 32nd) and dots. Tuplet notes show their written value.
 struct Value { int base = 48, dots = 0; };
 static Value valueOf(const Event& e) {
@@ -84,8 +94,9 @@ struct Original { GLuint tex = 0; int w = 0, h = 0; };
 #endif
 struct App {
   std::vector<std::string> ids;
-  struct Meta { fs::file_time_type mtime{}; std::string folder, title; Instrument in; };
-  std::map<std::string, Meta> meta;  // song list info, re-read only when a file changes
+  struct Meta { fs::file_time_type mtime{}; std::string folder, title; Instrument in; Playability play; };
+  std::map<std::string, Meta> meta;  // song list info, re-read only when a file changes or my instrument does
+  std::string playFor;               // my instrument (Settings) that meta's playability was computed for
   std::vector<Technique> techs;
   std::optional<Song> song;
   std::optional<PitchTrack> track;  // the open song's pitch track (Import audio), drawn under each line of music
@@ -111,8 +122,8 @@ struct App {
   std::vector<char> abcText = std::vector<char>(1 << 17);  // the paste box (heap: the web's stack is small)
   char abcPath[1024] = "";
   std::string abcError, abcResult;
-  // Import song's instrument (this session only, not saved): "" = Settings' instrument / harp until the user picks one
-  std::string abcInst, abcWhistle = "D", abcHarp;
+  // Import song's instrument (this session only, not saved): "" = Settings' instrument / whistle / harp until the user picks one
+  std::string abcInst, abcWhistle, abcHarp;
 #ifdef __EMSCRIPTEN__
   std::vector<Original> originals;              // ponytail: textures live until the page closes; few imports per visit
   std::map<std::string, size_t> originalOf;     // song id -> its original in `originals`
@@ -181,6 +192,12 @@ template <class F> static void editSelected(App& a, F f) {
 }
 
 static void poll(App& a) {
+  const std::string mine = a.set.instrument + " " + a.set.whistle + " " + a.set.harp;
+  if (mine != a.playFor) {  // judge every song again for the new instrument
+    a.playFor = mine;
+    for (auto& [id, m] : a.meta) m.mtime = {};
+    a.lastPoll = -10;
+  }
   if (ImGui::GetTime() - a.lastPoll < 0.5) return;
   a.lastPoll = ImGui::GetTime();
   a.ids = listSongs();
@@ -195,7 +212,8 @@ static void poll(App& a) {
     if (!ec && m.mtime != t) {
       auto s = loadSong(id);
       Instrument in = s ? instrumentOf(*s) : *findInstrument("whistle");
-      m = {t, s ? s->folder : "", s && !s->title.empty() ? songText(*s, s->title) : id, in};
+      m = {t, s ? s->folder : "", s && !s->title.empty() ? songText(*s, s->title) : id, in,
+           s ? playability(*s, myInstrument(a.set)) : Playability{}};  // an unreadable file stays listed
     }
   }
   std::erase_if(a.meta, [&](auto& kv) { return std::find(a.ids.begin(), a.ids.end(), kv.first) == a.ids.end(); });
@@ -921,7 +939,7 @@ static void detailsPanel(App& a) {
   }
   if (edited) return;  // redraw from the fresh song next frame
   ImGui::SetNextItemWidth(200);
-  if (ImGui::BeginCombo(L("Instrument").c_str(), instName(inst).c_str())) {
+  if (ImGui::BeginCombo(L("Written for").c_str(), instName(inst).c_str())) {
     for (auto& id : INSTRUMENTS) {
       std::string pick = id;
       std::string harp = id == "harmonica" && inst.id != "harmonica" ? a.set.harp : s.harp;  // a new harmonica song: Settings' harp
@@ -936,6 +954,7 @@ static void detailsPanel(App& a) {
     }
     ImGui::EndCombo();
   }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("The instrument this sheet was written for: its range and fingerings. Your own instrument is in Settings."));
   if (edited) return;
   if (inst.id == "harmonica") {
     ImGui::SetNextItemWidth(200);
@@ -971,6 +990,21 @@ static void detailsPanel(App& a) {
   }
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Transposes the song and saves it. Pick the original key to get it back."));
   if (edited) return;
+  // The song fits my instrument (Settings) only transposed (the song list's badge, #84): one click. The cached verdict
+  // is used only while it belongs to this version of the file, so a second click can't transpose twice.
+  if (auto m = a.meta.find(a.current); m != a.meta.end() && m->second.mtime == a.songMtime && m->second.play.verdict == Playability::OtherKey) {
+    const int shift = m->second.play.shift;
+    const std::string mine = instName(myInstrument(a.set));
+    ImGui::TextWrapped(tr("Your %s can play it transposed:"), mine.c_str());
+    std::string label = shift % 12 ? trf("Play in %s", keyName(m->second.play.key).c_str())
+                      : shift > 0  ? std::string(tr("Play an octave higher")) : std::string(tr("Play an octave lower"));
+    if (ImGui::Button((label + "###fit").c_str())) {
+      editSong(a, [&](Song& x) { transpose(x, shift); });
+      a.lastPoll = -10;  // judge it again now
+      return;
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Transposes the song and saves it. Pick the original key to get it back."));
+  }
   if (inst.id == "harmonica") {  // the usual keys for this harp
     Key harp = parseKey(s.harp).value_or(Key{0, "maj"}), second{harp.fifths + 1, "maj"};
     ImGui::TextDisabled(tr("1st position: %s  |  2nd position: %s"), tonicName(harp).c_str(), tonicName(second).c_str());
@@ -1018,8 +1052,8 @@ static void detailsPanel(App& a) {
   }
 }
 
-static void instrumentCombo(const char* label, std::string& v, const char* none) {  // none: label for "", or null
-  auto name = [&](const std::string& id) { return id.empty() ? std::string(none) : instName(*findInstrument(id)); };
+static void instrumentCombo(const char* label, std::string& v, const char* none, const std::string& whistle = "D") {  // none: label for "", or null
+  auto name = [&](const std::string& id) { return id.empty() ? std::string(none) : instName(*findInstrument(id, whistle)); };
   if (!ImGui::BeginCombo(label, name(v).c_str())) return;
   if (none && ImGui::Selectable(none, v.empty())) v.clear();
   for (auto& id : INSTRUMENTS) if (ImGui::Selectable(name(id).c_str(), v == id)) v = id;
@@ -1049,13 +1083,20 @@ static void settingsWindow(App& a) {
   }
   ImGui::Checkbox(L("Note names as Do Re Mi").c_str(), &s.solfege);
   if (!a.english) ImGui::Checkbox(L("Keys as Do Re Mi").c_str(), &s.solfegeKeys);  // English keys are always letters
-  ImGui::SeparatorText(tr("Sheet"));
-  ImGui::Checkbox(L("Instrument hints (whistle fingerings)").c_str(), &s.hints);
+  ImGui::SeparatorText(tr("My instrument"));
+  instrumentCombo(L("Instrument").c_str(), s.instrument, nullptr, s.whistle);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("The instrument you play: the song list shows the songs that fit it, and new songs are made for it"));
+  if (s.instrument == "whistle" && ImGui::BeginCombo(L("Whistle key").c_str(), keyLabel(s.whistle).c_str())) {
+    for (auto& k : HARP_KEYS) if (ImGui::Selectable((keyLabel(k) + "###" + k).c_str(), k == s.whistle)) s.whistle = k;
+    ImGui::EndCombo();
+  }
   if (ImGui::BeginCombo(L("Harmonica key").c_str(), keyLabel(s.harp).c_str())) {
     for (auto& k : HARP_KEYS) if (ImGui::Selectable((keyLabel(k) + "###" + k).c_str(), k == s.harp)) s.harp = k;
     ImGui::EndCombo();
   }
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Your harmonica's key, used when a song is switched to harmonica or imported for it"));
+  ImGui::SeparatorText(tr("Sheet"));
+  ImGui::Checkbox(L("Instrument hints (whistle fingerings)").c_str(), &s.hints);
   ImGui::SliderFloat(L("Zoom").c_str(), &s.zoom, 6, 16, "%.0f");
   ImGui::Checkbox(L("Light theme").c_str(), &s.light);
   ImGui::SeparatorText(tr("Playback"));
@@ -1068,11 +1109,6 @@ static void settingsWindow(App& a) {
   ImGui::SliderFloat(L("Tolerance (cents)").c_str(), &s.tolerance, 10, 100, "%.0f");
   ImGui::SliderFloat(L("Noise gate").c_str(), &s.gate, 0.001f, 0.1f, "%.3f", ImGuiSliderFlags_Logarithmic);
   ImGui::SliderFloat(L("Latency (ms)").c_str(), &s.latencyMs, 0, 300, "%.0f");
-#ifndef __EMSCRIPTEN__  // only the agent (john-mcp, desktop) imports songs
-  ImGui::SeparatorText(tr("New songs"));
-  instrumentCombo(L("Instrument").c_str(), s.instrument, nullptr);
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Used when the agent imports a song without saying which instrument it is for"));
-#endif
   ImGui::PopItemWidth();
   ImGui::End();
 }
@@ -1244,7 +1280,7 @@ static std::optional<std::string> readText(const fs::path& p) {
 static Song importLike(const App& a) {
   Song like;
   like.instrument = a.abcInst.empty() ? a.set.instrument : a.abcInst;
-  like.whistle = a.abcWhistle;
+  like.whistle = a.abcWhistle.empty() ? a.set.whistle : a.abcWhistle;
   like.harp = a.abcHarp.empty() ? a.set.harp : a.abcHarp;
   return like;
 }
@@ -1267,7 +1303,7 @@ static std::vector<std::string> importText(App& a, const std::string& data, cons
       ids.push_back(x.song.id);
       int notes = 0, out = rangeCost(x.song, instrumentOf(x.song), 0).out;
       for (auto& e : x.song.events) notes += e.kind == Kind::Note;
-      if (out * 10 >= notes && out > 0)  // ponytail: "many" = 10% of the notes; a lone stray note isn't worth a line
+      if (out * 100 >= notes * PLAYABLE_PERCENT && out > 0)  // ponytail: "many" = PLAYABLE_PERCENT of the notes; a lone stray note isn't worth a line
         a.abcResult += "\n" + (r.size() > 1 ? songText(x.song, x.song.title) + ": " : std::string()) +
                        trf("%d of %d notes are out of the %s's range. To move the song, pick another key in Play in key next to the sheet.", out, notes, instName(instrumentOf(x.song)).c_str());
     }
@@ -1523,26 +1559,34 @@ int main() {
     ImGui::Begin("main", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus);
     ImGui::BeginChild("songs", {220, 0}, ImGuiChildFlags_Borders);
     ImGui::TextDisabled("%s", tr("SONGS"));
-    auto instLabel = [](const std::string& id) -> std::string { return id.empty() ? tr("All instruments") : id == "whistle" ? tr("Tin whistle") : instName(*findInstrument(id)); };
+    // Playable on my instrument (#84): songs are melodies; show those that fit the Settings instrument, in any key
+    const std::string mine = instName(myInstrument(a.set)), playable = trf("Playable on my %s", mine.c_str());
     ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::BeginCombo("##instFilter", instLabel(a.set.songFilter).c_str())) {
-      if (ImGui::Selectable(instLabel("").c_str(), a.set.songFilter.empty())) a.set.songFilter = "";
-      for (auto& id : INSTRUMENTS)
-        if (ImGui::Selectable(instLabel(id).c_str(), id == a.set.songFilter)) a.set.songFilter = id;
+    if (ImGui::BeginCombo("##songFilter", a.set.allSongs ? tr("All songs") : playable.c_str())) {
+      if (ImGui::Selectable(playable.c_str(), !a.set.allSongs)) a.set.allSongs = false;
+      if (ImGui::Selectable(tr("All songs"), a.set.allSongs)) a.set.allSongs = true;
       ImGui::EndCombo();
     }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s\n%s", playable.c_str(), tr("Change your instrument in Settings"));  // the label may be clipped
     std::map<std::string, std::vector<std::string>, decltype(&folderBefore)> byFolder(&folderBefore);
     for (auto& id : a.ids)
-      if (a.set.songFilter.empty() || a.meta[id].in.id == a.set.songFilter) byFolder[a.meta[id].folder].push_back(id);
+      if (a.set.allSongs || a.meta[id].play.verdict != Playability::NoFit) byFolder[a.meta[id].folder].push_back(id);
     for (auto& [folder, ids] : byFolder) {
       std::string label = tr(folder.empty() ? "Unsorted" : folder.c_str()) + std::string(" (") + std::to_string(ids.size()) + ")###folder:" + folder;  // never an empty ID: Unsorted is folder ""
       if (!ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth)) continue;
       for (auto& id : ids) {
         auto& m = a.meta[id];
-        std::string tag = m.in.name == "D whistle" ? "" : instName(m.in);  // the instrument after the title
+        std::string tag = fitBadge(m.play);  // after the title: the key it fits my instrument in
+        if (m.play.verdict == Playability::NoFit) tag = tr("doesn't fit");  // only in All songs
         float x = ImGui::GetCursorPosX();
         if (ImGui::Selectable((m.title + "##" + id).c_str(), id == a.current)) { a.sel = -1; open(a, id); }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s%s", m.title.c_str(), tag.empty() ? "" : " - ", tag.c_str());  // long titles get clipped
+        if (ImGui::IsItemHovered()) {  // long titles get clipped
+          std::string fit = m.play.verdict == Playability::AsWritten ? trf("Fits your %s as written", mine.c_str())
+                          : m.play.verdict == Playability::OtherKey  ? trf("Fits your %s transposed (%s): open it to transpose in one click", mine.c_str(), tag.c_str())
+                          : m.play.cost.out ? trf("Doesn't fit your %s: %d notes out of range at best", mine.c_str(), m.play.cost.out)
+                                            : trf("Doesn't fit your %s: too many hard notes in every key", mine.c_str());
+          ImGui::SetTooltip("%s\n%s\n%s", m.title.c_str(), trf("Written for %s", instName(m.in).c_str()).c_str(), fit.c_str());
+        }
         if (!tag.empty()) {
           ImGui::SameLine(x + ImGui::CalcTextSize(m.title.c_str()).x + 6);
           ImGui::TextDisabled("%s", tag.c_str());
@@ -1555,7 +1599,7 @@ int main() {
 #else
     if (a.ids.empty()) ImGui::TextWrapped("%s", tr("No songs yet. Ask the agent to import one via the john MCP server."));
 #endif
-    else if (byFolder.empty()) ImGui::TextDisabled("%s", tr("No songs for this instrument."));
+    else if (byFolder.empty()) ImGui::TextWrapped("%s", tr("No song fits your instrument. Pick All songs to see every song."));
     ImGui::Separator();
 #ifdef __EMSCRIPTEN__
     if (ImGui::TextLink(L("Get the desktop app").c_str())) emscripten_run_script("window.open('https://github.com/Thinato/john/releases', '_blank')");
