@@ -77,13 +77,14 @@ Playability playability(const Song& s, const Instrument& in) {
   return p;
 }
 
-std::string analyze(const Song& s) {
+std::string analyze(const Song& s, const std::optional<Instrument>& player) {
   std::ostringstream o;
   const bool compound = compoundMeter(s.meter);
   const int beat = compound ? WHOLE * 3 / 8 : WHOLE / 4;
   const Instrument in = instrumentOf(s);
   const bool whistle = in.id == "whistle";
   const int base = whistle ? in.low : whistleBase("D");  // technique candidates follow tin whistle fingering
+  const Instrument me = player.value_or(in);              // ... and are offered as the marks it shows (#86)
 
   // ---- collect notes with positions; merge tie chains ----
   std::vector<N> notes;
@@ -146,10 +147,16 @@ std::string analyze(const Song& s) {
   // ---- technique candidates ----
   o << "\n== Technique candidates (hints, not rules; " << (compound ? "compound" : "simple") << " meter, beat = "
     << (compound ? "dotted quarter" : "quarter") << ") ==\n";
-  if (!whistle) o << "(the candidates follow D tin whistle fingering; on the " << in.name << " read them as phrasing hints)\n";
+  if (me.id != "whistle") o << "(the candidates follow D tin whistle fingering; on the " << me.name << " read them as phrasing hints)\n";
   auto line = [&](const N& n, const std::string& what) {
     o << "#" << n.idx << " bar " << n.bar << " beat " << (1 + (double)n.tick / beat) << " "
       << noteName(spell(s.key, n.midi)) << ": " << what << "\n";
+  };
+  // a candidate for technique `id`: as it is if the player's instrument shows it, as its equivalent, or not at all
+  auto offer = [&](const N& n, const std::string& id, const std::string& what) {
+    Marks m = marks({id}, me);
+    if (m.shown.empty()) return;
+    line(n, m.shown[0] == id ? what : m.shown[0] + " (the " + me.name + "'s way to play: " + what + ")");
   };
   for (size_t k = 0; k < notes.size(); k++) {
     const N& n = notes[k];
@@ -159,28 +166,30 @@ std::string analyze(const Song& s) {
     const N* prev = k > 0 ? &notes[k - 1] : nullptr;
     const N* next = k + 1 < notes.size() ? &notes[k + 1] : nullptr;
 
-    if (n.phraseStart) line(n, "tongue (phrase start / after a rest)");
+    if (n.phraseStart) offer(n, "tongue", "tongue (phrase start / after a rest)");
     if (prev && prev->midi == n.midi && !n.afterRest)
-      line(n, "cut (or tongue) to separate the repeated note");
+      offer(n, "cut", "cut (or tongue) to separate the repeated note");
 
     bool rollable = pc >= 2 && pc <= 9;  // E..B; not bottom D (no tap), awkward on C/C#
     if (n.len >= WHOLE * 3 / 8) {
-      if (pc == 0) line(n, "cran (long D: rolls are impossible on bottom D)");
-      else if (rollable) line(n, std::string("long roll") + (pc == 2 && off < 12 ? " or cran (bottom E)" : "") + (onBeat ? " (long note on the beat)" : ""));
-      else line(n, "cut or vibrato (roll impractical on C/C#)");
+      if (pc == 0) offer(n, "cran", "cran (long D: rolls are impossible on bottom D)");
+      else if (rollable) offer(n, "roll", std::string("long roll") + (pc == 2 && off < 12 ? " or cran (bottom E)" : "") + (onBeat ? " (long note on the beat)" : ""));
+      else offer(n, "cut", "cut or vibrato (roll impractical on C/C#)");
     } else if (n.len == WHOLE / 4) {
       if (compound && next && next->midi == n.midi && next->len == WHOLE / 8 && onBeat)
-        line(n, "long roll covering this note and the next (written 'X2X' is often played '~X3')");
-      else if (rollable) line(n, "short roll or cut (quarter note)");
-      else if (pc == 0) line(n, "cut or short cran");
+        offer(n, "roll", "long roll covering this note and the next (written 'X2X' is often played '~X3')");
+      else if (rollable) offer(n, "short_roll", "short roll or cut (quarter note)");
+      else if (pc == 0) offer(n, "cut", "cut or short cran");
     }
     bool stepUp = prev && prev->midi < n.midi && n.midi - prev->midi <= 2;
     if (pc >= 2 && pc <= 9 && off < 12 && ((n.len >= WHOLE / 4 && n.phraseStart) || (n.len >= WHOLE * 3 / 8 && stepUp)))
-      line(n, "slide up into the note (expressive, mostly in slower tunes)");
+      offer(n, "slide", "slide up into the note (expressive, mostly in slower tunes)");
   }
 
   // ---- breathing: one breath per ~4-bar phrase, after the longest note of the phrase's last bar ----
   o << "\n== Breath candidates ==\n";
+  if (std::count(me.techniques.begin(), me.techniques.end(), "breath") == 0)
+    o << "(the " << me.name << " doesn't breathe: a breath mark shows as a phrase end, a short lift)\n";
   for (int b = 1; b <= lastBar; b++) {
     bool boundary = b % 4 == 0 || std::count(phraseEndBars.begin(), phraseEndBars.end(), b);
     if (!boundary || b == lastBar) continue;

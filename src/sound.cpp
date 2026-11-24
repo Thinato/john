@@ -53,7 +53,7 @@ std::vector<int> playOrder(const Song& s) {
 double soundingFreq(int midi, int octave) { return 440.0 * std::pow(2.0, (midi + 12 * octave - 69) / 12.0); }
 double writtenMidiFromFreq(double hz, int octave) { return 69 + 12 * std::log2(hz / 440.0) - 12 * octave; }
 
-static bool has(const Event& e, const char* t) { return std::find(e.techniques.begin(), e.techniques.end(), t) != e.techniques.end(); }
+static bool has(const std::vector<std::string>& marks, const char* t) { return std::find(marks.begin(), marks.end(), t) != marks.end(); }
 
 Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, const std::string& sound,
                     const std::optional<Instrument>& player) {
@@ -63,7 +63,8 @@ Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, cons
   p.sound = sound.empty() ? on.sound : sound;
   if (std::find(SOUNDS.begin(), SOUNDS.end(), p.sound) == SOUNDS.end()) p.sound = "whistle";
   // What each voice plays (kb/notes/playback-voice-ornaments.md): finger ornaments on whistle, fiddle and guitars
-  // (as hammer-ons/pull-offs), slides on all but piano, vibrato on all but piano and guitar, breaths on the winds.
+  // (as hammer-ons/pull-offs), slides on all but piano, vibrato on all but piano and guitar, breaths on the winds,
+  // grace notes, turns and shakes on all. The marks are the player's (marks(), #86): its equivalents, not hidden ones.
   const std::string& snd = p.sound;
   const bool fingered = snd != "piano" && snd != "harmonica";
   const bool slides = snd != "piano";
@@ -94,26 +95,32 @@ Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, cons
         lastEv = order[k];
       } else {
         lastEv = order[k];
+        const std::vector<std::string> m = marks(e.techniques, on).shown;
         Voice v;
         v.ev = order[k];
         v.ord = (int)k;
         v.midi = e.midi;
         v.start = t;
         v.dur = dur;
-        v.tongued = has(e, "tongue") || has(e, "accent") || p.voices.empty();
-        v.vibrato = vibrato && has(e, "vibrato");
+        v.tongued = has(m, "tongue") || has(m, "accent") || p.voices.empty();
+        v.vibrato = vibrato && has(m, "vibrato");
         // ponytail: grace pitches are approximate (+4 / -2 semitones); real cuts depend on the finger used
         if (fingered) {
-          if (has(e, "cut")) v.graces.push_back({0, 4});
-          if (has(e, "double_cut")) { v.graces.push_back({0, 4}); v.graces.push_back({0.05, 4}); }
-          if (has(e, "tap")) v.graces.push_back({0, -2});
-          if (has(e, "roll")) { v.graces.push_back({dur / 3, 4}); v.graces.push_back({dur * 2 / 3, -2}); }
-          if (has(e, "short_roll")) { v.graces.push_back({0, 4}); v.graces.push_back({dur / 2, -2}); }
-          if (has(e, "cran")) for (int i = 0; i < 3; i++) v.graces.push_back({dur * i / 4, 4 + (i == 1 ? 3 : 0)});
+          if (has(m, "cut")) v.graces.push_back({0, 4});
+          if (has(m, "double_cut")) { v.graces.push_back({0, 4}); v.graces.push_back({0.05, 4}); }
+          if (has(m, "tap")) v.graces.push_back({0, -2});
+          if (has(m, "roll")) { v.graces.push_back({dur / 3, 4}); v.graces.push_back({dur * 2 / 3, -2}); }
+          if (has(m, "short_roll")) { v.graces.push_back({0, 4}); v.graces.push_back({dur / 2, -2}); }
+          if (has(m, "cran")) for (int i = 0; i < 3; i++) v.graces.push_back({dur * i / 4, 4 + (i == 1 ? 3 : 0)});
         }
-        if (slides && has(e, "slide")) v.graces.push_back({-1, -2});  // -1 marks a slide from 2 semitones below
-        if (has(e, "staccato")) v.gap = dur / 2;
-        if (breathes && has(e, "breath")) v.gap = std::max(v.gap, std::min(0.25, dur * 0.3));
+        // the equivalents (#86), on every voice: a grace a step above, a turn above-note-below-note, a shake to the next
+        // hole up. ponytail: fixed intervals (+2/-2, shake +3), not the key's scale steps or the harp's real next hole
+        if (has(m, "grace")) v.graces.push_back({0, 2});
+        if (has(m, "turn")) { v.graces.push_back({0, 2}); v.graces.push_back({0.07, -2}); }
+        if (has(m, "shake")) for (double at = 0.035; at + 0.07 < dur; at += 0.14) { v.graces.push_back({at, 3}); v.graces.push_back({at + 0.035, 3}); }
+        if (slides && has(m, "slide")) v.graces.push_back({-1, -2});  // -1 marks a slide from 2 semitones below
+        if (has(m, "staccato")) v.gap = dur / 2;
+        if (breathes && has(m, "breath")) v.gap = std::max(v.gap, std::min(0.25, dur * 0.3));
         if (plucked) v.gap = std::max(v.gap, std::min(0.012, dur / 4));  // short damp: the next note is a new attack
         if (!p.voices.empty()) {  // articulate the previous note if this one is tongued or repeats its pitch
           Voice& prev = p.voices.back();

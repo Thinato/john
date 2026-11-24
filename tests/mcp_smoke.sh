@@ -61,6 +61,10 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"delete_instrument","arguments":{"id":"violin"}}}' \
 '{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Low C\nM:4/4\nL:1/4\nK:C\nC D E F|","whistle":"c"}}}' \
 '{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Charts","low":60,"high":72,"hints":true}}}' \
+'{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"analyze_song","arguments":{"id":"smoke-reel","instrument":"piano"}}}' \
+'{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Keys","low":60,"high":72,"techniques":["grace"],"instead":{"cut":"turn"}}}}' \
+'{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Keys","low":60,"high":72,"techniques":["grace"],"instead":{"cut":"grace","nope":"grace"}}}}' \
+'{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Keys","low":60,"high":72,"techniques":["grace"],"instead":{"cut":"grace","tap":"grace"}}}}' \
 | JOHN_DEMUCS="$STUB" "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -117,8 +121,14 @@ reply 44 | grep -q '1 song(s) are written for it' && reply 45 | grep -q 'instrum
 reply 46 | grep -q "'violin' is not a custom instrument" || { echo "built-in deleted"; exit 1; }
 reply 47 | grep -q 'instrument: C whistle' && reply 47 | grep -q 'C4    quarter                  XXX XXX' || { echo "lowercase whistle key lost"; exit 1; }
 reply 48 | grep -q "unknown field 'hints'" || { echo "define_instrument took hints"; exit 1; }
+reply 38 | grep -q 'techniques: staccato, accent, trill, grace, turn; instead: cran -> turn, cut -> grace, double_cut -> grace, roll -> turn' || { echo "list_instruments lost the piano's equivalents"; exit 1; }
+reply 49 | grep -q "Playability on the Piano" && reply 49 | grep -q "turn (the Piano's way to play: short roll" && reply 49 | grep -q "grace (the Piano's way to play: cut" && ! reply 49 | grep -q 'tongue (phrase start' || { echo "analyze_song not for the chosen instrument"; exit 1; }
+! reply 6 | grep -q "way to play" && reply 6 | grep -q 'tongue (phrase start' || { echo "analyze_song changed for the whistle"; exit 1; }
+reply 50 | grep -q 'instead \\"cut\\": \\"turn\\" must be one of the instrument' || { echo "instead to an unlisted technique not rejected"; exit 1; }
+reply 51 | grep -q "unknown technique 'nope'" || { echo "unknown instead technique not rejected"; exit 1; }
+reply 52 | grep -q "Instrument 'keys' created" && reply 52 | grep -q 'techniques: grace; instead: cut -> grace, tap -> grace' || { echo "define_instrument lost instead"; exit 1; }
 case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 48 ] || { echo "expected 48 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 52 ] || { echo "expected 52 replies"; exit 1; }
 echo "mcp smoke passed"

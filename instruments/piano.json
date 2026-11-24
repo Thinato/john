@@ -4,6 +4,7 @@
  "low": "A0",
  "high": "C8",
  "octave": 0,
- "techniques": ["staccato", "accent", "trill"],
+ "techniques": ["staccato", "accent", "trill", "grace", "turn"],
+ "instead": {"cut": "grace", "tap": "grace", "double_cut": "grace", "roll": "turn", "short_roll": "turn", "cran": "turn"},
  "sound": "piano"
 }
