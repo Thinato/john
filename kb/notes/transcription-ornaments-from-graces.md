@@ -6,7 +6,7 @@ tags: [transcription, audio, ornaments, cut, tap, roll, note-cleanup, synth]
 # Ornaments from grace notes in transcription
 
 ## Context
-Changing the ornament pass in `transcribe()` (`src/transcribe.cpp`, the `Grace` detection after the blip merge and the tagging after the re-articulation split, `RawNote::orn` / `QNote::orn`), or the playback graces in `perform()` (`src/sound.cpp`) that the "ornaments the synth plays" test in `tests/test_core.cpp` relies on.
+Changing the ornament pass in `transcribe()` (`src/transcribe.cpp`, the `Grace` detection after the blip merge and the tagging after the re-articulation split, `RawNote::orn` / `QNote::orn`), or the playback graces in `perform()` (`src/sound.cpp`) that the "ornaments the synth plays" part of the `transcription` test in `tests/core/transcribe.cpp` relies on.
 
 ## Rule
 A grace is under `minF` frames (60 ms) inside a merged note: a pitch +1..+7 (cut) or -1..-4 (tap) reaching 0.8x the note's salience and once 0.9x the frame's strongest pitch (a semitone grace must lead and reach 1.3x the note). The main pitch must stay at 0.25x or more during it, and lead alone (grace under 0.4x) within `minF` frames on both sides. A cut then a tap within 0.4 s inside one note = roll; in a note already marked (a cut on a repeated note, then a roll on the same pitch with no new attack) the roll is split off one cut-to-tap gap before its cut. Another grace near a note's start tags that note. One further in splits the note there (a cut between repeated notes). Only a whistle draft keeps the techniques; the report's `ornaments` line always lists them, located with `positions()`.

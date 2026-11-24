@@ -1,0 +1,40 @@
+{
+ "@language": "Português (Brasil)",
+
+ "Lessons": "Lições",
+ "Beginner": "Iniciante",
+ "Intermediate": "Intermediário",
+ "Advanced": "Avançado",
+ "Unsorted": "Sem pasta",
+
+ "Show lyrics": "Mostrar a letra",
+ "Show the song's words under the notes": "Mostra a letra da música embaixo das notas",
+
+ "SONGS": "MÚSICAS",
+ "No songs yet. Ask the agent to import one via the john MCP server.": "Nenhuma música ainda. Peça ao agente para importar uma pelo servidor MCP john.",
+ "No songs yet. Add one with Import song below.": "Nenhuma música ainda. Adicione uma com Importar música, abaixo.",
+ "Get the desktop app": "Baixar o aplicativo para computador",
+ "Adds the AI agent (MCP), audio transcription and songs on disk.": "Inclui o agente de IA (MCP), a transcrição de áudio e as músicas salvas no disco.",
+ "Follow agent": "Seguir o agente",
+ "Switch to a song as soon as the agent changes it": "Abrir uma música assim que o agente a alterar",
+ "Instrument hints": "Dicas do instrumento",
+ "No hints for the %s yet": "Ainda não há dicas para este instrumento (%s)",
+ "Show fingering charts and fingerings for the notes": "Mostrar os diagramas de digitação e a digitação das notas",
+ "Zoom": "Zoom",
+ "Settings": "Configurações",
+ "Data folder:": "Pasta de dados:",
+
+ "Source: %s": "Origem: %s",
+ "Folder": "Pasta",
+ "Instrument": "Instrumento",
+ "Note #%d: %s, %s": "Nota nº %d: %s, %s",
+ "Fingering: %s": "Digitação: %s",
+ "fingering: %s": "digitação: %s",
+ "Out of range for the %s": "Fora da extensão do instrumento (%s)",
+ "out of range for the %s": "fora da extensão do instrumento (%s)",
+ "Save comment": "Salvar comentário",
+ "Click a note to see and edit its techniques.": "Clique em uma nota para ver e editar as técnicas dela.",
+ "Legend": "Legenda",
+ "Fingering chart: top three holes = left hand, bottom three = right hand. Filled = covered, empty = open, half = half-covered. + = blow harder (second octave).": "Diagrama de digitação: os três furos de cima = mão esquerda, os três de baixo = mão direita. Cheio = tampado, vazio = aberto, metade = meio tampado. + = sopre mais forte (segunda oitava).",
+ "Music font missing (Bravura.otf). Re-run cmake to download it.": "Fonte musical ausente (Bravura.otf). Rode o cmake de novo para baixá-la."
+}

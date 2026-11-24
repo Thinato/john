@@ -6,7 +6,7 @@ tags: [transcription, audio, instruments, accompaniment, pitch-search]
 # instrument vs recording_instrument in transcription
 
 ## Context
-Changing `transcribe()` (`src/transcribe.cpp`), `TranscribeOptions` (`src/john.hpp`) or the `transcribe_audio` tool, or deciding which instrument option to pass.
+Changing `transcribe()` (`src/transcribe.cpp`), `TranscribeOptions` (`src/transcribe.hpp`) or the `transcribe_audio` tool, or deciding which instrument option to pass.
 
 ## Rule
 `instrument` is the instrument the song is written for: it only picks the octave fit, the automatic transposition when no octave fits (see transcription-transpose-before-folding.md) and folding into its range. `recordingInstrument` (`recording_instrument` in the tool) is the instrument playing the melody in the recording: when set, semitone salience outside its sounding range (`low`/`high` + 12 * `octave`, ±2 semitones, clamped to the search range, C3..E7 since #40) is zeroed after the octave-ghost suppression, before the normalisation and the Viterbi. Unset = the full search range, byte-identical to before #10. The whistle uses the D whistle (the tool has no whistle key option).

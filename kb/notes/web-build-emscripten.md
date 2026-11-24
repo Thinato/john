@@ -6,7 +6,7 @@ tags: [web, emscripten, storage, indexeddb, gui, build]
 # Web build (emscripten)
 
 ## Context
-Changing anything the browser version of the viewer uses (#19): `emcmake cmake -S . -B build-web && cmake --build build-web` builds only `john` (no `john-mcp`, no tests) to `build-web/john.html/.js/.wasm/.data`. Files: the `if(EMSCRIPTEN)` blocks in `CMakeLists.txt`, `web/pre.js`, `web/shell.html`, `dataDir()`/`persist()` in `src/song.cpp`, and the `__EMSCRIPTEN__` blocks in `main()` of `src/gui_main.cpp`.
+Changing anything the browser version of the viewer uses (#19): `emcmake cmake -S . -B build-web && cmake --build build-web` builds only `john` (no `john-mcp`, no tests) to `build-web/john.html/.js/.wasm/.data`. Files: the `if(EMSCRIPTEN)` blocks in `CMakeLists.txt`, `web/pre.js`, `web/shell.html`, `dataDir()` in `src/settings.cpp`, `persist()` in `src/internal.hpp`, and the `__EMSCRIPTEN__` blocks in `main()` of `src/gui_main.cpp`.
 
 ## Rule
 On the web `dataDir()` is `/john`, an IDBFS folder that `web/pre.js` mounts and loads from IndexedDB before `main()` runs. Files there live in memory until `persist()` (`FS.syncfs(false)`) copies them to IndexedDB; `writeJson()` (so `saveSong`, `saveSettings`, `saveCustomTechnique`, `saveInstrument`; `deleteInstrument` calls it itself) and `installSongs()` call it. Fonts, `lessons/`, `demo/`, `i18n/` and `instruments/` are bundled in `john.data` at `/fonts`, `/lessons`, `/demo`, `/i18n` and `/instruments` (`--preload-file`); `main()` installs both song folders with `installSongs()`. The frame loop is the `step` lambda in `main()`: the desktop calls it in a `while`, the web hands it to `emscripten_set_main_loop_arg`.

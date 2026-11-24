@@ -6,7 +6,7 @@ tags: [techniques, ornaments, instruments, gui, playback, analyze, mcp, settings
 # Technique marks per instrument (marks(), instead)
 
 ## Context
-Drawing, listing, playing or suggesting technique marks: `drawScore`, the note tooltip and the legend in `src/gui_main.cpp`, `perform()` in `src/sound.cpp`, `analyze()` in `src/analyze.cpp`, `Instrument::instead` and `marks()`/`hiddenMarks()` in `src/song.cpp` (#86).
+Drawing, listing, playing or suggesting technique marks: `drawScore`, the note tooltip and the legend in `src/gui_main.cpp`, `perform()` in `src/sound.cpp`, `analyze()` in `src/analyze.cpp`, `Instrument::instead` and `marks()`/`hiddenMarks()` in `src/catalog.cpp` (#86).
 
 ## Rule
 `marks(techniques, in)` decides what a note shows on `in`: a mark the profile lists stays, one in `in.instead` becomes its equivalent (duplicates merged: a piano's cut and roll on one note are grace + turn), `breath` always stays, a technique that isn't built-in always stays (`builtinTechnique()`: a default id that `techniques.json` doesn't redefine, so a user's own `grace` from before #86 is custom), the rest goes to `hidden`. The GUI passes `myInstrument(a.set)` unless `Settings::allMarks` (Show all marks) is on; `perform()` always uses the player's marks (Show all marks is display only); `analyze(s, player)` offers each candidate as the player shows it (`offer()`), whistle text unchanged. `instead` targets must be listed in `techniques` and keys must not be (`parseInstrument()`); `saveInstrument()` checks every technique id in `techniques` and `instead` against `loadTechniques()`, so the Settings editor and `define_instrument` share one check.
