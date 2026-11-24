@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <random>
 #include <regex>
 #include <set>
@@ -1734,38 +1735,87 @@ int main() {
     assert(installSongs(demo) == 1 && loadSong("demo-test") && fs::exists(dataDir() / "demo-installed.txt"));
     fs::remove(dataDir() / "songs" / "demo-test.json");
     assert(installSongs(demo) == 0 && !loadSong("demo-test"));
-    // lyrics added to a bundled song later reach an installed copy with the same notes and no lyrics of its own;
-    // a copy the user changed the notes of, gave lyrics to, or deleted is left alone
+    // smart update: a copy still as installed is replaced by a new bundled version; a copy the user changed is kept and
+    // only gets lyrics added since, when its notes are the bundled ones up to a transposition; a deleted one stays gone
     {
-      fs::path lyr = home / "lyr";
-      fs::create_directories(lyr);
-      const char* ids[] = {"lyr-same", "lyr-edited", "lyr-own", "lyr-gone"};
-      auto bundle = [&](const std::string& abc) {
-        for (auto id : ids) {
+      fs::path up = home / "up";
+      fs::create_directories(up);
+      const char* ids[] = {"up-same", "up-tech", "up-key", "up-rhythm", "up-own", "up-gone"};
+      auto bundle = [&](const fs::path& dir, const std::vector<std::string>& which, const std::string& abc,
+                        const std::string& notes) {
+        for (auto& id : which) {
           Song b = importAbc(abc).song;
           b.id = id;
-          std::ofstream f(lyr / (std::string(id) + ".json"));
+          b.notes = notes;
+          std::ofstream f(dir / (id + ".json"));
           f << toJson(b).dump();
         }
       };
-      bundle("X:1\nT:t\nM:3/4\nL:1/4\nK:D\nD E F|G3|]\n");
-      assert(installSongs(lyr) == 4);
-      Song edited = *loadSong("lyr-edited");
-      edited.events[0].midi = 64;
-      saveSong(edited);
-      Song own = *loadSong("lyr-own");
+      auto read = [](const fs::path& p) {
+        std::ifstream f(p);
+        return std::string(std::istreambuf_iterator<char>(f), {});
+      };
+      const std::string v1 = "X:1\nT:t\nM:3/4\nL:1/4\nK:D\nD E F|G3|]\n", v2 = v1 + "w:Sing-ing a song\nW:More words.\n";
+      bundle(up, {std::begin(ids), std::end(ids)}, v1, "old advice");
+      assert(installSongs(up) == 6);
+      Song tech = *loadSong("up-tech");
+      tech.events[0].techniques = {"cut"};
+      saveSong(tech);
+      Song key = *loadSong("up-key");
+      transposeToKey(key, 9, instrumentOf(key));  // "Play in key": D major to A major
+      assert(keyName(key.key) == "A major" && key.events[0].midi != 62);
+      saveSong(key);
+      Song rhythm = key;
+      rhythm.id = "up-rhythm";
+      std::swap(rhythm.events[0].len, rhythm.events[4].len);  // transposed and rhythm edited
+      saveSong(rhythm);
+      Song own = *loadSong("up-own");
       own.events[0].lyric = "mine";
       saveSong(own);
-      fs::remove(dataDir() / "songs" / "lyr-gone.json");
-      bundle("X:1\nT:t\nM:3/4\nL:1/4\nK:D\nD E F|G3|]\nw:Sing-ing a song\nW:More words.\n");
-      assert(installSongs(lyr) == 0);
-      std::ifstream f(lyr / "lyr-same.json");
-      Song want = fromJson(json::parse(f));
-      want.id = "lyr-same";
-      assert(toJson(*loadSong("lyr-same")) == toJson(want) && loadSong("lyr-same")->events[0].lyricHyphen);
-      assert(toJson(*loadSong("lyr-edited")) == toJson(edited));
-      assert(toJson(*loadSong("lyr-own")) == toJson(own));
-      assert(!loadSong("lyr-gone"));
+      fs::remove(dataDir() / "songs" / "up-gone.json");
+      bundle(up, {std::begin(ids), std::end(ids)}, v2, "new advice");
+      assert(installSongs(up) == 0);
+      Song want = fromJson(json::parse(read(up / "up-same.json")));
+      want.id = "up-same";
+      assert(toJson(*loadSong("up-same")) == toJson(want) && loadSong("up-same")->events[0].lyricHyphen);  // replaced
+      Song t = *loadSong("up-tech");  // not replaced (advice and cut kept), but the same notes get the lyrics
+      assert(t.notes == "old advice" && t.events[0].techniques == tech.events[0].techniques && t.events[0].lyric == "Sing");
+      Song k = *loadSong("up-key");  // keeps its key and notes, gains the lyrics and words
+      assert(toJson(k) != toJson(key) && keyName(k.key) == "A major" && k.notes == "old advice" && k.words == "More words.");
+      for (size_t i = 0; i < k.events.size(); i++) {
+        assert(k.events[i].midi == key.events[i].midi && k.events[i].len == key.events[i].len);
+        assert(k.events[i].lyric == want.events[i].lyric && k.events[i].lyricHyphen == want.events[i].lyricHyphen);
+      }
+      assert(toJson(*loadSong("up-rhythm")) == toJson(rhythm));
+      assert(toJson(*loadSong("up-own")) == toJson(own));
+      assert(!loadSong("up-gone"));
+      // a marker line from before the hash: a copy equal to the current bundle (whitespace aside) gets the hash, any
+      // other copy counts as changed (not replaced, still gets lyrics)
+      fs::path old = home / "old";
+      fs::create_directories(old);
+      bundle(old, {"old-equal", "old-other"}, v2, "new advice");
+      { std::ofstream f(dataDir() / "old-installed.txt"); f << "old-equal\nold-other\n"; }
+      { std::ofstream f(dataDir() / "songs" / "old-equal.json"); f << json::parse(read(old / "old-equal.json")).dump(4); }
+      bundle(dataDir() / "songs", {"old-other"}, v1, "old advice");
+      std::string equalBefore = read(dataDir() / "songs" / "old-equal.json");
+      assert(installSongs(old) == 0);
+      std::string m = read(dataDir() / "old-installed.txt");
+      assert(m.find("old-equal\t") != std::string::npos && m.find("old-other\n") != std::string::npos);
+      assert(read(dataDir() / "songs" / "old-equal.json") == equalBefore);
+      Song o = *loadSong("old-other");
+      assert(o.notes == "old advice" && o.events[0].lyric == "Sing");
+      // running it again changes nothing: same count, marker and files, not even rewritten
+      for (auto dir : {up, old}) {
+        auto state = [&] {  // the marker and every song file: content and modification time
+          std::map<fs::path, std::pair<std::string, fs::file_time_type>> r;
+          fs::path marker = dataDir() / (dir.filename().string() + "-installed.txt");
+          r[marker] = {read(marker), fs::last_write_time(marker)};
+          for (auto& e : fs::directory_iterator(dataDir() / "songs")) r[e.path()] = {read(e.path()), fs::last_write_time(e.path())};
+          return r;
+        };
+        auto before = state();
+        assert(installSongs(dir) == 0 && state() == before);
+      }
     }
     // #47: the title, notes and every comment have a pt-BR translation (re-translate after editing the English)
     auto translated = [](const Song& b) {
