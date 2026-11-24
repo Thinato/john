@@ -19,7 +19,7 @@ Work is planned in [GitHub Issues](https://github.com/Thinato/john/issues). `mai
 A PR is ready for review when:
 
 - [ ] It says `Closes #<number>` and explains what changed in a few plain sentences.
-- [ ] `ctest --test-dir build --output-on-failure` passes locally, and new logic has a test in `tests/`.
+- [ ] `scripts/check.sh` passes locally (build, ctest, kb check; `--web` adds the web build), and new logic has a test in `tests/`.
 - [ ] GUI changes were checked with a snapshot (`JOHN_SNAPSHOT`, see CLAUDE.md): say what it shows, and attach the image if you can.
 - [ ] README / CLAUDE.md / the MCP agent instructions are updated if behaviour changed.
 - [ ] Anything non-obvious you learned about the codebase is written down as a note in `kb/notes/` (see `kb/README.md`).

@@ -1,4 +1,5 @@
 # Builds everything (core, MCP server, GUI) and runs ctest: core self-checks + MCP smoke test.
+# The test jobs run scripts/check.sh, like a local check; windows and web keep their own steps.
 # Require the "test (ubuntu-latest)" and "test (macos-latest)" checks in the branch rules.
 name: CI
 
@@ -36,13 +37,12 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=OFF
 
-      - name: Build
-        run: cmake --build build --parallel
-
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
+      # the definition of done, as run locally: build, ctest, kb check (reuses the build/ configured above)
+      - name: Build and test
+        run: scripts/check.sh
 
   # Windows (MSVC, Visual Studio generator: multi-config, so --config/-C). Not a required check.
+  # Not scripts/check.sh: that assumes a single-config build/ and bash.
   windows:
     runs-on: windows-latest
     timeout-minutes: 30
