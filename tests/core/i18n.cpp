@@ -55,11 +55,11 @@ TEST(viewer_language) {
       fs::create_directories(dir);
       std::ofstream(dir / "a.json") << R"({"Play": "Tocar", "Stop": "Parar"})";
       std::ofstream(dir / "b.json") << R"({"Play": "Toque", "Twice": "1", "Twice": "2"})";
-      std::ofstream(dir / "c.json") << "{not json";
+      std::ofstream(dir / "c.json") << R"({"Stop": "x", not json)";  // a broken file's keys count for nothing
       std::ofstream(dir / "notes.txt") << "not a strings file";
       std::vector<std::string> problems;
       json m = loadStrings(dir, &problems);
-      assert((problems == std::vector<std::string>{"\"Play\" is in a.json and b.json", "\"Twice\" is in b.json and b.json",
+      assert((problems == std::vector<std::string>{"\"Play\" is in a.json and b.json", "\"Twice\" is twice in b.json",
                                                    "c.json is not a JSON object"}));
       assert(m.size() == 3 && m["Stop"] == "Parar" && m.contains("Play") && m.contains("Twice"));
       assert(loadStrings(home / "none").is_null());

@@ -47,16 +47,19 @@ json loadStrings(const fs::path& dir, std::vector<std::string>* problems) {
   for (auto& f : files) {
     const std::string name = f.filename().string();
     std::ifstream in(f);
+    std::vector<std::string> keys;  // in file order, repeats included (parse() keeps only the last)
     json j = json::parse(in, [&](int depth, json::parse_event_t e, json& key) {
-      if (e == json::parse_event_t::key && depth == 1) {
-        auto [it, fresh] = from.try_emplace(key.get<std::string>(), name);
-        if (!fresh && problems) problems->push_back("\"" + it->first + "\" is in " + it->second + " and " + name);
-      }
+      if (e == json::parse_event_t::key && depth == 1) keys.push_back(key.get<std::string>());
       return true;
     }, false);
     if (!j.is_object()) {
       if (problems) problems->push_back(name + " is not a JSON object");
       continue;
+    }
+    for (auto& k : keys) {
+      auto [it, fresh] = from.try_emplace(k, name);
+      if (!fresh && problems)
+        problems->push_back("\"" + k + "\" is " + (it->second == name ? "twice in " + name : "in " + it->second + " and " + name));
     }
     r.update(j);
   }

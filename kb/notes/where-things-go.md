@@ -29,6 +29,6 @@ One area, one set of files:
 Every PR used to append to the same `test_core.cpp`, `pt-BR.json`, `john.hpp` and `song.cpp`, so parallel branches conflicted on the same lines (#101 counted 13 to 25 of the last 30 commits on each).
 
 ## How to apply
-- A new test is a new `TEST(name) { ... }` in its area's `tests/core/<area>.cpp`; it registers itself and gets a new, empty data folder (`home`, `$JOHN_HOME`), so it must not rely on files another test left. `build/john-tests <name>` runs one test; a new area file needs no CMake line (glob).
+- A new test is a new `TEST(name) { ... }` in its area's `tests/core/<area>.cpp`; it registers itself and gets a new, empty data folder (`home`, `$JOHN_HOME`), so it must not rely on files another test left. In-memory state (language, solfege, technique cache) is not reset: a test that changes it puts it back. `build/john-tests <name>` runs one test; a new area file needs no CMake line (glob).
 - A new string is one line in the `i18n/pt-BR/<area>.json` that matches the code it comes from. Files merge at load (`loadStrings()`), and the `viewer_language` test fails on a key defined twice, a missing key from any `src/*.cpp`, or a bad value.
 - A new core function goes in its area's `.cpp` and header. A new area gets its own pair, added to `john.hpp` and the `john_core` sources in `CMakeLists.txt`.
