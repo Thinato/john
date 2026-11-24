@@ -6,7 +6,7 @@ tags: [settings, gui, mcp, storage, preferences]
 # Adding a setting (settings.json)
 
 ## Context
-Adding or changing a user preference (#18): `struct Settings` in `src/settings.hpp`, `loadSettings()`/`saveSettings()` in `src/settings.cpp`, `settingsWindow()` and `App::set` in `src/gui_main.cpp`.
+Adding or changing a user preference (#18): `struct Settings` in `src/settings.hpp`, `loadSettings()`/`saveSettings()` in `src/settings.cpp`, `settingsWindow()` in `src/gui_settings.cpp` and `App::set` in `src/gui.hpp`.
 
 ## Rule
 Add the field with its default to `Settings`, add its name to the `NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT` list next to `loadSettings()`, and add one widget line to `settingsWindow()`. The GUI reads and edits `a.set.<field>` directly; the main loop saves `a.set` whenever it differs from `a.saved` and no widget is being dragged, so there is no per-setting save code. The MCP server calls `loadSettings()` itself (today only `import_abc`, for the default instrument).

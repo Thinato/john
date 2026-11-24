@@ -55,7 +55,8 @@ if(APPLE)
   target_link_libraries(john_core PUBLIC "-framework CoreFoundation")  # systemLanguage(): CFLocaleCopyPreferredLanguages
 endif()
 
-add_executable(john src/gui_main.cpp src/audio.cpp
+add_executable(john src/gui_main.cpp src/gui_panels.cpp src/gui_score.cpp src/gui_practice.cpp src/gui_settings.cpp
+  src/gui_import.cpp src/audio.cpp
   ${imgui_SOURCE_DIR}/imgui.cpp ${imgui_SOURCE_DIR}/imgui_draw.cpp
   ${imgui_SOURCE_DIR}/imgui_tables.cpp ${imgui_SOURCE_DIR}/imgui_widgets.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
@@ -142,7 +143,7 @@ target_compile_definitions(john PRIVATE JOHN_FONT="${BRAVURA}" JOHN_TEXT_FONT="$
 find_package(OpenGL REQUIRED)
 target_link_libraries(john PRIVATE glfw OpenGL::GL)
 
-add_executable(john-mcp src/mcp_main.cpp)
+add_executable(john-mcp src/mcp_main.cpp src/mcp_songs.cpp src/mcp_audio.cpp src/mcp_techniques.cpp src/mcp_instruments.cpp)
 target_link_libraries(john-mcp PRIVATE john_core)
 if(WIN32)  # char strings and paths are UTF-8, as on macOS/Linux; john.exe opens no console window
   target_sources(john PRIVATE src/utf8.manifest)

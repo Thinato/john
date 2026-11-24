@@ -6,7 +6,7 @@ tags: [gui, imgui, editing, references, crash]
 # Don't keep using song references after editSong()
 
 ## Context
-GUI code in `src/gui_main.cpp` that changes the current song from inside a loop (combos, checkboxes, technique lists).
+GUI code (`editSong()`/`editSelected()` callers, today `detailsPanel()` in `src/gui_panels.cpp`) that changes the current song from inside a loop (combos, checkboxes, technique lists).
 
 ## Rule
 `editSong()` first reloads the song from disk if the file changed (the agent may have edited it), and `open()` can even leave `App::song` empty when the file was deleted. After calling it, don't touch anything taken from the song earlier in the frame: copy the values you need into locals before the call, then leave the loop, and don't use `Song&` references held by the enclosing panel for the rest of the frame (return, or re-check `a.song`).

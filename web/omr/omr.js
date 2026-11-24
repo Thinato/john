@@ -1,4 +1,4 @@
-// Image import, main-thread side (#75). pickFile() in gui_main.cpp imports this module when images or PDFs are picked
+// Image import, main-thread side (#75). pickFile() in gui_import.cpp imports this module when images or PDFs are picked
 // and calls read(). It turns them into pages (pdf.js renders PDF pages), sends them one at a time to worker.js and
 // keeps `state` up to date; the Import song window reads it every frame through omrState(). When done it writes
 //   /omr/result.musicxml  the score (all pages, in order)

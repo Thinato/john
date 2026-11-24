@@ -6,7 +6,7 @@ tags: [gui, hints, fingering, instruments, out-of-range, settings, playback, mic
 # Instrument hints vs out-of-range markers in the GUI
 
 ## Context
-Code in `src/gui_main.cpp` that draws fingering charts or fingering text (`drawScore`, the note tooltip, `detailsPanel`, the legend, the mic readout in `transportBar`), the "Instrument hints" checkbox, the Sound combo, the mic pitch range, or adds a new hint.
+GUI code that draws fingering charts or fingering text (`drawScore` and the note tooltip in `src/gui_score.cpp`, `detailsPanel` and its legend in `src/gui_panels.cpp`, the mic readout in `transportBar` in `src/gui_practice.cpp`), the "Instrument hints" checkbox (`songList()`), the Sound combo, the mic pitch range, or adds a new hint.
 
 ## Rule
 Everything about playing uses `myInstrument(a.set)` (Settings' instrument + whistle + harp, #90), never `instrumentOf(song)`: each hint spot computes `whistle = me.hints && a.set.hints` (`Instrument::hints`, from the profile, #85) and fingers with `finger(me.key, midi)`, not `song.whistle`. Out-of-range markers (red note, "Out of range for the ...") use `me.plays(midi)` in the non-hint branch, and they stay when hints are off. `instrumentOf(song)` is only for what describes the sheet: "Written for", the song's "Harmonica key" picker, the header line, Play in key's octave choice (`transposeToKey`), the import range hint, the song list's Meta.

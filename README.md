@@ -113,8 +113,8 @@ Lessons 5 and 7 are public-domain tunes; the rest are original exercises.
 | Play order (repeats/endings), backing-whistle synth, YIN pitch detection | `src/sound.cpp` |
 | Audio transcription (pitch track, beats, meter, key) and Import audio | `src/transcribe.cpp`, `src/import_audio.cpp` |
 | Speaker/microphone devices (miniaudio) | `src/audio.cpp` |
-| MCP server (stdio JSON-RPC, tools + agent guide in `instructions`) | `src/mcp_main.cpp` |
-| Viewer (Bravura SMuFL glyphs drawn with ImDrawList) | `src/gui_main.cpp` |
+| MCP server (stdio JSON-RPC, tools + agent guide in `instructions`) | `src/mcp_main.cpp`, tools in `src/mcp_*.cpp` |
+| Viewer (Bravura SMuFL glyphs drawn with ImDrawList) | `src/gui_main.cpp`, `src/gui_*.cpp` (score, panels, practice, settings, import) |
 | Viewer translations (English text -> translation) | `i18n/<language>/*.json`, `tr()` in `src/i18n.cpp` |
 | Instrument profiles (range, note difficulty, techniques, sound), technique catalog | `instruments/*.json`, `src/catalog.cpp` |
 | Web build: IndexedDB storage and page | `web/pre.js`, `web/shell.html` |

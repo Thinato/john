@@ -6,7 +6,7 @@ tags: [gui, threading, transcription, import-audio, i18n]
 # Long work in the GUI (Import audio)
 
 ## Context
-Adding anything to `src/gui_main.cpp` that can take more than a frame (transcription, decoding, scanning many files). Today only Import audio (#4) does: `importWindow()` starts `importAudio()` from `src/import_audio.cpp`.
+Adding anything to the GUI (`src/gui_*.cpp`) that can take more than a frame (transcription, decoding, scanning many files). Today only Import audio (#4) does: `importWindow()` in `src/gui_import.cpp` starts `importAudio()` from `src/import_audio.cpp`.
 
 ## Rule
 Start the work with `std::async(std::launch::async, ...)` into a `std::future` member of `App` and set `App::busy`. Check it with `wait_for(0)` at the top of the window function every frame, then call `get()` inside `try` so the worker's exception becomes a message. Copy every input into the lambda (the path as a `std::string`, not `App::importPath`), and don't let the worker touch `App` or ImGui. While `App::busy` is set, `main()` doesn't call `setLanguage()`/`setSolfege()`, because the worker reads them through `tr()`, `keyName()` and `noteName()`.

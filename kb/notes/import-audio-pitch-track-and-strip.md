@@ -6,7 +6,7 @@ tags: [transcription, import-audio, pitch-track, gui, score, storage]
 # Pitch track: where it lives and how the strip lines up
 
 ## Context
-Changing `PitchTrack` / `Transcription::track` (`src/transcribe.hpp`, filled in `transcribe()` in `src/transcribe.cpp`), `importAudio()` / `loadTrack()` / `trackTick()` in `src/import_audio.cpp`, or the pitch strip in `drawScore()` (`src/gui_main.cpp`).
+Changing `PitchTrack` / `Transcription::track` (`src/transcribe.hpp`, filled in `transcribe()` in `src/transcribe.cpp`), `importAudio()` / `loadTrack()` / `trackTick()` in `src/import_audio.cpp`, or the pitch strip (`Page::drawPitchTrack()` in `src/gui_score.cpp`).
 
 ## Rule
 `PitchTrack::points` is the Viterbi melody line per analysis frame (time in seconds of the trimmed audio, sounding MIDI or 0, salience; the same values `JOHN_TRANSCRIBE_DEBUG` dumps). `PitchTrack::sync` holds one `(song tick, seconds)` pair per beat of the winning meter fit. A song tick counts from the start of the first event, in event order. `trackTick()` interpolates linearly between beats (extrapolating at the ends). `importAudio()` writes the track compactly to `dataDir()/tracks/<id>.json` before it saves the song. `open()` in the GUI loads it into `App::track`. The strip adds `sp * 5` to a system's height only when a track exists. A frame lands on the event whose ticks contain it and is placed from that event's head (`Slot::cx`) to the next note's or rest's head, or to the end of the line. Unclear notes use the same mapping: tied notes count as one, and their mean salience below 0.35 (the report's threshold for unclear bars) gets the comment.

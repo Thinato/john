@@ -6,7 +6,7 @@ tags: [i18n, translation, lessons, demo, songs, portuguese, gui]
 # Song translations (the song's "i18n" map)
 
 ## Context
-Showing or changing a song's title, notes or note comments in the viewer, and adding or editing a lesson (`lessons/`) or demo song (`demo/`) (#47). Code: `Song::i18n` in `src/song.hpp`, `songText()` in `src/i18n.hpp`, `toJson()`/`fromJson()` in `src/song.cpp`, the display sites in `src/gui_main.cpp` (song list titles in `poll()`, `detailsPanel()` title and notes, the note tooltip, the comment box).
+Showing or changing a song's title, notes or note comments in the viewer, and adding or editing a lesson (`lessons/`) or demo song (`demo/`) (#47). Code: `Song::i18n` in `src/song.hpp`, `songText()` in `src/i18n.hpp`, `toJson()`/`fromJson()` in `src/song.cpp`, the display sites in `src/gui_panels.cpp` (song list titles in `poll()`, `detailsPanel()` title and notes, the comment box) and the note tooltip in `src/gui_score.cpp`.
 
 ## Rule
 A song file may have `"i18n": {"pt-BR": {"<English text>": "<translation>"}}` covering its title, notes and comments. `Song` keeps the map and `toJson()`/`fromJson()` round-trip it, so MCP and GUI edits keep it. The GUI shows `songText(s, english)`: the entry for the language `setLanguage()` loaded, else the English. The MCP server never calls `setLanguage()`, so it always shows the English. The test fails if any bundled lesson or demo song lacks a pt-BR entry for its title, notes or any comment.

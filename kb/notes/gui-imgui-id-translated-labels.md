@@ -6,7 +6,7 @@ tags: [gui, imgui, i18n, widget-id, labels]
 # ImGui IDs of translated labels
 
 ## Context
-Any ImGui widget, window or tree node in `src/gui_main.cpp` whose visible label is translated or comes from data (folder names, technique names).
+Any ImGui widget, window or tree node in the GUI (`src/gui_*.cpp`) whose visible label is translated or comes from data (folder names, technique names).
 
 ## Rule
 Build the label as `translation + "###" + stable id`; `L("Folder")` does this with the English text as the id. Hard-coded ids work the same: `"###play"` for the Play/Stop button, `"###mic"`, `"###folder:" + folder` for song-list folders, `"###" + t.id` for technique checkboxes.

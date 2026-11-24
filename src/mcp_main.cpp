@@ -1,18 +1,13 @@
-// john-mcp: MCP server (stdio, newline-delimited JSON-RPC) exposing the tin whistle tools to an agent.
-#include "john.hpp"
-#include <algorithm>
-#include <fstream>
+// john-mcp: MCP server (stdio, newline-delimited JSON-RPC) exposing the tin whistle tools to an agent. The tools are
+// in mcp_<area>.cpp (mcp.hpp); this file has the JSON-RPC loop, initialize and the agent guide.
+#include "mcp.hpp"
 #include <iostream>
-#include <iterator>
-#include <map>
 #include <set>
-#include <sstream>
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
 #endif
 
-using namespace john;
 
 static const char* GUIDE = R"(John turns tunes into tin whistle tab sheets with technique markings. Songs are saved to the John data folder and appear live in the John GUI (staff + fingering charts + technique symbols).
 
@@ -57,416 +52,34 @@ static json textResult(const std::string& t, bool err = false) {
   return r;
 }
 
-static json tool(const char* name, const char* desc, json props, std::vector<std::string> required = {}) {
+Tool tool(const char* name, const char* desc, json props, std::vector<std::string> required, Handler call) {
   json schema = {{"type", "object"}, {"properties", props}};
   if (!required.empty()) schema["required"] = required;
-  return {{"name", name}, {"description", desc}, {"inputSchema", schema}};
+  return {{{"name", name}, {"description", desc}, {"inputSchema", schema}}, call};
+}
+Tool tool(const char* name, const char* desc, json props, Handler call) { return tool(name, desc, props, {}, call); }
+
+static const std::vector<Tool>& tools() {  // every area's, in tools/list order
+  static const std::vector<Tool> all = [] {
+    std::vector<Tool> t;
+    for (auto area : {songTools, audioTools, techniqueTools, instrumentTools})
+      for (auto& x : area()) t.push_back(x);
+    return t;
+  }();
+  return all;
 }
 
 static json toolList() {
-  json str = {{"type", "string"}};
-  json strArr = {{"type", "array"}, {"items", str}};
-  json instrumentSchema = {{"type", "string"}, {"description", "an instrument id (list_instruments); instrument the song is for, default whistle"}};
-  json playsOn = {  // playability (#84): which instrument to judge the songs for
-      {"instrument", {{"type", "string"}, {"description", "an instrument id (list_instruments); judge playability for this instrument; default: the one chosen in John's Settings (the user's instrument)"}}},
-      {"whistle", {{"type", "string"}, {"description", "whistle key for instrument whistle; default: John's Settings (D unless changed)"}}},
-      {"harp", {{"type", "string"}, {"enum", HARP_KEYS}, {"description", "harmonica key for instrument harmonica; default: John's Settings (C unless changed)"}}}};
-  json analyzeArgs = playsOn;
-  analyzeArgs["id"] = str;
-  return json::array({
-      tool("list_songs",
-           "List saved songs by folder (id, title, key, meter, the instrument it was written for) and whether each fits an instrument "
-           "(range and hard notes such as half-holes, in any key of the same mode): 'fits as written', 'fits in <key> (transpose N)', or "
-           "'doesn't fit'. Use it for 'what can I play on my A harmonica?'; update_song transpose moves a song.",
-           playsOn),
-      tool("import_abc",
-           "Create a song from ABC notation (full tune with X/T/M/L/K headers; each X: tune of a multi-tune file becomes its own song, id applies to the first). Returns warnings and the note listing. "
-           "Techniques in the ABC (~, {g}A grace cuts, !id! decorations) and lyrics (w: first verse, W:) are kept.",
-           {{"abc", str},
-            {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
-            {"source", {{"type", "string"}, {"description", "where the tune came from (URL, 'photo of ...')"}}},
-            {"instrument", {{"type", "string"}, {"description", "an instrument id (list_instruments); instrument the song is for, default: the one chosen in John's Settings (whistle unless changed)"}}},
-            {"whistle", {{"type", "string"}, {"description", "whistle key, default: the one chosen in John's Settings (D unless changed)"}}},
-            {"harp", {{"type", "string"}, {"enum", HARP_KEYS}, {"description", "harmonica key, default: the one chosen in John's Settings (C unless changed)"}}},
-            {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
-            {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}},
-           {"abc"}),
-      tool("import_musicxml",
-           "Create a song from a MusicXML file (.musicxml, .xml, or zipped .mxl, as MuseScore, Finale, Sibelius or flat.io export it; "
-           "optical music readers such as Audiveris output it too). Takes the first part's first voice; chords keep their top note, grace notes become cuts/taps. "
-           "Returns warnings (what was dropped or rounded) and the note listing. Same options as import_abc.",
-           {{"path", {{"type", "string"}, {"description", "absolute path (or ~/...) to the .musicxml, .xml or .mxl file"}}},
-            {"xml", {{"type", "string"}, {"description", "the MusicXML text itself, instead of a path"}}},
-            {"id", {{"type", "string"}, {"description", "optional song id; default derived from the title"}}},
-            {"source", {{"type", "string"}, {"description", "where the score came from; default the composer in the file"}}},
-            {"instrument", {{"type", "string"}, {"description", "an instrument id (list_instruments); instrument the song is for, default: the one chosen in John's Settings (whistle unless changed)"}}},
-            {"whistle", {{"type", "string"}, {"description", "whistle key, default: the one chosen in John's Settings (D unless changed)"}}},
-            {"harp", {{"type", "string"}, {"enum", HARP_KEYS}, {"description", "harmonica key, default: the one chosen in John's Settings (C unless changed)"}}},
-            {"overwrite", {{"type", "boolean"}, {"description", "replace an existing song with the same id"}}},
-            {"folder", {{"type", "string"}, {"description", "Beginner, Intermediate, Advanced or Lessons (any name works)"}}}}),
-      tool("get_song",
-           "Show a song as a table: event index, bar, beat, note, length, whistle fingering (X covered, O open, H half, + upper octave; other instruments: out-of-range marks), techniques, lyric syllable (\"syl-\" = the word goes on, _ = holds the previous syllable), comment.",
-           {{"id", str}}, {"id"}),
-      tool("analyze_song",
-           "Deterministic hints: whether the song fits an instrument (default the user's, from Settings) as written or in which key, "
-           "range check on the song's instrument, best transpositions, and candidate notes for cuts, rolls, crans, slides, tonguing and breaths "
-           "as that instrument shows them (its equivalents, e.g. a piano's turn for a roll; marks it hides are left out).",
-           analyzeArgs, {"id"}),
-      tool("set_techniques",
-           "Edit techniques on notes, by event index from get_song. Each edit may replace the list ('techniques'), or 'add'/'remove' ids, and set a 'comment' explaining the choice. All edits are validated before any is applied.",
-           {{"id", str},
-            {"edits",
-             {{"type", "array"},
-              {"items",
-               {{"type", "object"},
-                {"properties", {{"index", {{"type", "integer"}}}, {"techniques", strArr}, {"add", strArr}, {"remove", strArr}, {"comment", str}}},
-                {"required", {"index"}}}}}}},
-           {"id", "edits"}),
-      tool("update_song",
-           "Change song info: title, source, notes (overall advice shown in the GUI), folder (song list group), tempo (quarter notes per minute), instrument, whistle key, harmonica key (harp), or transpose by semitones.",
-           {{"id", str}, {"title", str}, {"source", str}, {"notes", str}, {"folder", str}, {"tempo", {{"type", "integer"}}}, {"instrument", instrumentSchema}, {"whistle", str},
-            {"harp", {{"type", "string"}, {"enum", HARP_KEYS}}}, {"transpose", {{"type", "integer"}}}},
-           {"id"}),
-      tool("delete_bars",
-           "Delete bars first..last (inclusive, bar numbers as get_song shows them; a pickup is bar 0) with their notes, rests and techniques. "
-           "Repeat/end signs and volta marks closing the deleted bars move to the previous bar line. Event indexes change afterwards.",
-           {{"id", str}, {"first", {{"type", "integer"}}}, {"last", {{"type", "integer"}, {"description", "default: same as first"}}}},
-           {"id", "first"}),
-      tool("transcribe_audio",
-           "Transcribe the melody of an audio file (mp3, wav, flac) into ABC for an instrument (default D whistle): pitch tracking, beat tracking, "
-           "sixteenth-note grid (eighth triplets where they fit, swing detected and written straight), key detection, octave fitted to the instrument's range (transposed to another key if no octave fits; see transpose). Works best on solo instruments/voice; on full mixes it "
-           "follows the strongest pitched line. Returns a report and a draft ABC in the detected meter (4/4, 3/4, 6/8 or 9/8, scores in the report). "
-           "Don't import it blindly: check the meter (do motifs fit the bars?), tempo (the report's tempo confidence; doubled/halved note lengths?), pickup, key/mode "
-           "and repeats, re-run with meter/bpm/start/end (or rubato for a drifting tempo) as needed, tidy the ABC, then import_abc, write song notes about what's "
-           "uncertain, and ask the user to compare it by ear (see the server instructions).",
-           {{"path", {{"type", "string"}, {"description", "absolute path (or ~/...) to the audio file"}}},
-            {"bpm", {{"type", "number"}, {"description", "quarter notes per minute; default: detect"}}},
-            {"meter", {{"type", "string"}, {"description", "e.g. 4/4, 3/4, 6/8; default: detect"}}},
-            {"start", {{"type", "number"}, {"description", "seconds into the file to start at (default 0)"}}},
-            {"end", {{"type", "number"}, {"description", "seconds into the file to stop at (default: end)"}}},
-            {"title", str},
-            {"instrument", instrumentSchema},
-            {"recording_instrument", {{"type", "string"},
-                                      {"description", "instrument playing the melody in the recording (whistle = D whistle); limits the "
-                                                      "pitch search to its range so accompaniment outside it is ignored. Default: unset"}}},
-            {"transpose", {{"type", "integer"}, {"minimum", -12}, {"maximum", 12},
-                           {"description", "semitones to transpose the melody by before fitting the octave (the draft's K: follows); "
-                                           "0 keeps the recording's key. Default: automatic, only when no octave keeps the notes "
-                                           "in the instrument's range (the report's 'transposed' line says so)"}}},
-            {"separate", {{"type", "string"}, {"enum", {"vocals", "other"}},
-                          {"description", "for dense mixes: first separate this Demucs stem (vocals = sung melody; other = whistle, flute, "
-                                          "fiddle, piano lead) and transcribe it. Needs Demucs installed (pip install demucs, or "
-                                          "JOHN_DEMUCS); slow, so pass start/end, and only short sections of copyrighted recordings, "
-                                          "for personal practice. Without Demucs the full mix is transcribed and the report says why. "
-                                          "Default: no separation"}}},
-            {"rubato", {{"type", "boolean"},
-                        {"description", "the tempo drifts (slow airs, film music, free playing): beats follow the recording's "
-                                        "local tempo instead of a steady one; the report gives the tempo range. Default: false"}}}},
-           {"path"}),
-      tool("list_techniques", "List the technique catalog: id, GUI symbol, name, how to play it on the whistle.", json::object()),
-      tool("define_technique", "Add or replace a technique in the catalog (for techniques the user wants documented).",
-           {{"id", {{"type", "string"}, {"description", "lowercase id like 'bounce'"}}}, {"name", str},
-            {"symbol", {{"type", "string"}, {"description", "short text drawn above the note, 1-3 chars"}}},
-            {"description", str}},
-           {"id", "name", "symbol", "description"}),
-      tool("list_instruments",
-           "List the instruments John knows (built-in and the user's custom ones): id, name, written range, sounding octave, key, "
-           "hard and impossible notes, techniques, playback sound. Use the id as instrument in the other tools.",
-           json::object()),
-      tool("define_instrument",
-           "Create or replace a custom instrument (e.g. 'I play a C flute, low D to high A'), saved in John's data folder and "
-           "shown in the GUI. Songs and playability can then use its id. A custom id equal to a built-in's overrides that built-in.",
-           {{"id", {{"type", "string"}, {"description", "lowercase letters, digits, - or _; default: from the name"}}},
-            {"name", str},
-            {"low", {{"type", {"string", "integer"}}, {"description", "lowest written note: a note like \"D4\" (C4 = middle C) or a MIDI number"}}},
-            {"high", {{"type", {"string", "integer"}}, {"description", "highest written note, same format"}}},
-            {"octave", {{"type", "integer"}, {"minimum", -2}, {"maximum", 2},
-                        {"description", "sounding = written + 12 * octave (whistle and flute music: often 0 or 1; guitar -1). Default 0"}}},
-            {"key", {{"type", "string"}, {"description", "the instrument's key, a note name like C or Bb (keyed instruments); default none"}}},
-            {"preset", {{"type", "string"}, {"enum", {"chromatic", "diatonic"}},
-                        {"description", "chromatic: every note in range is easy; diatonic: notes outside the major scale of key (or "
-                                        "of the lowest note) are hard. Default chromatic"}}},
-            {"notes", {{"type", "object"},
-                       {"description", "per-note levels over the preset, keyed by semitones above low: \"easy\", \"hard\", "
-                                       "\"impossible\", or {\"level\": \"hard\", \"how\": \"half-hole\"|\"cross-fingering\"|\"bend\"|"
-                                       "\"overblow\", \"weight\": 1 (= a whistle half-hole)}"}}},
-            {"techniques", {{"type", "array"}, {"items", str}, {"description", "technique ids it can play (list_techniques); the sheet hides the others"}}},
-            {"instead", {{"type", "object"}, {"additionalProperties", str},
-                         {"description", "techniques it can't play -> one of its techniques shown and played in their place, "
-                                         "e.g. {\"cut\": \"grace\", \"roll\": \"turn\"}"}}},
-            {"sound", {{"type", "string"}, {"enum", SOUNDS}, {"description", "playback voice, default whistle"}}},
-            {"voice", {{"type", "boolean"}, {"description", "a singing voice: the mic counts a note sung an octave off as right, breaths are played. Default false"}}}},
-           {"name", "low", "high"}),
-      tool("delete_instrument",
-           "Delete a custom instrument. Songs written for it keep their notes and show it as deleted; a deleted custom file "
-           "that overrode a built-in brings the built-in back.",
-           {{"id", str}}, {"id"}),
-  });
-}
-
-static void checkInstrument(const Song& s) {
-  if (whistleBase(s.whistle) < 0) throw std::runtime_error("unknown whistle key '" + s.whistle + "' (use a note name like D, C, Bb)");
-  if (std::find(HARP_KEYS.begin(), HARP_KEYS.end(), s.harp) == HARP_KEYS.end())
-    throw std::runtime_error("unknown harmonica key '" + s.harp + "' (use one of G, Ab, A, Bb, B, C, Db, D, Eb, E, F, F#)");
-  if (!findInstrument(s.instrument, s.whistle, s.harp)) {
-    if (auto in = findInstrument(s.instrument)) {  // it exists, but not in that key
-      std::string keys;
-      for (auto& k : in->keys) keys += (keys.empty() ? "" : ", ") + k;
-      throw std::runtime_error("unknown " + std::string(s.instrument == "harmonica" ? "harmonica key '" + s.harp : "whistle key '" + s.whistle) +
-                               "' for the " + in->name + " (use one of " + keys + ")");
-    }
-    std::string ids;
-    for (auto& i : instrumentIds()) ids += (ids.empty() ? "" : ", ") + i;
-    throw std::runtime_error("unknown instrument '" + s.instrument + "' (use one of: " + ids + ", or define_instrument)");
-  }
-}
-
-static std::string sharpName(int midi) { return noteName(spell(Key{0, "maj"}, midi)); }  // "C#4"
-
-static std::string describe(const Instrument& in) {
-  std::string r = in.id + " - " + in.name + (in.custom ? (in.builtin ? " (custom, overrides the built-in)" : " (custom)") : " (built-in)") +
-                  ": written " + sharpName(in.low) + ".." + sharpName(in.high);
-  if (in.octave) r += in.octave > 0 ? ", sounds " + std::to_string(in.octave * 12) + " semitones higher" : ", sounds " + std::to_string(-in.octave * 12) + " semitones lower";
-  if (!in.key.empty()) r += ", key " + in.key;
-  if (in.id == "whistle" && !in.keys.empty()) r += " (other keys: the whistle argument)";
-  if (in.id == "harmonica" && !in.keys.empty()) r += " (other keys: the harp argument)";
-  std::string hard, impossible;
-  for (auto& [at, n] : in.notes) {
-    char w[16];
-    snprintf(w, sizeof w, "%g", n.weight);
-    if (n.level == NoteLevel::Hard) hard += " " + sharpName(in.low + at) + (n.how.empty() ? "" : " " + n.how) + (n.weight != 1 ? " x" + std::string(w) : "") + ",";
-    if (n.level == NoteLevel::Impossible) impossible += " " + sharpName(in.low + at) + ",";
-  }
-  if (!hard.empty()) r += "\n  hard:" + hard.substr(0, hard.size() - 1);
-  if (!impossible.empty()) r += "\n  impossible:" + impossible.substr(0, impossible.size() - 1);
-  std::string tech;
-  for (auto& t : in.techniques) tech += (tech.empty() ? "" : ", ") + t;
-  std::string instead;
-  for (auto& [from, to] : in.instead) instead += (instead.empty() ? "" : ", ") + from + " -> " + to;
-  if (!instead.empty()) tech += "; instead: " + instead;
-  r += "\n  techniques: " + (tech.empty() ? "none listed" : tech) + "; sound: " + in.sound + (in.hints ? "; fingering charts in the GUI" : "") +
-       (in.voice ? "; singing voice (the mic counts a note an octave off as right)" : "") + "\n";
-  return r;
-}
-
-static Song mustLoad(const json& a) {
-  auto s = loadSong(a.value("id", ""));
-  if (!s) throw std::runtime_error("no song with id '" + a.value("id", "") + "' (see list_songs)");
-  return *s;
-}
-
-// The arguments' instrument, whistle and harp, else the user's (Settings). A Settings instrument whose custom file is
-// missing or broken reads as the D whistle (#85: Settings are only reset when it is really deleted).
-static Song argsOrSettings(const json& a) {
-  Settings set = loadSettings();
-  if (!findInstrument(set.instrument, set.whistle, set.harp)) set.instrument = "whistle", set.whistle = "D";
-  Song like;
-  like.instrument = a.value("instrument", set.instrument);
-  like.whistle = a.value("whistle", set.whistle);
-  like.harp = a.value("harp", set.harp);
-  checkInstrument(like);
-  return like;
-}
-
-// The instrument list_songs / analyze_song judge playability for.
-static Instrument playsOn(const json& a) { return instrumentOf(argsOrSettings(a)); }
-
-static std::string fitText(const Playability& p) {
-  auto by = [&] { return " (transpose " + std::string(p.shift > 0 ? "+" : "") + std::to_string(p.shift) + ")"; };
-  std::string where = p.shift == 0 ? "as written" : p.shift % 12 ? "in " + keyName(p.key) + by() : (p.shift > 0 ? "an octave up" : "an octave down") + by();
-  if (p.verdict != Playability::NoFit) return "fits " + where;
-  if (p.cost.out == 0) return "doesn't fit: too many hard notes in every key";
-  return "doesn't fit: " + std::to_string(p.cost.out) + " of " + std::to_string(p.notes) + " notes out of range at best, " + where;
+  json list = json::array();
+  for (auto& t : tools()) list.push_back(t.schema);
+  return list;
 }
 
 static std::string callTool(const std::string& name, const json& a) {
   reloadInstruments();  // the GUI may have added, changed or deleted a custom instrument
   loadTechniques();      // and another agent a technique (builtinTechnique() reads the custom ids it caches)
-  if (name == "list_songs") {
-    const Instrument in = playsOn(a);
-    std::map<std::string, std::string, decltype(&folderBefore)> byFolder(&folderBefore);
-    for (auto& id : listSongs())
-      if (auto s = loadSong(id))
-        byFolder[s->folder] += "  " + id + " - " + s->title + " (" + keyName(s->key) + ", " + s->meter + ", " + instrumentLabel(*s) +
-                               "): " + fitText(playability(*s, in)) + "\n";
-    std::string r;
-    for (auto& [f, lines] : byFolder) r += (f.empty() ? "Unsorted" : f) + ":\n" + lines;
-    return r.empty() ? "No songs yet. Data folder: " + dataDir().string() : "Playability on the " + in.name + ":\n" + r;
-  }
-  if (name == "import_abc" || name == "import_musicxml") {
-    Song like = argsOrSettings(a);
-    like.id = a.value("id", "");
-    like.source = a.value("source", "");
-    like.folder = a.value("folder", "");
-    std::string data = a.value("abc", "");
-    if (name == "import_musicxml") {
-      std::string path = a.value("path", "");
-      if (path.rfind("~/", 0) == 0) path = homeDir() + path.substr(1);
-      data = a.value("xml", "");
-      if (!path.empty()) {
-        std::ifstream f(fs::path(path), std::ios::binary);
-        if (!f) throw std::runtime_error("cannot read " + path);
-        data.assign(std::istreambuf_iterator<char>(f), {});
-      }
-      if (!isMusicXml(data)) throw std::runtime_error("not MusicXML: pass path (a .musicxml, .xml or .mxl file) or xml (text with a <score-partwise> root)");
-    }
-    std::string out;
-    for (auto& ir : importSongs(data, like, a.value("overwrite", false))) {
-      out += (out.empty() ? "" : "\n") + std::string("Saved as '") + ir.song.id + "'.\n";
-      for (auto& x : ir.warnings) out += "warning: " + x + "\n";
-      out += "\n" + listing(ir.song);
-    }
-    return out;
-  }
-  if (name == "get_song") return listing(mustLoad(a));
-  if (name == "analyze_song") {
-    const Song s = mustLoad(a);
-    const Instrument in = playsOn(a);
-    return "Playability on the " + in.name + ": " + fitText(playability(s, in)) + "\n\n" + analyze(s, in);
-  }
-  if (name == "set_techniques") {
-    Song s = mustLoad(a);
-    std::set<std::string> known;
-    for (auto& t : loadTechniques()) known.insert(t.id);
-    const json edits = a.value("edits", json::array());
-    if (!edits.is_array()) throw std::runtime_error("edits must be an array");
-    for (auto& e : edits) {  // validate everything first
-      long long i = e.is_object() && e.contains("index") && e["index"].is_number_integer() ? e["index"].get<long long>() : -1;
-      if (i < 0 || i >= (long long)s.events.size() || s.events[i].kind != Kind::Note)
-        throw std::runtime_error("index " + std::to_string(i) + " is not a note (see get_song)");
-      for (const char* k : {"techniques", "add", "remove"})
-        for (auto& t : e.value(k, std::vector<std::string>{}))
-          if (!known.count(t)) throw std::runtime_error("unknown technique '" + t + "' (see list_techniques or define_technique)");
-    }
-    std::set<int> touched;
-    for (auto& e : edits) {
-      Event& ev = s.events[e["index"].get<int>()];
-      if (e.contains("techniques")) ev.techniques = e["techniques"].get<std::vector<std::string>>();
-      for (auto& t : e.value("add", std::vector<std::string>{}))
-        if (std::find(ev.techniques.begin(), ev.techniques.end(), t) == ev.techniques.end()) ev.techniques.push_back(t);
-      for (auto& t : e.value("remove", std::vector<std::string>{}))
-        ev.techniques.erase(std::remove(ev.techniques.begin(), ev.techniques.end(), t), ev.techniques.end());
-      if (e.contains("comment")) ev.comment = e["comment"].get<std::string>();
-      touched.insert(e["index"].get<int>());
-    }
-    saveSong(s);
-    std::string out = "Updated " + std::to_string(touched.size()) + " note(s).\n";
-    std::istringstream lines(listing(s));
-    for (std::string l; std::getline(lines, l);) {
-      int idx;
-      if (sscanf(l.c_str(), "#%d", &idx) == 1 && touched.count(idx)) out += l + "\n";
-    }
-    return out;
-  }
-  if (name == "update_song") {
-    Song s = mustLoad(a);
-    s.title = a.value("title", s.title);
-    s.source = a.value("source", s.source);
-    s.notes = a.value("notes", s.notes);
-    s.folder = a.value("folder", s.folder);
-    s.tempo = a.value("tempo", s.tempo);
-    if (a.contains("instrument") || a.contains("whistle") || a.contains("harp")) {  // a song with a bad stored value can still be edited
-      s.instrument = a.value("instrument", s.instrument);
-      s.whistle = a.value("whistle", s.whistle);
-      s.harp = a.value("harp", s.harp);
-      checkInstrument(s);
-    }
-    if (int t = a.value("transpose", 0)) {
-      if (t < -24 || t > 24) throw std::runtime_error("transpose must be within -24..24 semitones");
-      for (auto& e : s.events)
-        if (e.kind == Kind::Note && (e.midi + t < 0 || e.midi + t > 127)) throw std::runtime_error("transposition leaves the MIDI range");
-      transpose(s, t);
-    }
-    saveSong(s);
-    return "Saved.\n" + listing(s);
-  }
-  if (name == "delete_bars") {
-    Song s = mustLoad(a);
-    int first = a.value("first", 0);
-    int n = deleteBars(s, first, a.value("last", first));
-    saveSong(s);
-    return "Deleted " + std::to_string(n) + " note(s)/rest(s).\n" + listing(s);
-  }
-  if (name == "transcribe_audio") {
-    std::string path = a.value("path", "");
-    if (!findInstrument(a.value("instrument", "whistle"))) throw std::runtime_error("unknown instrument '" + a.value("instrument", "") + "'");
-    if (a.contains("recording_instrument") && !findInstrument(a.value("recording_instrument", "")))
-      throw std::runtime_error("unknown recording_instrument '" + a.value("recording_instrument", "") + "'");
-    TranscribeOptions o;
-    o.meter = a.value("meter", o.meter);
-    if (!o.meter.empty() && (o.meter = parseMeter(o.meter)).empty())
-      throw std::runtime_error("meter must be N/D with D = 2, 4, 8 or 16 (e.g. 4/4, 3/4, 6/8), or C or C|");
-    o.bpm = a.value("bpm", 0.0);
-    o.title = a.value("title", fs::path(path).stem().string());
-    o.instrument = a.value("instrument", o.instrument);
-    o.recordingInstrument = a.value("recording_instrument", "");
-    if (a.contains("transpose")) {
-      const json& t = a["transpose"];
-      if (!t.is_number_integer() || t < -12 || t > 12)
-        throw std::runtime_error("transpose must be a whole number within -12..12 semitones");
-      o.transpose = a["transpose"].get<int>();
-    }
-    o.separate = a.value("separate", "");
-    if (!o.separate.empty() && o.separate != "vocals" && o.separate != "other")
-      throw std::runtime_error("separate must be \"vocals\" or \"other\"");
-    if (a.contains("rubato") && !a["rubato"].is_boolean()) throw std::runtime_error("rubato must be true or false");
-    o.rubato = a.value("rubato", false);
-    Transcription t = transcribeFile(path, a.value("start", 0.0), a.value("end", 0.0), o);
-    return t.report + "\nDraft ABC (review, fix, then import_abc with source = the file name and instrument = " + o.instrument +
-           "):\n" + toAbc(t.song);
-  }
-  if (name == "list_techniques") {
-    std::string r;
-    for (auto& t : loadTechniques()) r += t.id + " [" + t.symbol + "] " + t.name + ": " + t.description + "\n";
-    return r;
-  }
-  if (name == "define_technique") {
-    Technique t{a.value("id", ""), a.value("name", ""), a.value("symbol", ""), a.value("description", "")};
-    if (t.id.empty() || !std::all_of(t.id.begin(), t.id.end(), [](char c) { return islower(c) || isdigit(c) || c == '_'; }))
-      throw std::runtime_error("id must be lowercase letters, digits or _");
-    saveCustomTechnique(t);
-    return "Technique '" + t.id + "' saved.";
-  }
-  if (name == "list_instruments") {
-    std::string r;
-    for (auto& in : instruments()) r += describe(in);
-    for (auto& w : instrumentWarnings()) r += "warning: " + w + "\n";
-    return r;
-  }
-  if (name == "define_instrument") {
-    static const std::set<std::string> FIELDS = {"id", "name", "low", "high", "octave", "key", "techniques", "instead", "sound", "voice"};
-    json j = json::object();  // only what the tool offers: hints, order, keys stay built-in properties
-    for (auto& [k, v] : a.items()) {
-      if (FIELDS.count(k)) j[k] = v;
-      else if (k != "preset" && k != "notes")
-        throw std::runtime_error("unknown field '" + k + "' (define_instrument takes id, name, low, high, octave, key, preset, notes, techniques, instead, sound, voice)");
-    }
-    if (!j.contains("id") && a.value("name", "") != "") j["id"] = slug(a.value("name", ""));
-    std::string preset = a.value("preset", "chromatic");
-    if (preset != "chromatic" && preset != "diatonic") throw std::runtime_error("preset must be \"chromatic\" or \"diatonic\"");
-    json notes = a.value("notes", json::object());
-    Instrument in = parseInstrument(j);  // validates every field
-    applyPreset(in, preset == "diatonic");
-    j["notes"] = notes;
-    for (auto& [at, n] : parseInstrument(j).notes) in.notes[at] = n;  // the explicit levels win over the preset
-    auto before = findInstrument(in.id);
-    saveInstrument(in);
-    std::string what = !before ? "created" : before->custom ? "replaced" : "saved (it overrides the built-in " + before->name + ")";
-    return "Instrument '" + in.id + "' " + what + ". Use instrument = '" + in.id + "' in import_abc, update_song, list_songs and analyze_song.\n" +
-           describe(*findInstrument(in.id));
-  }
-  if (name == "delete_instrument") {
-    std::string id = a.value("id", "");
-    auto in = findInstrument(id);
-    if (!in || !in->custom) throw std::runtime_error("'" + id + "' is not a custom instrument (built-ins can't be deleted; see list_instruments)");
-    int songs = 0;
-    for (auto& s : listSongs())
-      if (auto x = loadSong(s)) songs += x->instrument == id;
-    deleteInstrument(id);
-    if (auto back = findInstrument(id)) return "Deleted the custom '" + id + "'. The built-in " + back->name + " is back.";
-    return "Deleted '" + id + "'. " + std::to_string(songs) + " song(s) are written for it" +
-           (songs ? ": they keep their notes and show it as deleted." : ".");
-  }
+  for (auto& t : tools())
+    if (t.schema.at("name") == name) return t.call(a);
   throw std::runtime_error("unknown tool " + name);
 }
 
