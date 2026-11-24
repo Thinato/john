@@ -1,0 +1,10 @@
+{
+ "name": "Bass voice",
+ "order": 10,
+ "low": "E3",
+ "high": "E5",
+ "octave": -1,
+ "techniques": ["breath", "vibrato", "slide"],
+ "sound": "violin",
+ "voice": true
+}

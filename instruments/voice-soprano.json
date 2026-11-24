@@ -1,0 +1,10 @@
+{
+ "name": "Soprano voice",
+ "order": 7,
+ "low": "C4",
+ "high": "A5",
+ "octave": 0,
+ "techniques": ["breath", "vibrato", "slide"],
+ "sound": "violin",
+ "voice": true
+}

@@ -16,7 +16,9 @@ using namespace john;
 
 static const char* GUIDE = R"(John turns tunes into tin whistle tab sheets with technique markings. Songs are saved to the John data folder and appear live in the John GUI (staff + fingering charts + technique symbols).
 
-Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica (10-hole diatonic, with a harp key: G..B harps sit below C, Db..F# above), or a custom one). list_instruments shows them all with their range and hard notes (whistle half-holes, harmonica bends and overblows); define_instrument creates or replaces a custom one ("I play a C flute, low D to high A": name, low, high, key, chromatic or diatonic preset, per-note levels, techniques, sound), delete_instrument removes it. Pass it to import_abc / import_musicxml / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts are for the tin whistle, and analyze_song's technique candidates follow tin whistle fingering, offered as the user's instrument shows them (see below). Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch. A song's instrument is what it was written for; the user plays the instrument chosen in John's Settings, and list_songs / analyze_song say whether each song fits it as written, in another key (update_song transpose), or not at all (pass instrument to ask about another one). The GUI's song list shows only the songs that fit. Technique marks follow the user's instrument too: the sheet shows the marks its profile lists (list_instruments), plays others as their listed equivalent (piano: cuts and taps as grace notes, rolls and crans as turns; harmonica: cuts and taps as grace notes, rolls as shakes) and hides the rest; breath marks always show (a phrase end on instruments that don't breathe). The song file keeps every mark, so mark the tune for the instrument it was written for; analyze_song offers the candidates the chosen instrument shows.
+Instruments: every song has one (instrument: whistle (default, with a whistle key), violin, piano, guitar, electric-guitar, harmonica (10-hole diatonic, with a harp key: G..B harps sit below C, Db..F# above), voice-soprano, voice-alto, voice-tenor, voice-bass, or a custom one). list_instruments shows them all with their range and hard notes (whistle half-holes, harmonica bends and overblows); define_instrument creates or replaces a custom one ("I play a C flute, low D to high A": name, low, high, key, chromatic or diatonic preset, per-note levels, techniques, sound), delete_instrument removes it. Pass it to import_abc / import_musicxml / transcribe_audio, or change it with update_song (that keeps the written notes, so the tune may sound in another octave: transpose by 12 if needed). Range checks and transpositions follow it; fingering charts are for the tin whistle, and analyze_song's technique candidates follow tin whistle fingering, offered as the user's instrument shows them (see below). Notes are written the way that instrument's music is written: whistle an octave below how it sounds, guitar an octave above, the others at pitch. A song's instrument is what it was written for; the user plays the instrument chosen in John's Settings, and list_songs / analyze_song say whether each song fits it as written, in another key (update_song transpose), or not at all (pass instrument to ask about another one). The GUI's song list shows only the songs that fit. Technique marks follow the user's instrument too: the sheet shows the marks its profile lists (list_instruments), plays others as their listed equivalent (piano: cuts and taps as grace notes, rolls and crans as turns; harmonica: cuts and taps as grace notes, rolls as shakes) and hides the rest; breath marks always show (a phrase end on instruments that don't breathe). The song file keeps every mark, so mark the tune for the instrument it was written for; analyze_song offers the candidates the chosen instrument shows.
+
+Singers: the voices are instruments too (voice-soprano C4..A5, voice-alto G3..E5, voice-tenor and voice-bass written an octave above how they sound, treble clef, like guitar). Help a singer by asking which voice fits, or have them press Find my range in John's Settings (under My instrument, for a voice): they sing their lowest and highest comfortable notes and John saves a custom instrument my-voice ("My voice") with that range. Without the GUI, define_instrument with voice = true does the same (octave -1 for a man's voice, techniques breath, vibrato, slide). Then list_songs shows the songs that fit their range as written or in another key; to move one, use update_song transpose, or tell them to press Play in key next to the sheet. On the mic a note sung an octave off counts as right. Mark breaths (where to take air), slides and vibrato on long notes; finger ornaments (cuts, rolls) are hidden on a voice. Lyrics (w: lines, below) are drawn under the notes and the syllable being sung is highlighted.
 
 Getting a tune into John (via ABC -> import_abc, with instrument = what the user will play it on; the song list shows it and list_songs filters by it):
 - MusicXML file (.musicxml, .xml or zipped .mxl, exported by MuseScore, Finale, Sibelius, flat.io or an optical music reader): import_musicxml with path (same options as import_abc). Read its warnings: only the first part and voice are kept, chords keep the top note. Then check get_song.
@@ -192,7 +194,8 @@ static json toolList() {
             {"instead", {{"type", "object"}, {"additionalProperties", str},
                          {"description", "techniques it can't play -> one of its techniques shown and played in their place, "
                                          "e.g. {\"cut\": \"grace\", \"roll\": \"turn\"}"}}},
-            {"sound", {{"type", "string"}, {"enum", SOUNDS}, {"description", "playback voice, default whistle"}}}},
+            {"sound", {{"type", "string"}, {"enum", SOUNDS}, {"description", "playback voice, default whistle"}}},
+            {"voice", {{"type", "boolean"}, {"description", "a singing voice: the mic counts a note sung an octave off as right, breaths are played. Default false"}}}},
            {"name", "low", "high"}),
       tool("delete_instrument",
            "Delete a custom instrument. Songs written for it keep their notes and show it as deleted; a deleted custom file "
@@ -241,7 +244,8 @@ static std::string describe(const Instrument& in) {
   std::string instead;
   for (auto& [from, to] : in.instead) instead += (instead.empty() ? "" : ", ") + from + " -> " + to;
   if (!instead.empty()) tech += "; instead: " + instead;
-  r += "\n  techniques: " + (tech.empty() ? "none listed" : tech) + "; sound: " + in.sound + (in.hints ? "; fingering charts in the GUI" : "") + "\n";
+  r += "\n  techniques: " + (tech.empty() ? "none listed" : tech) + "; sound: " + in.sound + (in.hints ? "; fingering charts in the GUI" : "") +
+       (in.voice ? "; singing voice (the mic counts a note an octave off as right)" : "") + "\n";
   return r;
 }
 
@@ -430,12 +434,12 @@ static std::string callTool(const std::string& name, const json& a) {
     return r;
   }
   if (name == "define_instrument") {
-    static const std::set<std::string> FIELDS = {"id", "name", "low", "high", "octave", "key", "techniques", "instead", "sound"};
+    static const std::set<std::string> FIELDS = {"id", "name", "low", "high", "octave", "key", "techniques", "instead", "sound", "voice"};
     json j = json::object();  // only what the tool offers: hints, order, keys stay built-in properties
     for (auto& [k, v] : a.items()) {
       if (FIELDS.count(k)) j[k] = v;
       else if (k != "preset" && k != "notes")
-        throw std::runtime_error("unknown field '" + k + "' (define_instrument takes id, name, low, high, octave, key, preset, notes, techniques, instead, sound)");
+        throw std::runtime_error("unknown field '" + k + "' (define_instrument takes id, name, low, high, octave, key, preset, notes, techniques, instead, sound, voice)");
     }
     if (!j.contains("id") && a.value("name", "") != "") j["id"] = slug(a.value("name", ""));
     std::string preset = a.value("preset", "chromatic");

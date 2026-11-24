@@ -270,9 +270,11 @@ int main() {
   // instruments as data (#85): the catalog from instruments/, the same results as the old hard-coded instruments, the
   // harmonica's real layout, custom instruments (save, override, broken files, deleted ones), instrument_name
   {
-    assert((instrumentIds() == std::vector<std::string>{"whistle", "violin", "piano", "guitar", "electric-guitar", "harmonica"}));
+    assert((instrumentIds() == std::vector<std::string>{"whistle", "violin", "piano", "guitar", "electric-guitar", "harmonica",
+                                                        "voice-soprano", "voice-alto", "voice-tenor", "voice-bass"}));  // voices together (#87)
     assert(instrumentWarnings().empty());
-    for (auto& in : instruments()) assert(in.builtin && !in.custom && in.sound == in.id && in.hints == (in.id == "whistle"));
+    for (auto& in : instruments())
+      assert(in.builtin && !in.custom && in.sound == (in.voice ? "violin" : in.id) && in.hints == (in.id == "whistle") && in.voice == !in.id.rfind("voice-", 0));
     assert(parseNote("D4") == 62 && parseNote("C#6") == 85 && parseNote("Bb3") == 58 && parseNote("A0") == 21 && parseNote("Cb4") == 59);
     assert(parseNote("H4") < 0 && parseNote("D") < 0 && parseNote("D4x") < 0 && parseNote("d4") < 0 && parseNote("G9") == 127 && parseNote("A9") < 0);
 
@@ -328,6 +330,7 @@ int main() {
     for (int m = 30; m <= 115; m++) { Event e; e.midi = m; e.len = WHOLE / 8; sweep.events.push_back(e); }
     for (auto& id : instrumentIds())
       for (auto& k : keys) {
+        if (!id.rfind("voice-", 0)) continue;  // the voices came after #85 (#87)
         auto was = oldInstrument(id, spelled(k), spelled(k)), now = findInstrument(id, k, k);
         assert(was.has_value() == now.has_value());
         if (!was) continue;
@@ -474,10 +477,10 @@ int main() {
     assert(warn.size() == 5 && warned("kazoo.json", "not valid JSON") && warned("flute.json", "low must be a note"));
     assert(warned("lute.json", "notes \"40\"") && warned("pipe.json", "how must be") && warned("harp2.json", "level must be"));
     assert(findInstrument("fife") && findInstrument("fife")->level(75).level == NoteLevel::Hard && !findInstrument("fife")->plays(76));
-    assert(!findInstrument("kazoo") && !findInstrument("flute") && findInstrument("whistle") && instrumentIds().size() == 7);
+    assert(!findInstrument("kazoo") && !findInstrument("flute") && findInstrument("whistle") && instrumentIds().size() == 11);
     for (const char* f : {"kazoo", "flute", "lute", "pipe", "harp2", "fife"}) fs::remove(dir / (std::string(f) + ".json"));
     reloadInstruments();
-    assert(instrumentWarnings().empty() && instrumentIds().size() == 6);
+    assert(instrumentWarnings().empty() && instrumentIds().size() == 10);
     // clear errors for each field (MCP define_instrument shows them)
     auto err = [](const json& j) {
       try { parseInstrument(j); } catch (const std::runtime_error& e) { return std::string(e.what()); }
@@ -742,6 +745,74 @@ int main() {
     assert(pn[0].graces.empty() && pn[0].gap < 0.02 && pn[2].graces.empty() && !pn[3].vibrato);      // no ornaments on keys
     assert(gt[0].graces.size() == 1 && gt[2].graces.size() == 1 && !gt[3].vibrato);                  // hammer-ons, slides
     assert(hm[0].graces.empty() && hm[0].gap > 0.1 && hm[2].graces.size() == 1 && hm[3].vibrato);    // breaths, bends
+  }
+
+  // singing voices (#87): the presets, the range test's maths on rendered takes, the mic's octave rule, breaths
+  {
+    const Instrument sop = *findInstrument("voice-soprano"), alt = *findInstrument("voice-alto"), ten = *findInstrument("voice-tenor"),
+                     bas = *findInstrument("voice-bass"), vln = *findInstrument("violin");
+    assert(sop.low == parseNote("C4") && sop.high == parseNote("A5") && sop.octave == 0 && alt.low == parseNote("G3") && alt.high == parseNote("E5"));
+    assert(ten.octave == -1 && ten.low == parseNote("C4") && ten.high == parseNote("A5"));  // sounds C3..A4
+    assert(bas.octave == -1 && bas.low == parseNote("E3") && bas.high == parseNote("E5"));  // sounds E2..E4
+    assert((ten.techniques == std::vector<std::string>{"breath", "vibrato", "slide"}) && ten.notes.empty() && !vln.voice);
+    const int sr = 48000;
+    // one take: `secs` of a sung note (harmonics, a 5.5 Hz vibrato of +-30 cents) after `lead` s of silence, read the
+    // way the GUI does: one 2048-sample window per 60 fps frame, gated, YIN over the range test's search
+    auto take = [&](double hz, double lead, double secs = 3) {
+      std::vector<float> x((size_t)(sr * secs), 0.0f);
+      double ph = 0;
+      for (size_t i = (size_t)(sr * lead); i < x.size(); i++) {
+        double f = hz * std::pow(2.0, 0.3 / 12 * std::sin(6.2831853 * 5.5 * i / sr));
+        ph += 6.2831853 * f / sr;
+        x[i] = float(0.3 * std::sin(ph) + 0.15 * std::sin(2 * ph) + 0.08 * std::sin(3 * ph));
+      }
+      std::vector<float> frames;
+      for (size_t at = 2048; at <= x.size(); at += sr / 60)
+        frames.push_back(rms(&x[at - 2048], 2048) > 0.01f ? detectPitch(&x[at - 2048], 2048, sr, VOICE_MIN_HZ, VOICE_MAX_HZ) : 0);
+      return sungNote(frames);
+    };
+    assert(take(soundingFreq(40, 0), 0) == 40);     // E2, a bass's lowest
+    assert(take(soundingFreq(67, 0), 1) == 67);     // G4 after a second of silence
+    assert(take(soundingFreq(81, 0), 0.5) == 81);   // A5
+    assert(take(soundingFreq(54, 0) * 1.01, 0) == 54);  // 17 cents sharp is still F#3
+    assert(!take(440, 2.5) && !take(440, 3));       // sung too late, or nothing: no note
+    assert(!sungNote({}) && sungNote({0, 0, 220, 220, 221, 30000}) == 57);  // frames outside the search don't count
+    // My voice: the sung range written in the preset's octave, with its techniques and sound; a fifth at least
+    auto mv = myVoice(bas, 64, 40);  // E4 and E2, either order
+    assert(mv && mv->id == "my-voice" && mv->name == "My voice" && mv->voice && mv->custom && mv->octave == -1);
+    assert(mv->low == 52 && mv->high == 76 && mv->techniques == bas.techniques && mv->sound == bas.sound && mv->notes.empty());
+    assert(myVoice(sop, 60, 67) && !myVoice(sop, 60, 66) && myVoice(sop, 60, 67)->low == 60);
+    assert(toJson(*mv)["voice"] == true && !toJson(sop).contains("hints"));
+    json bad = toJson(*mv);
+    bad["id"] = "x", bad["voice"] = "yes";
+    try { parseInstrument(bad); assert(false); } catch (const std::runtime_error&) {}
+    saveInstrument(*mv);
+    auto saved = findInstrument("my-voice");
+    assert(saved && saved->voice && saved->custom && saved->low == 52 && saved->high == 76 && saved->octave == -1);
+    assert(deleteInstrument("my-voice") && !findInstrument("my-voice"));
+    // the mic (#87): a tenor sings a written A4 as A3 (220 Hz). Read back as a tenor it is the A4; read with octave 0
+    // (a soprano's or a violinist's mic) it is A3, an octave off: right for a voice, "wrong octave" for the violin
+    Song a4 = importAbc("X:1\nT:a\nM:4/4\nL:1/4\nK:D\nA4|\n").song;
+    a4.instrument = "violin";
+    Performance pt = perform(a4, 60, 0, false, "", ten);
+    assert(pt.octave == -1 && pt.sound == "violin");
+    Synth sy;
+    sy.metronome = false;
+    long long at = sr / 2;
+    std::vector<float> x(2048);
+    sy.render(pt, at, x.data(), (int)x.size());
+    float hz = detectPitch(x.data(), (int)x.size(), sr, VOICE_MIN_HZ, VOICE_MAX_HZ);
+    assert(std::abs(hz - 220) < 3);
+    float low = (float)writtenMidiFromFreq(hz, 0);
+    assert(judgeNote((float)writtenMidiFromFreq(hz, ten.octave), 69, 40, ten) == MicNote::Right);
+    assert(judgeNote(low, 69, 40, sop) == MicNote::Right && judgeNote(low, 69, 40, vln) == MicNote::Octave);
+    assert(std::abs(heardCents(low, 69, sop)) < 40 && std::abs(heardCents(low, 69, vln) + 1200) < 40);
+    assert(judgeNote(low + 24, 69, 40, sop) == MicNote::Right && judgeNote(low + 1, 69, 40, sop) == MicNote::Wrong);
+    assert(judgeNote(69.3f, 69, 40, vln) == MicNote::Right && judgeNote(69.5f, 69, 40, vln) == MicNote::Wrong);
+    assert(judgeNote(81.2f, 69, 40, vln) == MicNote::Octave && judgeNote(0, 69, 40, sop) == MicNote::Wrong);
+    // a singer breathes whatever the sound; the same violin sound on a non-voice doesn't
+    Song br = importAbc("X:1\nT:b\nM:4/4\nL:1/4\nK:D\nA !breath! B c d|\n").song;
+    assert(perform(br, 60, 0, false, "", sop).voices[0].gap > 0.1 && perform(br, 60, 0, false, "", vln).voices[0].gap == 0);
   }
 
   // transpose D major down a tone -> C major

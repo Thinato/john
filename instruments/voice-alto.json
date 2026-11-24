@@ -1,0 +1,10 @@
+{
+ "name": "Alto voice",
+ "order": 8,
+ "low": "G3",
+ "high": "E5",
+ "octave": 0,
+ "techniques": ["breath", "vibrato", "slide"],
+ "sound": "violin",
+ "voice": true
+}
