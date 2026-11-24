@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <algorithm>
 #include <cstdlib>
 #ifdef __EMSCRIPTEN__
 #include <GLFW/emscripten_glfw3.h>
@@ -75,6 +76,68 @@ static void writeSnapshot(const char* snapshot, int w, int h) {
   if (f) { fwrite(hdr, 1, 18, f); fwrite(px.data(), 1, px.size(), f); fclose(f); }
 }
 
+// JOHN_SNAPSHOT_* (dev aid, read once and only with JOHN_SNAPSHOT): the state to snapshot, set without clicking.
+// How to snapshot each window: kb/notes/gui-snapshot-convert-full-image.md, scripts/snap.sh.
+struct Snap { int frames = 5, cursor = -1; std::vector<float> mic; };
+
+static Snap snapSetup(App& a) {
+  auto env = [](const char* k) { const char* v = std::getenv(k); return std::string(v ? v : ""); };
+  auto list = [](const std::string& v) {
+    std::vector<std::string> out;
+    for (size_t i = 0; i < v.size();) {
+      size_t j = std::min(v.find(',', i), v.size());
+      if (j > i) out.push_back(v.substr(i, j - i));
+      i = j + 1;
+    }
+    return out;
+  };
+  auto num = [&](const char* k, int def) { auto v = env(k); return v.empty() ? def : std::atoi(v.c_str()); };
+  Snap sn;
+  sn.frames = std::max(1, num("JOHN_SNAPSHOT_FRAMES", 5));
+  sn.cursor = num("JOHN_SNAPSHOT_CURSOR", -1);
+  a.snapHover = num("JOHN_SNAPSHOT_HOVER", -1);
+  if (auto id = env("JOHN_SNAPSHOT_SONG"); !id.empty()) { a.follow = false; open(a, id); }
+  for (auto& w : list(env("JOHN_SNAPSHOT_OPEN"))) {
+    if (w == "settings") a.showSettings = true;
+    else if (w == "range-test") a.showRange = true, a.rangeFrom = myInstrument(a.set);
+    else if (w == "import") a.showAbc = true;
+#ifndef __EMSCRIPTEN__
+    else if (w == "import-audio") openImport(a);
+#endif
+    else if (auto in = w.rfind("instrument-editor:", 0) == 0 ? findInstrument(w.substr(18)) : std::nullopt) {
+      a.editing = in, a.editingNew = false;  // as Settings' Edit button
+      snprintf(a.editName, sizeof a.editName, "%s", in->name.c_str());
+    } else fprintf(stderr, "JOHN_SNAPSHOT_OPEN: unknown window or instrument %s\n", w.c_str());
+  }
+  for (auto& hz : list(env("JOHN_SNAPSHOT_MIC"))) sn.mic.push_back(std::strtof(hz.c_str(), nullptr));
+  if (a.showRange)  // one Hz per take: lowest, highest
+    for (size_t i = 0; i < 2 && i < sn.mic.size(); i++) a.rangeNote[i] = sungNote({sn.mic[i]});
+  else if (!sn.mic.empty()) a.listen = true, a.mode = App::PlayAlong;  // never opens the mic: snapFrame() fills in what it heard
+  return sn;
+}
+
+// Each frame after practiceUpdate(): the cursor, and play-along with the faked mic. The k-th Hz is what the mic heard
+// on the k-th note played (graded like play-along, 0 = silence), the last one is what it hears now.
+static void snapFrame(App& a, const Snap& sn) {
+  if (sn.cursor >= 0) a.cursor = sn.cursor;
+  if (!a.listen || sn.mic.empty() || !a.song) return;
+  const Instrument me = myInstrument(a.set);
+  auto heard = [&](float hz) { return hz > 0 ? (float)writtenMidiFromFreq(hz, me.octave) : 0.0f; };
+  size_t k = 0;
+  App::Grade g = App::None;
+  for (int ev : a.order) {
+    const Event& e = a.song->events[ev];
+    if (e.kind != Kind::Note) continue;
+    if (!tiedFrom(*a.song, ev)) {  // a tied note keeps the grade of the note it continues
+      if (k == sn.mic.size()) break;
+      MicNote m = judgeNote(heard(sn.mic[k++]), e.midi, a.set.tolerance, me);
+      g = m == MicNote::Right ? App::Good : m == MicNote::Octave ? App::Octave : App::Miss;
+    }
+    a.grades[ev] = g;
+  }
+  a.heard = heard(sn.mic.back());
+}
+
 int main() {
   try { installSongs(lessonsDir()); } catch (...) {}
 #ifdef __EMSCRIPTEN__
@@ -102,7 +165,8 @@ int main() {
   ImGui::StyleColorsDark();
   ImGui::GetStyle().FontSizeBase = 16.0f;
   loadFonts(io);
-  ImGui_ImplGlfw_InitForOpenGL(win, true);
+  const char* snapshot = std::getenv("JOHN_SNAPSHOT");  // dev aid: write the window to a .tga after a few frames and exit
+  ImGui_ImplGlfw_InitForOpenGL(win, !snapshot);  // a snapshot ignores the real mouse and keyboard: same image every run
 #ifdef __EMSCRIPTEN__
   ImGui_ImplOpenGL3_Init(nullptr);
 #else
@@ -118,7 +182,7 @@ int main() {
   };
   std::string lang = a.set.language;  // language currently applied
   applyLanguage(lang);
-  const char* snapshot = std::getenv("JOHN_SNAPSHOT");  // dev aid: write the window to a .tga after a few frames and exit
+  const Snap sn = snapshot ? snapSetup(a) : Snap{};
   bool light = false;  // theme currently applied
   int frame = 0;
   auto step = [&]() -> bool {  // one frame; false = stop
@@ -133,9 +197,11 @@ int main() {
     if (live) glfwPollEvents(); else glfwWaitEventsTimeout(0.5);  // idle cheaply, still notice agent edits
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
+    if (snapshot) io.AddMousePosEvent(a.snapMouse.x, a.snapMouse.y);  // overrides the polled real cursor
     ImGui::NewFrame();
     try { poll(a); } catch (const std::exception&) {}  // e.g. data folder briefly unavailable; retry next poll
     practiceUpdate(a, io.DeltaTime);
+    if (snapshot) snapFrame(a, sn);
     if (a.set.light != light) { light = a.set.light; light ? ImGui::StyleColorsLight() : ImGui::StyleColorsDark(); }
     if (!a.busy) {  // the transcription thread reads them (tr(), keyName())
       if (a.set.language != lang) applyLanguage(lang = a.set.language);
@@ -170,7 +236,7 @@ int main() {
     glClearColor(0.1f, 0.1f, 0.1f, 1);
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    if (snapshot && frame == 5) {
+    if (snapshot && frame == sn.frames) {
       writeSnapshot(snapshot, w, h);
       return false;
     }
