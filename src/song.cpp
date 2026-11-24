@@ -376,27 +376,43 @@ static void writeJson(const fs::path& p, const json& j, int indent = 1) {
   persist();
 }
 
+// The ids techniques.json defines, as of the last loadTechniques() (marks() asks per note, so no file read there).
+// Guarded: Import audio's worker thread imports ABC, which loads the catalog.
+static std::mutex gTechMu;
+static std::set<std::string> gCustomTech;
+static bool gTechLoaded = false;
+
 bool builtinTechnique(const std::string& id) {
   static const std::set<std::string> ids = [] {  // ids don't depend on the language
     std::set<std::string> r;
     for (auto& t : defaultTechniques()) r.insert(t.id);
     return r;
   }();
-  return ids.count(id) > 0;
+  if (!ids.count(id)) return false;
+  bool loaded;
+  { std::lock_guard lock(gTechMu); loaded = gTechLoaded; }
+  if (!loaded) loadTechniques();
+  std::lock_guard lock(gTechMu);
+  return !gCustomTech.count(id);  // a user's own technique with this id (e.g. a grace defined before #86) is custom
 }
 
 std::vector<Technique> loadTechniques() {
   auto all = defaultTechniques();
+  std::set<std::string> custom;
   json j = readJson(dataDir() / "techniques.json");
-  if (!j.is_array()) return all;
-  for (auto& t : j) {
-    Technique x;
-    try { x = {t.value("id", ""), t.value("name", ""), t.value("symbol", ""), t.value("description", "")}; }
-    catch (const json::exception&) { continue; }  // skip malformed entries
-    if (x.id.empty()) continue;
-    auto it = std::find_if(all.begin(), all.end(), [&](auto& a) { return a.id == x.id; });
-    if (it != all.end()) *it = x; else all.push_back(x);
-  }
+  if (j.is_array())
+    for (auto& t : j) {
+      Technique x;
+      try { x = {t.value("id", ""), t.value("name", ""), t.value("symbol", ""), t.value("description", "")}; }
+      catch (const json::exception&) { continue; }  // skip malformed entries
+      if (x.id.empty()) continue;
+      custom.insert(x.id);
+      auto it = std::find_if(all.begin(), all.end(), [&](auto& a) { return a.id == x.id; });
+      if (it != all.end()) *it = x; else all.push_back(x);
+    }
+  std::lock_guard lock(gTechMu);
+  gCustomTech = custom;
+  gTechLoaded = true;
   return all;
 }
 
@@ -409,6 +425,8 @@ void saveCustomTechnique(const Technique& t) {
   for (auto& e : j) if (e.value("id", "") == t.id) { e = x; replaced = true; }
   if (!replaced) j.push_back(x);
   writeJson(p, j);
+  std::lock_guard lock(gTechMu);
+  gCustomTech.insert(t.id);
 }
 
 // ---------------- instruments (#85) ----------------
@@ -507,6 +525,8 @@ Instrument parseInstrument(const json& j) {
     for (auto& [k, v] : j["instead"].items()) {
       if (!v.is_string()) throw E("instead \"" + k + "\" must be a technique id");
       std::string to = v.get<std::string>();
+      if (std::find(in.techniques.begin(), in.techniques.end(), k) != in.techniques.end())
+        throw E("instead \"" + k + "\": the instrument lists " + k + " itself, so it is never replaced");
       if (std::find(in.techniques.begin(), in.techniques.end(), to) == in.techniques.end())
         throw E("instead \"" + k + "\": \"" + to + "\" must be one of the instrument's techniques");
       in.instead[k] = to;
@@ -577,6 +597,8 @@ static void loadInstrumentsLocked() {
     // ponytail: instrumentOf() falls back to the whistle, so there always is one, even without instruments/
     Instrument w;
     w.id = "whistle", w.name = "D whistle", w.low = 62, w.high = 85, w.octave = 1, w.key = "D", w.builtin = true, w.order = 0;
+    for (auto& t : defaultTechniques())  // whistle.json's list: every built-in but the other instruments' equivalents
+      if (t.id != "grace" && t.id != "turn" && t.id != "shake") w.techniques.push_back(t.id);
     gInst.push_back(w);
     gInstWarn.push_back("no whistle profile in " + instrumentsDir().string() + ": using a plain D whistle");
   }

@@ -553,6 +553,23 @@ int main() {
     assert(saveErr(in).empty() && findInstrument("fl")->instead == in.instead);
     assert((marks({"roll", "tap"}, *findInstrument("fl")).shown == V{"grace"}));
     deleteInstrument("fl");
+    // an instead key the instrument lists itself would never apply: refused
+    f["instead"] = {{"slide", "grace"}};
+    assert(err(f).find("instead \"slide\": the instrument lists slide itself") == 0);
+    // the fallback whistle (no whistle.json) lists what whistle.json lists: every built-in but the equivalents
+    {
+      std::set<std::string> builtins, listed(wh.techniques.begin(), wh.techniques.end());
+      for (auto& t : defaultTechniques()) if (t.id != "grace" && t.id != "turn" && t.id != "shake") builtins.insert(t.id);
+      assert(listed == builtins);
+    }
+    // a user's own technique with a built-in's id (a grace defined before #86) is custom: always shown
+    assert(builtinTechnique("grace") && marks({"grace"}, wh).hidden == V{"grace"});
+    saveCustomTechnique({"grace", "Grace", "g", "my own grace"});
+    assert(!builtinTechnique("grace") && marks({"grace"}, wh).shown == V{"grace"});
+    fs::remove(home / "techniques.json");
+    assert(!builtinTechnique("grace"));  // the cache follows loadTechniques(), as the GUI's poll and each MCP call do
+    loadTechniques();
+    assert(builtinTechnique("grace") && marks({"grace"}, wh).hidden == V{"grace"});
     // playback follows the player's marks: a whistle tune on the piano plays grace notes and turns, on the harmonica a shake
     Song o = importAbc("X:1\nT:o\nM:4/4\nL:1/4\nK:D\n{g}A ~B2 !tongue!c|\n").song;
     auto onPiano = perform(o, 60, 0, false, "", pn).voices, onHarp = perform(o, 60, 0, false, "", hm).voices;
@@ -584,6 +601,20 @@ int main() {
     assert(pitch(xg, 0.008, 1000) == 71 && pitch(xg, 0.3, n) == 69);   // B4 grace, then A4
     assert(pitch(xt, 0.008, 1000) == 71 && pitch(xt, 0.078, 1000) == 67 && pitch(xt, 0.3, n) == 69);  // above, below, the note
     assert(pitch(xk, 0.46, 1500) == 72 && pitch(xk, 0.53, 1500) == 69 && pitch(xk, 0.6, 1500) == 72);  // C5 / A4 alternate
+    // on a short note the grace notes shrink to a quarter of what sounds, so the main note is still heard (a sixteenth at
+    // 120 bpm, 125 ms, minus the piano's 12 ms damp)
+    Song sg = importAbc("X:1\nT:s\nM:4/4\nL:1/16\nK:C\n!grace!A !turn!A z2 z12|\n").song;
+    Performance ps = perform(sg, 120, 0, false, "piano", pn);
+    const double heard = 0.125 - 0.012, gl = heard / 4;
+    assert(std::abs(ps.voices[0].graceLen - gl) < 1e-9 && std::abs(ps.voices[1].graceLen - gl) < 1e-9);
+    assert(std::abs(ps.voices[1].graces[1].first - 2 * gl) < 1e-9);
+    std::vector<float> xs = render(ps);
+    auto shortPitch = [&](double at, int len) {
+      float hz = detectPitch(xs.data() + (int)(at * sr), len, sr, 300, 2000);
+      return hz > 0 ? (int)std::lround(writtenMidiFromFreq(hz, 0)) : -1;
+    };
+    assert(shortPitch(0.002, 1000) == 71 && shortPitch(gl + 0.005, 3000) == 69);  // grace, then the note for 3/4
+    assert(shortPitch(0.125 + 2 * gl + 0.002, 1000) == 67 && shortPitch(0.125 + 3 * gl + 0.002, 900) == 69);  // turn: below, the note
   }
 
   // play in another key (#67): smallest interval, then the octave that fits the instrument; back = the original

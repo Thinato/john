@@ -247,6 +247,7 @@ struct Voice {                 // one note as played by the backing voice
   double gap = 0;              // silence at the end of the note (breath, staccato, next note tongued/repeated)
   bool tongued = false, vibrato = false;
   std::vector<std::pair<double, int>> graces;  // (seconds after start, semitones from the note) for cuts/taps/rolls
+  double graceLen = 0.035;     // seconds each grace sounds (shorter on short notes with grace notes, turns or shakes)
 };
 struct Performance {
   std::vector<Voice> voices;                    // notes only (rests are gaps)

@@ -125,6 +125,7 @@ reply 38 | grep -q 'techniques: staccato, accent, trill, grace, turn; instead: c
 reply 49 | grep -q "Playability on the Piano" && reply 49 | grep -q "turn (the Piano's way to play: short roll" && reply 49 | grep -q "grace (the Piano's way to play: cut" && ! reply 49 | grep -q 'tongue (phrase start' || { echo "analyze_song not for the chosen instrument"; exit 1; }
 ! reply 6 | grep -q "way to play" && reply 6 | grep -q 'tongue (phrase start' || { echo "analyze_song changed for the whistle"; exit 1; }
 reply 50 | grep -q 'instead \\"cut\\": \\"turn\\" must be one of the instrument' || { echo "instead to an unlisted technique not rejected"; exit 1; }
+reply 1 | grep -q 'set the one in parentheses (roll), never the equivalent (turn)' || { echo "guide doesn't say to store the written-for technique"; exit 1; }
 reply 51 | grep -q "unknown technique 'nope'" || { echo "unknown instead technique not rejected"; exit 1; }
 reply 52 | grep -q "Instrument 'keys' created" && reply 52 | grep -q 'techniques: grace; instead: cut -> grace, tap -> grace' || { echo "define_instrument lost instead"; exit 1; }
 case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac

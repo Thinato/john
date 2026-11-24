@@ -720,8 +720,10 @@ static void drawScore(App& a, Song& s) {
     if (a.set.allMarks) for (auto& t : e.techniques) ImGui::BulletText("%s", techName(t).c_str());
     else {  // what the sheet shows, then the marks hidden on my instrument, so the comment about them still reads
       const Marks m = marks(e.techniques, inst);
+      auto lists = [&](const std::string& x) { return std::count(inst.techniques.begin(), inst.techniques.end(), x) > 0; };
       for (auto& t : m.shown) {
-        auto from = std::find_if(e.techniques.begin(), e.techniques.end(), [&](auto& x) { return inst.instead.count(x) && inst.instead.at(x) == t; });
+        if (t == "breath" && !lists(t)) { ImGui::BulletText("%s", tr("Phrase end (lift)")); continue; }  // as in the legend
+        auto from = std::find_if(e.techniques.begin(), e.techniques.end(), [&](auto& x) { return !lists(x) && inst.instead.count(x) && inst.instead.at(x) == t; });
         bool mapped = !std::count(e.techniques.begin(), e.techniques.end(), t) && from != e.techniques.end();
         ImGui::BulletText("%s", mapped ? trf("%s (instead of %s)", techName(t).c_str(), techName(*from).c_str()).c_str() : techName(t).c_str());
       }
@@ -1080,7 +1082,7 @@ static void detailsPanel(App& a) {
   if (ImGui::CollapsingHeader(L("Legend").c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
     if (whistle) ImGui::TextWrapped("%s", tr("Fingering chart: top three holes = left hand, bottom three = right hand. Filled = covered, empty = open, half = half-covered. + = blow harder (second octave)."));
     // marks my instrument can't play are hidden (#86): say how many, and let them all be shown
-    if (int n = hiddenMarks(s, me)) {
+    if (int n = a.set.allMarks ? 0 : hiddenMarks(s, me)) {
       ImGui::TextColored({0.95f, 0.55f, 0.15f, 1}, "%s", (n == 1 ? trf("1 %s ornament hidden", written.c_str()) : trf("%d %s ornaments hidden", n, written.c_str())).c_str());
       if (ImGui::IsItemHovered()) ImGui::SetTooltip(tr("Your %s doesn't play them. The song keeps them: hover a note to see its marks."), instName(me).c_str());
     }
@@ -1194,9 +1196,12 @@ static void instrumentEditor(App& a) {
       if (on) in.techniques.push_back(t.id);
     }
   }
-  // the others are hidden, or shown and played as one it can play (#86); entries that no longer apply go
+  // the others are hidden, or shown and played as one it can play (#86); entries that no longer apply go, and so do
+  // ids the catalog doesn't have (a shared profile), which the editor couldn't show and saveInstrument() refuses
+  auto known = [&](const std::string& id) { return std::any_of(a.techs.begin(), a.techs.end(), [&](auto& t) { return t.id == id; }); };
+  std::erase_if(in.techniques, [&](auto& id) { return !known(id); });
   auto lists = [&](const std::string& id) { return std::count(in.techniques.begin(), in.techniques.end(), id) > 0; };
-  std::erase_if(in.instead, [&](auto& kv) { return lists(kv.first) || !lists(kv.second); });
+  std::erase_if(in.instead, [&](auto& kv) { return !known(kv.first) || lists(kv.first) || !lists(kv.second); });
   ImGui::SeparatorText(tr("Played instead"));
   ImGui::TextDisabled("%s", tr("Techniques it can't play are hidden, or shown as one it can."));
   auto techName = [&](const std::string& id) {

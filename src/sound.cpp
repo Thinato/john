@@ -113,15 +113,18 @@ Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, cons
           if (has(m, "short_roll")) { v.graces.push_back({0, 4}); v.graces.push_back({dur / 2, -2}); }
           if (has(m, "cran")) for (int i = 0; i < 3; i++) v.graces.push_back({dur * i / 4, 4 + (i == 1 ? 3 : 0)});
         }
-        // the equivalents (#86), on every voice: a grace a step above, a turn above-note-below-note, a shake to the next
-        // hole up. ponytail: fixed intervals (+2/-2, shake +3), not the key's scale steps or the harp's real next hole
-        if (has(m, "grace")) v.graces.push_back({0, 2});
-        if (has(m, "turn")) { v.graces.push_back({0, 2}); v.graces.push_back({0.07, -2}); }
-        if (has(m, "shake")) for (double at = 0.035; at + 0.07 < dur; at += 0.14) { v.graces.push_back({at, 3}); v.graces.push_back({at + 0.035, 3}); }
-        if (slides && has(m, "slide")) v.graces.push_back({-1, -2});  // -1 marks a slide from 2 semitones below
         if (has(m, "staccato")) v.gap = dur / 2;
         if (breathes && has(m, "breath")) v.gap = std::max(v.gap, std::min(0.25, dur * 0.3));
         if (plucked) v.gap = std::max(v.gap, std::min(0.012, dur / 4));  // short damp: the next note is a new attack
+        // the equivalents (#86), on every voice: a grace a step above, a turn above-note-below-note, a shake to the next
+        // hole up. Their notes are 35 ms, shorter on short notes (a quarter of what sounds), so the main note is heard.
+        // ponytail: fixed intervals (+2/-2, shake +3), not the key's scale steps or the harp's real next hole
+        const double heard = dur - v.gap, g = std::min(0.035, heard / 4);
+        if (has(m, "grace") || has(m, "turn") || has(m, "shake")) v.graceLen = g;
+        if (has(m, "grace")) v.graces.push_back({0, 2});
+        if (has(m, "turn")) { v.graces.push_back({0, 2}); v.graces.push_back({2 * g, -2}); }
+        if (has(m, "shake")) for (double at = g; at + 2 * g < heard; at += 4 * g) { v.graces.push_back({at, 3}); v.graces.push_back({at + g, 3}); }
+        if (slides && has(m, "slide")) v.graces.push_back({-1, -2});  // -1 marks a slide from 2 semitones below
         if (!p.voices.empty()) {  // articulate the previous note if this one is tongued or repeats its pitch
           Voice& prev = p.voices.back();
           bool samePitch = prev.midi == v.midi && v.graces.empty();
@@ -169,7 +172,7 @@ void Synth::render(const Performance& p, long long& pos, float* out, int frames)
         double semis = 0;
         for (auto [at, g] : v.graces) {
           if (at < 0 && into < 0.12) semis = g * (1 - into / 0.12);  // slide up
-          else if (at >= 0 && into >= at && into < at + 0.035) semis = g;
+          else if (at >= 0 && into >= at && into < at + v.graceLen) semis = g;
         }
         if (v.vibrato && into > 0.2) semis += 0.25 * std::sin(TAU * 5.5 * into);
         freq = soundingFreq(v.midi, p.octave) * std::pow(2.0, semis / 12);
