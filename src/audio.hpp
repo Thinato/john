@@ -24,6 +24,7 @@ class Audio {
   bool micOn() const;
   int micRate() const;
   int latest(float* out, int n) const;  // copies the most recent n mic samples, returns n (or 0 when off)
+  long long micSamples() const;         // mic samples received since startMic(): tells new audio from old
 
   std::string error;
 

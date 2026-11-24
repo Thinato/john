@@ -1,5 +1,7 @@
 #include "miniaudio.h"  // implementation lives in core (miniaudio.cpp)
 #include "audio.hpp"
+#include <algorithm>
+#include <iterator>
 
 constexpr int RING = 1 << 15;  // ~0.7 s of mic audio at 48 kHz
 
@@ -12,6 +14,7 @@ struct AudioDevices {
   std::atomic<bool> finished{false};
   float ring[RING] = {};
   std::atomic<unsigned> writeIdx{0};
+  std::atomic<long long> heard{0};  // mic samples received since startMic()
 
   static void playCb(ma_device* dev, void* output, const void*, ma_uint32 frames) {
     auto* d = static_cast<AudioDevices*>(dev->pUserData);
@@ -29,6 +32,7 @@ struct AudioDevices {
     unsigned w = d->writeIdx.load();
     for (ma_uint32 i = 0; i < frames; i++) d->ring[(w + i) % RING] = x[i];
     d->writeIdx.store((w + frames) % RING);
+    d->heard += frames;
   }
 };
 
@@ -64,6 +68,10 @@ double Audio::playTime() const { return double(d_->pos.load()) / d_->synth.sampl
 
 bool Audio::startMic() {
   if (d_->inInit) return true;
+  // a fresh ring: no audio from a previous session is read as new (the web's getUserMedia starts late)
+  std::fill(std::begin(d_->ring), std::end(d_->ring), 0.0f);
+  d_->writeIdx = 0;
+  d_->heard = 0;
   ma_device_config cfg = ma_device_config_init(ma_device_type_capture);
   cfg.capture.format = ma_format_f32;
   cfg.capture.channels = 1;
@@ -84,6 +92,7 @@ void Audio::stopMic() {
 
 bool Audio::micOn() const { return d_->inInit; }
 int Audio::micRate() const { return 48000; }
+long long Audio::micSamples() const { return d_->heard.load(); }
 
 int Audio::latest(float* out, int n) const {
   if (!d_->inInit || n > RING) return 0;

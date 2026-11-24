@@ -810,6 +810,37 @@ int main() {
     assert(judgeNote(low + 24, 69, 40, sop) == MicNote::Right && judgeNote(low + 1, 69, 40, sop) == MicNote::Wrong);
     assert(judgeNote(69.3f, 69, 40, vln) == MicNote::Right && judgeNote(69.5f, 69, 40, vln) == MicNote::Wrong);
     assert(judgeNote(81.2f, 69, 40, vln) == MicNote::Octave && judgeNote(0, 69, 40, sop) == MicNote::Wrong);
+    // play-along's pitch search (micSearch, what the GUI uses): a voice is heard an octave beyond its range, so every
+    // preset's lowest note sung an octave down, and its highest an octave up, is found and counts as right
+    auto sing = [&](double f, int n) {
+      std::vector<float> y(n);
+      double ph = 0;
+      for (int i = 0; i < n; i++) {
+        ph += 6.2831853 * f * std::pow(2.0, 0.3 / 12 * std::sin(6.2831853 * 5.5 * i / sr)) / sr;
+        y[i] = float(0.3 * std::sin(ph) + 0.15 * std::sin(2 * ph) + 0.08 * std::sin(3 * ph));
+      }
+      return y;
+    };
+    for (const Instrument* v : {&sop, &alt, &ten, &bas})
+      for (auto [note, f] : {std::pair{v->low, soundingFreq(v->low, v->octave) / 2}, std::pair{v->high, soundingFreq(v->high, v->octave) * 2}}) {
+        const MicSearch ms = micSearch(*v, sr);
+        std::vector<float> y = sing(f, ms.window);
+        float got = detectPitch(y.data(), ms.window, sr, ms.fmin, ms.fmax);
+        if (std::abs(got - f) > f * 0.03) fprintf(stderr, "%s: %.1f Hz heard as %.1f\n", v->id.c_str(), f, got);
+        assert(std::abs(got - f) < f * 0.03 && judgeNote((float)writtenMidiFromFreq(got, v->octave), note, 40, *v) == MicNote::Right);
+      }
+    {  // the instrument-only search (other instruments, and voices before the fix) can't hear the soprano's C3
+      Instrument plain = sop;
+      plain.voice = false;
+      const MicSearch ms = micSearch(plain, sr);
+      std::vector<float> y = sing(soundingFreq(sop.low, 0) / 2, ms.window);
+      assert(ms.window == 2048 && std::abs(detectPitch(y.data(), ms.window, sr, ms.fmin, ms.fmax) - soundingFreq(sop.low, 0) / 2) > 5);
+      const MicSearch mv = micSearch(vln, sr);  // unchanged for the violin
+      assert(mv.window == 2048 && std::abs(mv.fmin - soundingFreq(vln.low, 0) * 0.8) < 0.01 && std::abs(mv.fmax - soundingFreq(vln.high, 0) * 1.15) < 0.1);
+      assert(micSearch(bas, sr).window == 4096);  // two periods of the bass's E1
+    }
+    // Wait for me asks for a new attack between notes the mic can't tell apart: a repeat, or a singer's octave leap
+    assert(sameHeard(62, 62, vln) && !sameHeard(62, 74, vln) && sameHeard(62, 74, sop) && sameHeard(74, 50, ten) && !sameHeard(62, 63, sop));
     // a singer breathes whatever the sound; the same violin sound on a non-voice doesn't
     Song br = importAbc("X:1\nT:b\nM:4/4\nL:1/4\nK:D\nA !breath! B c d|\n").song;
     assert(perform(br, 60, 0, false, "", sop).voices[0].gap > 0.1 && perform(br, 60, 0, false, "", vln).voices[0].gap == 0);

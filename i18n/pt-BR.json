@@ -318,5 +318,6 @@
  "Retry": "Tentar de novo",
  "No clear note heard. Sing a little louder or closer to the microphone, and try again.": "Nenhuma nota clara foi ouvida. Cante um pouco mais alto ou mais perto do microfone e tente de novo.",
  "These notes are less than a fifth apart. Sing the lowest and the highest note you can hold comfortably.": "Essas notas estão a menos de uma quinta uma da outra. Cante a nota mais grave e a mais aguda que você sustenta com conforto.",
- "Saves this range as My voice and makes it your instrument": "Salva esta extensão como Minha voz e a torna o seu instrumento"
+ "Saves this range as My voice and makes it your instrument": "Salva esta extensão como Minha voz e a torna o seu instrumento",
+ "Your lowest note came out higher than your highest. Retry them, or save: the lower one counts as your lowest.": "Sua nota mais grave saiu mais aguda que a mais aguda. Tente de novo, ou salve: a mais baixa das duas conta como a mais grave."
 }

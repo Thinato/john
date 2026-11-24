@@ -257,6 +257,18 @@ MicNote judgeNote(float heard, int want, float tol, const Instrument& in) {
   return c <= tol ? MicNote::Right : std::abs(c - 1200) <= tol ? MicNote::Octave : MicNote::Wrong;
 }
 
+bool sameHeard(int a, int b, const Instrument& in) { return in.voice ? (a - b) % 12 == 0 : a == b; }
+
+MicSearch micSearch(const Instrument& in, int sampleRate) {
+  MicSearch m;
+  const float wide = in.voice ? 2 : 1;
+  m.fmin = (float)soundingFreq(in.low, in.octave) * 0.8f / wide;
+  m.fmax = (float)soundingFreq(in.high, in.octave) * 1.15f * wide;
+  // detectPitch searches periods up to n / 2. Other instruments keep 2048 as before #87 (a piano's A0 isn't worth 8192).
+  while (in.voice && m.window < 2 * sampleRate / m.fmin && m.window < 8192) m.window *= 2;
+  return m;
+}
+
 std::optional<int> sungNote(const std::vector<float>& hz) {
   std::vector<float> v;
   for (float f : hz) if (f >= VOICE_MIN_HZ && f <= VOICE_MAX_HZ) v.push_back(f);

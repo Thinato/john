@@ -183,7 +183,8 @@ struct App {
   bool showRange = false;
   Instrument rangeFrom;              // the voice the test started on: My voice gets its octave, techniques and sound
   int rangeTake = -1;                // the take being recorded: 0 lowest, 1 highest; -1 none
-  double rangeStart = 0;
+  long long rangeMark = 0, rangeLast = 0;  // mic samples when Sing was pressed, at the last recorded frame
+  double rangeClick = 0;             // when Sing was pressed: no audio for a while means the mic is blocked
   std::vector<float> rangeHz;        // the take's pitch, one per frame (0 = none)
   std::optional<int> rangeNote[2];   // each take's note, sounding MIDI (sungNote)
   std::string rangeError;
@@ -822,18 +823,18 @@ static void practiceUpdate(App& a, float dt) {
   // microphone -> heard pitch
   a.heard = 0;
   float recent = 0;  // level of the last ~10 ms, to catch tongued gaps shorter than the pitch window
+  const Instrument me = myInstrument(a.set);  // I sound in my instrument's octave, whatever the song was written for
   if (a.listen) {
-    static std::vector<float> buf(2048);
+    const MicSearch ms = micSearch(me, a.audio.micRate());
+    static std::vector<float> buf;
+    buf.resize(ms.window);
     int n = a.audio.latest(buf.data(), (int)buf.size());
     float level = n ? rms(buf.data(), n) : 0;
     recent = n ? rms(buf.data() + n - 512, 512) : 0;
     a.silentFor = level > 1e-5f ? 0 : a.silentFor + dt;
-    Instrument in = myInstrument(a.set);  // I sound in my instrument's octave, whatever the song was written for
-    float fmin = (float)soundingFreq(in.low, in.octave) * 0.8f, fmax = (float)soundingFreq(in.high, in.octave) * 1.15f;
     if (level > a.set.gate)
-      if (float hz = detectPitch(buf.data(), n, a.audio.micRate(), fmin, fmax)) a.heard = (float)writtenMidiFromFreq(hz, in.octave);
+      if (float hz = detectPitch(buf.data(), n, a.audio.micRate(), ms.fmin, ms.fmax)) a.heard = (float)writtenMidiFromFreq(hz, me.octave);
   }
-  const Instrument me = myInstrument(a.set);
   auto cents = [&](int midi) { return heardCents(a.heard, midi, me); };  // a voice: to the nearest octave of the note
 
   int prevCursor = a.cursor;
@@ -877,7 +878,7 @@ static void practiceUpdate(App& a, float dt) {
         if (a.stable >= 0.08) {
           gradeWithTies(a, a.waitK, App::Good);
           a.waitK = firstNoteFrom(a, a.waitK + 1);
-          a.needRelease = a.waitK < (int)a.order.size() && a.song->events[a.order[a.waitK]].midi == e.midi;
+          a.needRelease = a.waitK < (int)a.order.size() && sameHeard(a.song->events[a.order[a.waitK]].midi, e.midi, me);  // a singer's octave leap too
           a.stable = 0;
         }
       } else a.stable = 0;
@@ -1346,13 +1347,15 @@ static void settingsWindow(App& a) {
   ImGui::SeparatorText(tr("My instrument"));
   instrumentCombo(L("Instrument").c_str(), s.instrument, nullptr, s.whistle);
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("The instrument you play: the song list shows the songs that fit it, and new songs are made for it"));
-  if (myInstrument(s).voice && ImGui::Button(L("Find my range").c_str())) {
-    a.showRange = true;
-    a.rangeFrom = myInstrument(s);
-    a.rangeNote[0].reset(), a.rangeNote[1].reset();
-    a.rangeError.clear();
+  if (myInstrument(s).voice) {  // the button and its tooltip together: otherwise the tooltip lands on the combo above
+    if (ImGui::Button(L("Find my range").c_str())) {
+      a.showRange = true;
+      a.rangeFrom = myInstrument(s);
+      a.rangeNote[0].reset(), a.rangeNote[1].reset();
+      a.rangeError.clear();
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Sing your lowest and highest notes: John saves them as your own instrument, My voice"));
   }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Sing your lowest and highest notes: John saves them as your own instrument, My voice"));
   if (s.instrument == "whistle" && ImGui::BeginCombo(L("Whistle key").c_str(), keyLabel(s.whistle).c_str())) {
     for (auto& k : HARP_KEYS) if (ImGui::Selectable((keyLabel(k) + "###" + k).c_str(), k == s.whistle)) s.whistle = k;
     ImGui::EndCombo();
@@ -1386,8 +1389,9 @@ static void settingsWindow(App& a) {
 
 // A small treble staff with one note (Find my range), written as the voice reads it: a voice that sounds an octave
 // below the written notes gets the tenor clef (a G clef with an 8 below). sounding: MIDI; nullopt = an empty staff.
+// A note far off the staff is drawn an octave (or two) nearer, marked 8va/15ma above or 8vb/15mb below.
 static void noteStaff(const Instrument& in, std::optional<int> sounding) {
-  const float sp = 7, w = sp * 9, h = sp * 14;
+  const float sp = 7, w = sp * 9, h = sp * 15;
   const ImVec2 o = ImGui::GetCursorScreenPos();
   ImGui::Dummy({w, h});
   if (!gMusic) return;
@@ -1400,9 +1404,13 @@ static void noteStaff(const Instrument& in, std::optional<int> sounding) {
   sc.glyph(in.octave < 0 ? GClef8vb : GClef, o.x + sp, yOf(32), sc.ink);
   if (sounding) {
     const Spelled n = spell(Key{0, "maj"}, *sounding - 12 * in.octave);
-    const float x = o.x + sp * 5.5f, y = yOf(n.step()), hw = sc.glyphW(HeadWhole);
-    for (int l = 28; l >= n.step(); l -= 2) sc.line(x - sp * 0.4f, yOf(l), x + hw + sp * 0.4f, yOf(l), 1, sc.ink);
-    for (int l = 40; l <= n.step(); l += 2) sc.line(x - sp * 0.4f, yOf(l), x + hw + sp * 0.4f, yOf(l), 1, sc.ink);
+    int step = n.step(), ottava = 0;  // octaves moved: + drawn lower (8va), - drawn higher (8vb)
+    while (step > 43) step -= 7, ottava++;  // more than three ledger lines above, or four below, don't fit the box
+    while (step < 23) step += 7, ottava--;
+    const float x = o.x + sp * 5.5f, y = yOf(step), hw = sc.glyphW(HeadWhole);
+    if (ottava) sc.text(ottava == 1 ? "8va" : ottava == -1 ? "8vb" : ottava > 0 ? "15ma" : "15mb", x + hw / 2, ottava > 0 ? o.y + sp * 0.1f : o.y + h - sp * 1.6f, sp * 1.5f, sc.ink);
+    for (int l = 28; l >= step; l -= 2) sc.line(x - sp * 0.4f, yOf(l), x + hw + sp * 0.4f, yOf(l), 1, sc.ink);
+    for (int l = 40; l <= step; l += 2) sc.line(x - sp * 0.4f, yOf(l), x + hw + sp * 0.4f, yOf(l), 1, sc.ink);
     if (n.alter) sc.glyph(n.alter > 0 ? Sharp : Flat, x - sp * 1.3f, y, sc.ink);
     sc.glyph(HeadWhole, x, y, sc.ink);
   }
@@ -1411,16 +1419,28 @@ static void noteStaff(const Instrument& in, std::optional<int> sounding) {
 
 // Find my range (#87): the singer sings the lowest, then the highest comfortable note for RANGE_TAKE seconds each.
 // The GUI only records one pitch per frame; sungNote() and myVoice() in core do the maths. Works on the web too.
+// The take counts mic samples, not seconds: it starts with the first audio after Sing (the web's getUserMedia answers
+// late, and an open mic holds older audio), and reads only windows made of new samples, once per new batch.
 constexpr double RANGE_TAKE = 3;
+constexpr int RANGE_WINDOW = 2048;  // two periods of VOICE_MIN_HZ at 48 kHz
 static void rangeWindow(App& a) {
   if (!a.showRange) return;
+  const long long takeLen = RANGE_WINDOW + (long long)(RANGE_TAKE * a.audio.micRate());
   if (a.rangeTake >= 0) {
-    static std::vector<float> buf(2048);
-    int n = a.audio.latest(buf.data(), (int)buf.size());
-    a.rangeHz.push_back(n && rms(buf.data(), n) > a.set.gate ? detectPitch(buf.data(), n, a.audio.micRate(), VOICE_MIN_HZ, VOICE_MAX_HZ) : 0);
-    if (ImGui::GetTime() - a.rangeStart >= RANGE_TAKE) {
+    const long long now = a.audio.micSamples(), fresh = now - a.rangeMark;
+    if (fresh >= RANGE_WINDOW && now != a.rangeLast) {
+      a.rangeLast = now;
+      static std::vector<float> buf(RANGE_WINDOW);
+      int n = a.audio.latest(buf.data(), RANGE_WINDOW);
+      a.rangeHz.push_back(n && rms(buf.data(), n) > a.set.gate ? detectPitch(buf.data(), n, a.audio.micRate(), VOICE_MIN_HZ, VOICE_MAX_HZ) : 0);
+    }
+    const bool done = fresh >= takeLen, deaf = fresh == 0 && ImGui::GetTime() - a.rangeClick > 6;
+    if (done) {
       a.rangeNote[a.rangeTake] = sungNote(a.rangeHz);
       if (!a.rangeNote[a.rangeTake]) a.rangeError = tr("No clear note heard. Sing a little louder or closer to the microphone, and try again.");
+    }
+    if (deaf) a.rangeError = tr("no sound from the mic: allow microphone access for this app/terminal in System Settings > Privacy & Security");
+    if (done || deaf) {
       a.rangeTake = -1;
       if (!a.listen) a.audio.stopMic();
     }
@@ -1441,13 +1461,14 @@ static void rangeWindow(App& a) {
       if (a.rangeNote[i]) ImGui::TextUnformatted(noteName(spell(Key{0, "maj"}, *a.rangeNote[i])).c_str());
       else ImGui::TextDisabled("-");
       ImGui::PopFont();
-      if (a.rangeTake == i) ImGui::ProgressBar(float((ImGui::GetTime() - a.rangeStart) / RANGE_TAKE), {220, 0}, tr("listening..."));
+      if (a.rangeTake == i) ImGui::ProgressBar(std::clamp(float(a.audio.micSamples() - a.rangeMark) / takeLen, 0.0f, 1.0f), {220, 0}, tr("listening..."));
       else {
         ImGui::BeginDisabled(a.rangeTake >= 0 || (i == 1 && !a.rangeNote[0]));
         if (ImGui::Button((a.rangeNote[i] ? L("Retry") : L("Sing")).c_str())) {
           a.rangeError.clear();
           if (a.audio.startMic()) {
-            a.rangeTake = i, a.rangeStart = ImGui::GetTime();
+            a.rangeTake = i, a.rangeClick = ImGui::GetTime();
+            a.rangeMark = a.rangeLast = a.audio.micSamples();  // only what comes after this counts
             a.rangeHz.clear();
             a.rangeNote[i].reset();
           } else a.rangeError = a.audio.error;
@@ -1456,6 +1477,11 @@ static void rangeWindow(App& a) {
       }
       ImGui::EndGroup();
       ImGui::PopID();
+    }
+    if (a.rangeNote[0] && a.rangeNote[1] && *a.rangeNote[0] > *a.rangeNote[1] && a.rangeTake < 0) {
+      ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 420);
+      ImGui::TextColored({1, 0.75f, 0.3f, 1}, "%s", tr("Your lowest note came out higher than your highest. Retry them, or save: the lower one counts as your lowest."));
+      ImGui::PopTextWrapPos();
     }
     if (!a.rangeError.empty()) {
       ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 420);

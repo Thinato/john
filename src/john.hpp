@@ -289,6 +289,14 @@ float detectPitch(const float* x, int n, int sampleRate, float fmin = 400, float
 enum class MicNote { Wrong, Right, Octave };
 float heardCents(float heard, int want, const Instrument& in);
 MicNote judgeNote(float heard, int want, float toleranceCents, const Instrument& in);
+// Two written notes the mic can't tell apart on `in`: the same note, or for a voice the same pitch class. Wait for me
+// asks for a new attack between them (a repeated note, a singer's octave leap).
+bool sameHeard(int a, int b, const Instrument& in);
+// The mic's pitch search for play-along on `in` (sounding Hz) and the samples per analysis (YIN needs two periods of
+// fmin). The instrument's sounding range plus a margin; a voice an octave further each way, since singers pick their
+// own octave (#87), with a longer window for the low end.
+struct MicSearch { float fmin = 0, fmax = 0; int window = 2048; };
+MicSearch micSearch(const Instrument& in, int sampleRate);
 // Range test (#87, Find my range): the pitch search for the takes (B1..F#6) and the note of one take, the pitches
 // detected frame by frame (0 = none): the median of those in the search range, as a sounding MIDI note. nullopt when
 // under a third of the frames had one (nothing clear was sung).
