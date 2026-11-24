@@ -15,4 +15,4 @@ Don't trust the draft for individual notes. Run with `JOHN_TRANSCRIBE_DEBUG=<fil
 On the fuze piano intro the user heard two missing D's that the draft didn't show; both were visible in the dump. The detected tempo was also wrong without a hint (125 instead of 70); since #8 the report's tempo line says so (confidence low, with an "also plausible" tempo).
 
 ## How to apply
-When the user says a note is missing or wrong, look at that time window in the dump before editing the ABC. Pass `bpm` when the song's tempo is known, or when the tempo line says confidence low or medium and the note lengths look wrong. Every change to the pipeline must still pass the synthetic mix test in `tests/test_core.cpp`.
+When the user says a note is missing or wrong, look at that time window in the dump before editing the ABC. Pass `bpm` when the song's tempo is known, or when the tempo line says confidence low or medium and the note lengths look wrong. Every change to the pipeline must still pass the synthetic mix test in `tests/core/transcribe.cpp`.

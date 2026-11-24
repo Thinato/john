@@ -6,7 +6,7 @@ tags: [transcription, range, transpose, whistle]
 # Automatic transposition in transcription
 
 ## Context
-Changing the "key, octave fit, events" stage of `transcribe()` (`src/transcribe.cpp`), the `transpose` option (`TranscribeOptions`, `transcribe_audio`), or the weights in `RangeCost` (`src/john.hpp`, shared with `analyze()`).
+Changing the "key, octave fit, events" stage of `transcribe()` (`src/transcribe.cpp`), the `transpose` option (`TranscribeOptions`, `transcribe_audio`), or the weights in `RangeCost` (`src/analyze.hpp`, shared with `analyze()`).
 
 ## Rule
 When the best octave still folds more than 10% of the note time (and `transpose` is unset), the shifts -5..+6 are tried before folding. Each is costed as `analyze()` ranks transpositions (`rangeCost()`: half*10 + cross*2), except that a note out of range costs 20, not 1000. Ties go to the smallest shift. Other instruments only count notes out of range. A given `transpose`, 0 included, is used as is. Below the threshold nothing changes, so the draft stays byte-identical.

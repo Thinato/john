@@ -44,8 +44,8 @@ if(NOT EXISTS ${NOTO})
   file(DOWNLOAD https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSans/hinted/ttf/NotoSans-Regular.ttf ${NOTO} STATUS st)
 endif()
 
-add_library(john_core STATIC src/song.cpp src/abc.cpp src/analyze.cpp src/sound.cpp src/transcribe.cpp src/miniaudio.cpp
-  src/musicxml.cpp ${miniz_SOURCE_DIR}/miniz.c)
+add_library(john_core STATIC src/song.cpp src/theory.cpp src/catalog.cpp src/settings.cpp src/i18n.cpp src/import_audio.cpp
+  src/abc.cpp src/analyze.cpp src/sound.cpp src/transcribe.cpp src/miniaudio.cpp src/musicxml.cpp ${miniz_SOURCE_DIR}/miniz.c)
 target_include_directories(john_core PUBLIC src ${miniaudio_SOURCE_DIR} ${miniz_SOURCE_DIR})
 target_compile_definitions(john_core PUBLIC MA_NO_ENCODING MA_NO_RESOURCE_MANAGER MA_NO_NODE_GRAPH MA_NO_ENGINE MA_NO_GENERATION)
 # transcription crunches minutes of audio; keep it fast in Debug builds too
@@ -152,7 +152,8 @@ if(WIN32)  # char strings and paths are UTF-8, as on macOS/Linux; john.exe opens
 endif()
 
 enable_testing()
-add_executable(john-tests tests/test_core.cpp)
+file(GLOB core_tests CONFIGURE_DEPENDS tests/core/*.cpp)  # a new area file needs no line here
+add_executable(john-tests ${core_tests})
 target_link_libraries(john-tests PRIVATE john_core)
 add_test(NAME core COMMAND john-tests)
 if(WIN32)  # Git for Windows' sh runs the script
