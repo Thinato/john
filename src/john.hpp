@@ -101,6 +101,7 @@ struct Instrument {
   std::map<std::string, std::string> instead;  // a technique it can't play -> the listed one it plays instead (cut -> grace)
   std::string sound = "whistle";        // one of SOUNDS
   bool hints = false;                   // John has fingering charts for it (tin whistle charts, on `key`)
+  bool voice = false;                   // a singing voice (#87): the mic counts a note sung an octave off as right
   std::vector<std::string> keys;        // the keys it comes in, lowest instrument first; empty = only `key`
   std::string keyedName;                // name in another key, "%s whistle"
   int order = 1000;                     // built-ins: place in the lists
@@ -281,6 +282,29 @@ struct Synth {                // simple voice per instrument (Performance::sound
 float rms(const float* x, int n);
 // YIN pitch detector. Returns Hz, or 0 when no clear pitch in [fmin, fmax].
 float detectPitch(const float* x, int n, int sampleRate, float fmin = 400, float fmax = 3000);
+
+// Mic play-along: how the heard pitch (written MIDI, fractional, as writtenMidiFromFreq gives it; 0 = nothing) compares
+// with the written note due. cents: from the note; for a voice (Instrument::voice) folded to the nearest octave of it,
+// since singers pick their own octave (#87). Right: within tolerance cents. Octave: an octave off (never for a voice).
+enum class MicNote { Wrong, Right, Octave };
+float heardCents(float heard, int want, const Instrument& in);
+MicNote judgeNote(float heard, int want, float toleranceCents, const Instrument& in);
+// Two written notes the mic can't tell apart on `in`: the same note, or for a voice the same pitch class. Wait for me
+// asks for a new attack between them (a repeated note, a singer's octave leap).
+bool sameHeard(int a, int b, const Instrument& in);
+// The mic's pitch search for play-along on `in` (sounding Hz) and the samples per analysis (YIN needs two periods of
+// fmin). The instrument's sounding range plus a margin; a voice an octave further each way, since singers pick their
+// own octave (#87), with a longer window for the low end.
+struct MicSearch { float fmin = 0, fmax = 0; int window = 2048; };
+MicSearch micSearch(const Instrument& in, int sampleRate);
+// Range test (#87, Find my range): the pitch search for the takes (B1..F#6) and the note of one take, the pitches
+// detected frame by frame (0 = none): the median of those in the search range, as a sounding MIDI note. nullopt when
+// under a third of the frames had one (nothing clear was sung).
+constexpr float VOICE_MIN_HZ = 60, VOICE_MAX_HZ = 1500;
+std::optional<int> sungNote(const std::vector<float>& hz);
+// "My voice" (id my-voice, custom): the sung lowest and highest notes (sounding MIDI, either order) written in the
+// preset's octave, with the preset's octave, techniques, instead and sound. nullopt when they are less than a fifth apart.
+std::optional<Instrument> myVoice(const Instrument& preset, int low, int high);
 
 // ---- catalog & storage ----
 std::vector<Technique> defaultTechniques();       // names and descriptions translated by tr()

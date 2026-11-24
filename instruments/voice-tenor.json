@@ -1,0 +1,10 @@
+{
+ "name": "Tenor voice",
+ "order": 9,
+ "low": "C4",
+ "high": "A5",
+ "octave": -1,
+ "techniques": ["breath", "vibrato", "slide"],
+ "sound": "violin",
+ "voice": true
+}

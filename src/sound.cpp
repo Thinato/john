@@ -64,12 +64,13 @@ Performance perform(const Song& s, double bpm, int fromOrder, bool countIn, cons
   if (std::find(SOUNDS.begin(), SOUNDS.end(), p.sound) == SOUNDS.end()) p.sound = "whistle";
   // What each voice plays (kb/notes/playback-voice-ornaments.md): finger ornaments on whistle, fiddle and guitars
   // (as hammer-ons/pull-offs), slides on all but piano, vibrato on all but piano and guitar, breaths on the winds,
-  // grace notes, turns and shakes on all. The marks are the player's (marks(), #86): its equivalents, not hidden ones.
+  // grace notes, turns and shakes on all; a singer (Instrument::voice) breathes whatever the sound. The marks are the
+  // player's (marks(), #86): its equivalents, not hidden ones.
   const std::string& snd = p.sound;
   const bool fingered = snd != "piano" && snd != "harmonica";
   const bool slides = snd != "piano";
   const bool vibrato = snd != "piano" && snd != "guitar";
-  const bool breathes = snd == "whistle" || snd == "harmonica";
+  const bool breathes = snd == "whistle" || snd == "harmonica" || on.voice;
   const bool plucked = snd == "piano" || snd == "guitar" || snd == "electric-guitar";  // every note is a new attack
   bpm = std::clamp(bpm, 20.0, 400.0);
   const double secPerTick = 60.0 / bpm / (WHOLE / 4);
@@ -242,6 +243,53 @@ float detectPitch(const float* x, int n, int sr, float fmin, float fmax) {
   double a = d[best - 1], b = d[best], c = d[best + 1];
   double shift = (a - 2 * b + c) != 0 ? 0.5 * (a - c) / (a - 2 * b + c) : 0;
   return float(sr / (best + std::clamp(shift, -1.0, 1.0)));
+}
+
+float heardCents(float heard, int want, const Instrument& in) {
+  float c = (heard - want) * 100;
+  if (in.voice) c -= 1200 * std::round(c / 1200);  // singers pick their own octave
+  return c;
+}
+
+MicNote judgeNote(float heard, int want, float tol, const Instrument& in) {
+  if (heard <= 0) return MicNote::Wrong;
+  float c = std::abs(heardCents(heard, want, in));
+  return c <= tol ? MicNote::Right : std::abs(c - 1200) <= tol ? MicNote::Octave : MicNote::Wrong;
+}
+
+bool sameHeard(int a, int b, const Instrument& in) { return in.voice ? (a - b) % 12 == 0 : a == b; }
+
+MicSearch micSearch(const Instrument& in, int sampleRate) {
+  MicSearch m;
+  const float wide = in.voice ? 2 : 1;
+  m.fmin = (float)soundingFreq(in.low, in.octave) * 0.8f / wide;
+  m.fmax = (float)soundingFreq(in.high, in.octave) * 1.15f * wide;
+  // detectPitch searches periods up to n / 2. Other instruments keep 2048 as before #87 (a piano's A0 isn't worth 8192).
+  while (in.voice && m.window < 2 * sampleRate / m.fmin && m.window < 8192) m.window *= 2;
+  return m;
+}
+
+std::optional<int> sungNote(const std::vector<float>& hz) {
+  std::vector<float> v;
+  for (float f : hz) if (f >= VOICE_MIN_HZ && f <= VOICE_MAX_HZ) v.push_back(f);
+  if (v.empty() || v.size() * 3 < hz.size()) return std::nullopt;
+  std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());  // the median: a cracked or wobbly frame doesn't move it
+  return (int)std::lround(writtenMidiFromFreq(v[v.size() / 2], 0));
+}
+
+std::optional<Instrument> myVoice(const Instrument& preset, int a, int b) {
+  const int lo = std::min(a, b), hi = std::max(a, b);
+  if (hi - lo < 7) return std::nullopt;  // at least a fifth, or a take caught something else
+  Instrument in;
+  in.id = "my-voice";
+  in.name = "My voice";  // English in the file (the MCP server reads it); the GUI shows it through tr()
+  in.octave = preset.octave;
+  in.low = lo - 12 * in.octave, in.high = hi - 12 * in.octave;
+  in.techniques = preset.techniques;
+  in.instead = preset.instead;
+  in.sound = preset.sound;
+  in.voice = in.custom = true;
+  return in;
 }
 
 }  // namespace john

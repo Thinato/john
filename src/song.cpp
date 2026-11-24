@@ -537,6 +537,8 @@ Instrument parseInstrument(const json& j) {
     throw E("sound must be one of whistle, violin, piano, guitar, electric-guitar, harmonica");
   if (j.contains("hints") && !j["hints"].is_boolean()) throw E("hints must be true or false");
   in.hints = j.value("hints", false);
+  if (j.contains("voice") && !j["voice"].is_boolean()) throw E("voice must be true or false");
+  in.voice = j.value("voice", false);
   if (j.contains("order") && !j["order"].is_number_integer()) throw E("order must be a whole number");
   in.order = j.value("order", 1000);
   return in;
@@ -557,6 +559,7 @@ json toJson(const Instrument& in) {
   if (!in.keys.empty()) { j["keys"] = in.keys; j["keyed_name"] = in.keyedName; }
   if (!in.instead.empty()) j["instead"] = in.instead;
   if (in.hints) j["hints"] = true;
+  if (in.voice) j["voice"] = true;
   return j;
 }
 

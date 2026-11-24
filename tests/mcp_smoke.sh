@@ -65,6 +65,7 @@ OUT=$(printf '%s\n' \
 '{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Keys","low":60,"high":72,"techniques":["grace"],"instead":{"cut":"turn"}}}}' \
 '{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Keys","low":60,"high":72,"techniques":["grace"],"instead":{"cut":"grace","nope":"grace"}}}}' \
 '{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Keys","low":60,"high":72,"techniques":["grace"],"instead":{"cut":"grace","tap":"grace"}}}}' \
+'{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"define_instrument","arguments":{"name":"Choir tenor","low":"D4","high":"G5","octave":-1,"voice":true,"techniques":["breath","slide"],"sound":"violin"}}}' \
 | JOHN_DEMUCS="$STUB" "$BIN")
 check() { printf "%s\n" "$OUT" | grep -q "$1" || { echo "missing: $1"; echo "$OUT"; exit 1; }; }
 check '"protocolVersion":"2025-06-18"'
@@ -128,8 +129,11 @@ reply 50 | grep -q 'instead \\"cut\\": \\"turn\\" must be one of the instrument'
 reply 1 | grep -q 'set the one in parentheses (roll), never the equivalent (turn)' || { echo "guide doesn't say to store the written-for technique"; exit 1; }
 reply 51 | grep -q "unknown technique 'nope'" || { echo "unknown instead technique not rejected"; exit 1; }
 reply 52 | grep -q "Instrument 'keys' created" && reply 52 | grep -q 'techniques: grace; instead: cut -> grace, tap -> grace' || { echo "define_instrument lost instead"; exit 1; }
+reply 38 | grep -q 'voice-tenor - Tenor voice (built-in): written C4..A5, sounds 12 semitones lower' && reply 38 | grep -q 'voice-bass - Bass voice' && reply 38 | grep -q 'techniques: breath, vibrato, slide; sound: violin; singing voice' || { echo "list_instruments lost the voices"; exit 1; }
+reply 53 | grep -q "Instrument 'choir-tenor' created" && reply 53 | grep -q 'singing voice' || { echo "define_instrument lost voice"; exit 1; }
+reply 1 | grep -q 'Find my range' || { echo "guide doesn't say how to help a singer"; exit 1; }
 case $OUT in *"stub noise"*) echo "demucs output reached the MCP stdout"; exit 1 ;; esac
 CR=$(printf '\r')  # replies end in a bare \n (Windows text-mode stdout would add \r)
 case $OUT in *"$CR"*) echo "reply contains \\r"; exit 1 ;; esac
-[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 52 ] || { echo "expected 52 replies"; exit 1; }
+[ "$(printf "%s\n" "$OUT" | wc -l | tr -d ' ')" = 53 ] || { echo "expected 53 replies"; exit 1; }
 echo "mcp smoke passed"
