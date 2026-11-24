@@ -3,6 +3,7 @@
   {
    "comment": "C harmonica: start on hole 4 blow (C). The whole song stays in holes 4 to 6.",
    "len": 24,
+   "lyric": "I",
    "midi": 72,
    "techniques": [
     "tongue"
@@ -11,6 +12,7 @@
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 74,
    "type": "note"
   },
@@ -20,23 +22,29 @@
   },
   {
    "len": 24,
+   "lyric": "come",
    "midi": 76,
    "type": "note"
   },
   {
    "comment": "Hole 6 blow (G). Tongue the repeated G ('tu-tu') so the two notes are clear.",
    "len": 24,
+   "lyric": "from",
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "Al",
+   "lyric_hyphen": true,
    "midi": 79,
    "type": "note"
   },
   {
    "comment": "Hole 6 draw (A): the only draw note on hole 6.",
    "len": 24,
+   "lyric": "a",
+   "lyric_hyphen": true,
    "midi": 81,
    "type": "note"
   },
@@ -46,21 +54,26 @@
   },
   {
    "len": 24,
+   "lyric": "bam",
+   "lyric_hyphen": true,
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "a",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "with",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "my",
    "midi": 74,
    "type": "note"
   },
@@ -70,21 +83,26 @@
   },
   {
    "len": 24,
+   "lyric": "ban",
+   "lyric_hyphen": true,
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "jo",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "on",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "my",
    "midi": 72,
    "type": "note"
   },
@@ -95,6 +113,7 @@
   {
    "comment": "End of the line: a short pause to breathe.",
    "len": 48,
+   "lyric": "knee,",
    "midi": 74,
    "techniques": [
     "breath"
@@ -103,11 +122,14 @@
   },
   {
    "len": 24,
+   "lyric": "I'm",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "go",
+   "lyric_hyphen": true,
    "midi": 74,
    "type": "note"
   },
@@ -117,21 +139,27 @@
   },
   {
    "len": 24,
+   "lyric": "ing",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "to",
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "Lou",
+   "lyric_hyphen": true,
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "i",
+   "lyric_hyphen": true,
    "midi": 81,
    "type": "note"
   },
@@ -141,21 +169,27 @@
   },
   {
    "len": 24,
+   "lyric": "si",
+   "lyric_hyphen": true,
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "an",
+   "lyric_hyphen": true,
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "a,",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "my",
    "midi": 74,
    "type": "note"
   },
@@ -165,21 +199,25 @@
   },
   {
    "len": 24,
+   "lyric": "true",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "love",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "for",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "to",
    "midi": 74,
    "type": "note"
   },
@@ -190,6 +228,7 @@
   {
    "comment": "End of the phrase: breathe here.",
    "len": 96,
+   "lyric": "see.",
    "midi": 72,
    "techniques": [
     "breath"
@@ -203,11 +242,14 @@
   {
    "comment": "Chorus: hole 5 draw (F).",
    "len": 48,
+   "lyric": "Oh",
    "midi": 77,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "Su",
+   "lyric_hyphen": true,
    "midi": 77,
    "type": "note"
   },
@@ -217,16 +259,20 @@
   },
   {
    "len": 24,
+   "lyric": "san",
+   "lyric_hyphen": true,
    "midi": 81,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "na,",
    "midi": 81,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "oh",
    "midi": 81,
    "type": "note"
   },
@@ -236,21 +282,25 @@
   },
   {
    "len": 24,
+   "lyric": "don't",
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "you",
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "cry",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "for",
    "midi": 72,
    "type": "note"
   },
@@ -261,6 +311,7 @@
   {
    "comment": "End of the phrase: breathe here.",
    "len": 48,
+   "lyric": "me,",
    "midi": 74,
    "techniques": [
     "breath"
@@ -269,11 +320,13 @@
   },
   {
    "len": 24,
+   "lyric": "For",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "I",
    "midi": 74,
    "type": "note"
   },
@@ -283,21 +336,27 @@
   },
   {
    "len": 24,
+   "lyric": "come",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "from",
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "Al",
+   "lyric_hyphen": true,
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "a",
+   "lyric_hyphen": true,
    "midi": 81,
    "type": "note"
   },
@@ -307,21 +366,26 @@
   },
   {
    "len": 24,
+   "lyric": "bam",
+   "lyric_hyphen": true,
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "a",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "with",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "my",
    "midi": 74,
    "type": "note"
   },
@@ -331,21 +395,26 @@
   },
   {
    "len": 24,
+   "lyric": "ban",
+   "lyric_hyphen": true,
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "jo",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "on",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "my",
    "midi": 74,
    "type": "note"
   },
@@ -356,6 +425,7 @@
   {
    "comment": "Last note: let it ring with a little hand vibrato (open and close your cupped hands).",
    "len": 96,
+   "lyric": "knee.",
    "midi": 72,
    "techniques": [
     "vibrato"

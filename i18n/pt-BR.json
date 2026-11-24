@@ -83,6 +83,8 @@
  "Your %s doesn't play them. The song keeps them: hover a note to see its marks.": "Seu %s não os toca. A música os mantém: passe o mouse sobre uma nota para ver as marcas dela.",
  "Show all marks": "Mostrar todas as marcas",
  "Show every technique mark of the song, also those your instrument doesn't play": "Mostra todas as marcas de técnica da música, também as que o seu instrumento não toca",
+ "Show lyrics": "Mostrar a letra",
+ "Show the song's words under the notes": "Mostra a letra da música embaixo das notas",
  "%s (instead of %s)": "%s (no lugar de %s)",
  "hidden: %s": "oculto: %s",
  "Played instead": "Tocado no lugar",

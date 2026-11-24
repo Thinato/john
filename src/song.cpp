@@ -732,7 +732,7 @@ void applyPreset(Instrument& in, bool diatonic) {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Settings, hints, zoom, light, tempo, countIn, metronome, volume, sound,
                                                 gate, latencyMs, tolerance, instrument, whistle, allSongs, language,
-                                                solfege, solfegeKeys, harp, allMarks)
+                                                solfege, solfegeKeys, harp, allMarks, lyrics)
 
 Settings loadSettings() {
   Settings s;
@@ -1188,7 +1188,39 @@ fs::path lessonsDir() {
 #endif
 }
 
-// ponytail: a song is copied once; later edits to the repo's copy don't reach existing installs.
+// A bundled song that gained lyrics after the user installed it: copy them into the user's copy, but only while that
+// copy has no lyrics of its own and the same notes (midi and length, in order), so an edited song is left alone.
+static void backfillLyrics(const fs::path& file, const std::string& id) {
+  auto mine = loadSong(id);
+  if (!mine) return;  // deleted
+  Song b;
+  try { b = fromJson(readJson(file)); } catch (const json::exception&) { return; }
+  auto notes = [](Song& s) {
+    std::vector<Event*> r;
+    for (auto& e : s.events) if (e.kind == Kind::Note) r.push_back(&e);
+    return r;
+  };
+  auto hasLyrics = [&](Song& s) {
+    if (!s.words.empty()) return true;
+    for (auto* e : notes(s)) if (!e->lyric.empty() || e->lyricHeld) return true;
+    return false;
+  };
+  if (!hasLyrics(b) || hasLyrics(*mine)) return;
+  auto from = notes(b), to = notes(*mine);
+  if (from.size() != to.size()) return;
+  for (size_t i = 0; i < from.size(); i++)
+    if (from[i]->midi != to[i]->midi || from[i]->len != to[i]->len) return;
+  for (size_t i = 0; i < from.size(); i++) {
+    to[i]->lyric = from[i]->lyric;
+    to[i]->lyricHyphen = from[i]->lyricHyphen;
+    to[i]->lyricHeld = from[i]->lyricHeld;
+  }
+  mine->words = b.words;
+  saveSong(*mine);
+}
+
+// ponytail: a song is copied once; later edits to the repo's copy don't reach existing installs, except lyrics added
+// since (backfillLyrics). A fix to the notes still needs a new id.
 int installSongs(const fs::path& from) {
   std::error_code ec;
   if (from.empty() || !fs::is_directory(from, ec)) return 0;
@@ -1200,7 +1232,11 @@ int installSongs(const fs::path& from) {
   int n = 0;
   for (auto& e : fs::directory_iterator(from, ec)) {
     std::string id = e.path().stem().string();
-    if (e.path().extension() != ".json" || done.count(id)) continue;
+    if (e.path().extension() != ".json") continue;
+    if (done.count(id)) {
+      backfillLyrics(e.path(), id);
+      continue;
+    }
     fs::path to = dataDir() / "songs" / (id + ".json");
     if (!fs::exists(to) && fs::copy_file(e.path(), to, ec)) n++;
     out << id << "\n";

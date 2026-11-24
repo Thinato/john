@@ -335,6 +335,7 @@ struct Settings {
   bool solfegeKeys = true;          // key names Do Re Mi ("Ré maior"); only in a language other than English
   std::string harp = "C";           // my harmonica's key (also for songs switched to or imported as harmonica), one of HARP_KEYS
   bool allMarks = false;            // the sheet shows every technique mark, not only my instrument's (marks())
+  bool lyrics = true;               // the sheet shows the song's lyrics (they are kept and exported either way)
   bool operator==(const Settings&) const = default;
 };
 Settings loadSettings();                    // missing keys -> defaults; unreadable file -> all defaults
