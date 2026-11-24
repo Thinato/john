@@ -348,7 +348,7 @@ inline const std::vector<std::string> FOLDERS = {"Lessons", "Beginner", "Interme
 bool folderBefore(const std::string& a, const std::string& b);  // FOLDERS order, then custom A-Z, unsorted last
 fs::path lessonsDir();                      // lessons/ next to the executable (release package), else the repo's
 fs::path bundled(const fs::path& rel, const fs::path& built);  // rel next to the executable if it exists, else built
-int installSongs(const fs::path& from);     // copy songs from a bundled folder (lessons/, demo/) not installed before; returns count
+int installSongs(const fs::path& from);     // copy new songs from a bundled folder (lessons/, demo/), update untouched copies; returns new count
 json toJson(const Song& s);
 Song fromJson(const json& j);
 

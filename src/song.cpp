@@ -367,13 +367,13 @@ static json readJson(const fs::path& p) {
   return json::parse(f, nullptr, false);  // discarded value on error
 }
 
-static void writeJson(const fs::path& p, const json& j, int indent = 1) {
+static void writeJson(const fs::path& p, const json& j, int indent = 1, bool sync = true) {
   // write-then-rename so the GUI never reads a half-written file
   fs::path tmp = p;
   tmp += ".tmp" + std::to_string(std::random_device{}());  // unique per writer (GUI, MCP server)
   { std::ofstream f(tmp); f << j.dump(indent) << "\n"; }
   fs::rename(tmp, p);
-  persist();
+  if (sync) persist();
 }
 
 // The ids techniques.json defines, as of the last loadTechniques() (marks() asks per note, so no file read there).
@@ -1189,12 +1189,9 @@ fs::path lessonsDir() {
 }
 
 // A bundled song that gained lyrics after the user installed it: copy them into the user's copy, but only while that
-// copy has no lyrics of its own and the same notes (midi and length, in order), so an edited song is left alone.
-static void backfillLyrics(const fs::path& file, const std::string& id) {
-  auto mine = loadSong(id);
-  if (!mine) return;  // deleted
-  Song b;
-  try { b = fromJson(readJson(file)); } catch (const json::exception&) { return; }
+// copy has no lyrics of its own and the same notes up to a transposition (the same lengths in order and one constant
+// midi difference, so a song moved with "Play in key" still gets them). A copy whose notes were edited is left alone.
+static bool backfillLyrics(Song b, Song& mine) {
   auto notes = [](Song& s) {
     std::vector<Event*> r;
     for (auto& e : s.events) if (e.kind == Kind::Note) r.push_back(&e);
@@ -1205,44 +1202,88 @@ static void backfillLyrics(const fs::path& file, const std::string& id) {
     for (auto* e : notes(s)) if (!e->lyric.empty() || e->lyricHeld) return true;
     return false;
   };
-  if (!hasLyrics(b) || hasLyrics(*mine)) return;
-  auto from = notes(b), to = notes(*mine);
-  if (from.size() != to.size()) return;
+  if (!hasLyrics(b) || hasLyrics(mine)) return false;
+  auto from = notes(b), to = notes(mine);
+  if (from.size() != to.size() || from.empty()) return false;
   for (size_t i = 0; i < from.size(); i++)
-    if (from[i]->midi != to[i]->midi || from[i]->len != to[i]->len) return;
+    if (from[i]->len != to[i]->len || to[i]->midi - from[i]->midi != to[0]->midi - from[0]->midi) return false;
   for (size_t i = 0; i < from.size(); i++) {
     to[i]->lyric = from[i]->lyric;
     to[i]->lyricHyphen = from[i]->lyricHyphen;
     to[i]->lyricHeld = from[i]->lyricHeld;
   }
-  mine->words = b.words;
-  saveSong(*mine);
+  mine.words = b.words;
+  return true;
 }
 
-// ponytail: a song is copied once; later edits to the repo's copy don't reach existing installs, except lyrics added
-// since (backfillLyrics). A fix to the notes still needs a new id.
+// FNV-1a of the song's canonical JSON, so whitespace and key order in the file don't count
+static std::string songHash(Song s, const std::string& id) {
+  s.id = id;
+  uint64_t h = 14695981039346656037ull;
+  for (unsigned char c : toJson(s).dump()) h = (h ^ c) * 1099511628211ull;
+  char buf[17];
+  snprintf(buf, sizeof buf, "%016llx", (unsigned long long)h);
+  return buf;
+}
+
+// ponytail: smart update by content hash. The marker lists "id<TAB>hash of the bundled version installed". A copy still
+// equal to that hash is replaced when the bundle changes; a copy the user changed only gets lyrics (backfillLyrics).
+// Old marker lines have no hash: a copy equal to the current bundle gets it, any other copy counts as changed. A fix to
+// a bundled song's notes reaches only untouched copies; to push it to everyone, give it a new id.
 int installSongs(const fs::path& from) {
   std::error_code ec;
   if (from.empty() || !fs::is_directory(from, ec)) return 0;
   // one marker per bundled folder (lessons-installed.txt, demo-installed.txt), so a song the user deletes stays deleted
   fs::path marker = dataDir() / (from.filename().string() + "-installed.txt");
-  std::set<std::string> done;
-  { std::ifstream f(marker); for (std::string l; std::getline(f, l);) if (!l.empty()) done.insert(l); }
-  std::ofstream out(marker, std::ios::app);
+  std::map<std::string, std::string> done;  // id -> hash ("" on lines from before the hash)
+  std::string before;
+  {
+    std::ifstream f(marker);
+    for (std::string l; std::getline(f, l);) {
+      before += l + "\n";
+      size_t t = l.find('\t');
+      if (!l.empty()) done[l.substr(0, t)] = t == std::string::npos ? "" : l.substr(t + 1);
+    }
+  }
   int n = 0;
+  bool wrote = false;
   for (auto& e : fs::directory_iterator(from, ec)) {
     std::string id = e.path().stem().string();
     if (e.path().extension() != ".json") continue;
-    if (done.count(id)) {
-      backfillLyrics(e.path(), id);
+    json bj = readJson(e.path());
+    Song b;
+    try { b = fromJson(bj); } catch (const json::exception&) { continue; }
+    std::string bh = songHash(b, id);
+    fs::path to = dataDir() / "songs" / (id + ".json");
+    if (!done.count(id)) {
+      if (!fs::exists(to) && fs::copy_file(e.path(), to, ec)) n++, wrote = true;
+      done[id] = bh;
       continue;
     }
-    fs::path to = dataDir() / "songs" / (id + ".json");
-    if (!fs::exists(to) && fs::copy_file(e.path(), to, ec)) n++;
-    out << id << "\n";
+    auto mine = loadSong(id);
+    if (!mine) continue;  // deleted
+    std::string mh = songHash(*mine, id), &was = done[id];
+    if (mh == bh) {
+      was = bh;
+    } else if (mh == was) {  // untouched since it was installed: take the new version
+      writeJson(to, bj, 1, false);
+      was = bh;
+      wrote = true;
+    } else if (backfillLyrics(b, *mine)) {
+      writeJson(to, toJson(*mine), 1, false);
+      wrote = true;
+    }
   }
-  out.close();
-  persist();
+  std::string after;
+  for (auto& [id, h] : done) after += h.empty() ? id + "\n" : id + "\t" + h + "\n";
+  if (after != before) {
+    fs::path tmp = marker;
+    tmp += ".tmp";
+    { std::ofstream f(tmp); f << after; }
+    fs::rename(tmp, marker);
+    wrote = true;
+  }
+  if (wrote) persist();  // once for the whole folder, not per song
   return n;
 }
 
