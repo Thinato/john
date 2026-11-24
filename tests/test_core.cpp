@@ -1734,6 +1734,39 @@ int main() {
     assert(installSongs(demo) == 1 && loadSong("demo-test") && fs::exists(dataDir() / "demo-installed.txt"));
     fs::remove(dataDir() / "songs" / "demo-test.json");
     assert(installSongs(demo) == 0 && !loadSong("demo-test"));
+    // lyrics added to a bundled song later reach an installed copy with the same notes and no lyrics of its own;
+    // a copy the user changed the notes of, gave lyrics to, or deleted is left alone
+    {
+      fs::path lyr = home / "lyr";
+      fs::create_directories(lyr);
+      const char* ids[] = {"lyr-same", "lyr-edited", "lyr-own", "lyr-gone"};
+      auto bundle = [&](const std::string& abc) {
+        for (auto id : ids) {
+          Song b = importAbc(abc).song;
+          b.id = id;
+          std::ofstream f(lyr / (std::string(id) + ".json"));
+          f << toJson(b).dump();
+        }
+      };
+      bundle("X:1\nT:t\nM:3/4\nL:1/4\nK:D\nD E F|G3|]\n");
+      assert(installSongs(lyr) == 4);
+      Song edited = *loadSong("lyr-edited");
+      edited.events[0].midi = 64;
+      saveSong(edited);
+      Song own = *loadSong("lyr-own");
+      own.events[0].lyric = "mine";
+      saveSong(own);
+      fs::remove(dataDir() / "songs" / "lyr-gone.json");
+      bundle("X:1\nT:t\nM:3/4\nL:1/4\nK:D\nD E F|G3|]\nw:Sing-ing a song\nW:More words.\n");
+      assert(installSongs(lyr) == 0);
+      std::ifstream f(lyr / "lyr-same.json");
+      Song want = fromJson(json::parse(f));
+      want.id = "lyr-same";
+      assert(toJson(*loadSong("lyr-same")) == toJson(want) && loadSong("lyr-same")->events[0].lyricHyphen);
+      assert(toJson(*loadSong("lyr-edited")) == toJson(edited));
+      assert(toJson(*loadSong("lyr-own")) == toJson(own));
+      assert(!loadSong("lyr-gone"));
+    }
     // #47: the title, notes and every comment have a pt-BR translation (re-translate after editing the English)
     auto translated = [](const Song& b) {
       auto has = [&](const std::string& t) {
@@ -1861,11 +1894,11 @@ int main() {
   // settings: no file -> defaults; round trip; missing keys -> defaults; garbage -> all defaults
   {
     auto write = [&](const char* text) { std::ofstream(home / "settings.json") << text; };
-    assert(loadSettings() == Settings{});
+    assert(loadSettings() == Settings{} && Settings{}.lyrics);  // lyrics show by default
     Settings s;
     s.hints = false; s.zoom = 12; s.light = true; s.tempo = 90; s.countIn = false; s.metronome = false;
     s.volume = 0.3f; s.sound = "piano"; s.gate = 0.02f; s.latencyMs = 120; s.tolerance = 25; s.instrument = "violin"; s.whistle = "C"; s.allSongs = true;
-    s.language = "pt-BR"; s.solfege = true; s.solfegeKeys = false; s.harp = "A"; s.allMarks = true;
+    s.language = "pt-BR"; s.solfege = true; s.solfegeKeys = false; s.harp = "A"; s.allMarks = true; s.lyrics = false;
     saveSettings(s);
     assert(loadSettings() == s);
     write(R"({"tempo": 80, "future_setting": 1})");

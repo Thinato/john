@@ -3,6 +3,7 @@
   {
    "comment": "Start with the tongue: this pickup leads into the first bar.",
    "len": 24,
+   "lyric": "Down",
    "midi": 62,
    "techniques": [
     "tongue"
@@ -11,6 +12,7 @@
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 64,
    "type": "note"
   },
@@ -20,31 +22,38 @@
   },
   {
    "len": 48,
+   "lyric": "by",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "the",
    "midi": 62,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "sal",
+   "lyric_hyphen": true,
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "ley",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
@@ -55,6 +64,8 @@
   {
    "comment": "Slide up into the long B from A: roll the middle finger off slowly.",
    "len": 96,
+   "lyric": "gar",
+   "lyric_hyphen": true,
    "midi": 71,
    "techniques": [
     "slide"
@@ -63,16 +74,19 @@
   },
   {
    "len": 48,
+   "lyric": "dens",
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 74,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "my",
    "midi": 69,
    "type": "note"
   },
@@ -82,26 +96,31 @@
   },
   {
    "len": 48,
+   "lyric": "love",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "and",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 72,
+   "lyric": "I",
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "did",
    "midi": 62,
    "type": "note"
   },
@@ -112,6 +131,7 @@
   {
    "comment": "End of the first line: breathe in the rest.",
    "len": 96,
+   "lyric": "meet,",
    "midi": 62,
    "techniques": [
     "breath"
@@ -124,11 +144,13 @@
   },
   {
    "len": 24,
+   "lyric": "She",
    "midi": 62,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 64,
    "type": "note"
   },
@@ -138,31 +160,38 @@
   },
   {
    "len": 48,
+   "lyric": "passed",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "the",
    "midi": 62,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "sal",
+   "lyric_hyphen": true,
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "ley",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
@@ -172,21 +201,26 @@
   },
   {
    "len": 96,
+   "lyric": "gar",
+   "lyric_hyphen": true,
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "dens",
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 74,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "with",
    "midi": 69,
    "type": "note"
   },
@@ -196,26 +230,33 @@
   },
   {
    "len": 48,
+   "lyric": "lit",
+   "lyric_hyphen": true,
    "midi": 71,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "tle",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 72,
+   "lyric": "snow",
+   "lyric_hyphen": true,
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "white",
    "midi": 62,
    "type": "note"
   },
@@ -226,6 +267,7 @@
   {
    "comment": "End of the phrase: breathe here.",
    "len": 96,
+   "lyric": "feet.",
    "midi": 62,
    "techniques": [
     "breath"
@@ -239,6 +281,7 @@
   {
    "comment": "The second part starts here: tongue it.",
    "len": 48,
+   "lyric": "She",
    "midi": 69,
    "techniques": [
     "tongue"
@@ -251,31 +294,37 @@
   },
   {
    "len": 48,
+   "lyric": "bid",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "me",
    "midi": 73,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "take",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "love",
    "midi": 73,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 74,
    "type": "note"
   },
@@ -285,12 +334,15 @@
   },
   {
    "len": 48,
+   "lyric": "eas",
+   "lyric_hyphen": true,
    "midi": 73,
    "type": "note"
   },
   {
    "comment": "Two C#s in a row: tongue the second one so they don't run together.",
    "len": 24,
+   "lyric": "y,",
    "midi": 73,
    "techniques": [
     "tongue"
@@ -299,21 +351,25 @@
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "as",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "the",
    "midi": 69,
    "type": "note"
   },
@@ -323,36 +379,43 @@
   },
   {
    "len": 48,
+   "lyric": "leaves",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "grow",
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 71,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "on",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "the",
    "midi": 76,
    "type": "note"
   },
@@ -363,6 +426,7 @@
   {
    "comment": "Long high D: a little vibrato, then breathe in the rest.",
    "len": 96,
+   "lyric": "tree,",
    "midi": 74,
    "techniques": [
     "breath",
@@ -376,11 +440,13 @@
   },
   {
    "len": 24,
+   "lyric": "But",
    "midi": 62,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "I,",
    "midi": 64,
    "type": "note"
   },
@@ -390,31 +456,38 @@
   },
   {
    "len": 48,
+   "lyric": "be",
+   "lyric_hyphen": true,
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "ing",
    "midi": 62,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "young",
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "and",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
@@ -424,21 +497,26 @@
   },
   {
    "len": 96,
+   "lyric": "fool",
+   "lyric_hyphen": true,
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "ish,",
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 74,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "with",
    "midi": 69,
    "type": "note"
   },
@@ -448,26 +526,32 @@
   },
   {
    "len": 48,
+   "lyric": "her",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "would",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 72,
+   "lyric": "not",
    "midi": 64,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "a",
+   "lyric_hyphen": true,
    "midi": 62,
    "type": "note"
   },
@@ -477,6 +561,7 @@
   },
   {
    "len": 96,
+   "lyric": "gree.",
    "midi": 62,
    "type": "note"
   },

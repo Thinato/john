@@ -332,11 +332,12 @@ static void drawScore(App& a, Song& s) {
   const PitchTrack* trk = a.track && a.track->sync.size() >= 2 ? &*a.track : nullptr;
   const float stripH = trk ? sp * 5 : 0;  // pitch track strip at the bottom of each system
   const float lyS = sp * 1.6f;  // lyrics text size
+  const bool showLyrics = a.set.lyrics;  // off: no lyrics drawn and no room kept for them
   auto lyricW = [&](const Event& e) { return gText->CalcTextSizeA(lyS, FLT_MAX, 0, e.lyric.c_str()).x; };
   auto slotW = [&](const Event& e, int i) -> float {
     if (e.kind == Kind::Bar) return sp * (e.bar == "|" ? 1.4f : 2.4f);
     float w = sp * (1.7f + 1.7f * std::sqrt(e.len / 24.0f)) + (acc[i].shown ? accW : 0);
-    if (!e.lyric.empty()) w = std::max(w, lyricW(e) + sp * (e.lyricHyphen ? 1.6f : 0.8f));  // room for the syllable (and its hyphen)
+    if (showLyrics && !e.lyric.empty()) w = std::max(w, lyricW(e) + sp * (e.lyricHyphen ? 1.6f : 0.8f));  // room for the syllable (and its hyphen)
     return w;
   };
 
@@ -390,7 +391,7 @@ static void drawScore(App& a, Song& s) {
   std::vector<float> sysY{origin.y};  // system tops, then the end of the last one
   for (auto [f, t] : lines) {
     room.push_back(f < t ? systemRoom(s, slots[f].ev, slots[t - 1].ev + 1, whistle ? 4 : 6) : Room{});
-    bool words = std::any_of(slots.begin() + f, slots.begin() + t, [&](const Slot& sl) { return !s.events[sl.ev].lyric.empty(); });
+    bool words = showLyrics && std::any_of(slots.begin() + f, slots.begin() + t, [&](const Slot& sl) { return !s.events[sl.ev].lyric.empty(); });
     sysY.push_back(sysY.back() + sysH + bassDy + (room.back().above + room.back().below) * sp / 2 + stripH + (words ? sp * 2.4f : 0));
   }
   auto sysHOf = [&](int sys) { return sysY[sys + 1] - sysY[sys]; };
@@ -637,7 +638,7 @@ static void drawScore(App& a, Song& s) {
   };
   int sung = a.cursor < (int)s.events.size() ? a.cursor : -1;
   while (sung > 0 && holds(sung)) sung--;
-  for (int k = 0; k < (int)slots.size(); k++) {
+  for (int k = 0; showLyrics && k < (int)slots.size(); k++) {
     const Slot& sl = slots[k];
     const Event& e = s.events[sl.ev];
     if (e.kind != Kind::Note || e.lyric.empty()) continue;
@@ -1108,6 +1109,8 @@ static void detailsPanel(App& a) {
     }
     ImGui::Checkbox(L("Show all marks").c_str(), &a.set.allMarks);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Show every technique mark of the song, also those your instrument doesn't play"));
+    if (std::any_of(s.events.begin(), s.events.end(), [](const Event& e) { return !e.lyric.empty(); }))
+      ImGui::Checkbox(L("Show lyrics").c_str(), &a.set.lyrics);
     const bool breathes = std::count(me.techniques.begin(), me.techniques.end(), "breath") > 0;
     for (auto& t : a.techs) {
       if (!a.set.allMarks && marks({t.id}, me).shown != std::vector<std::string>{t.id}) continue;  // never on my sheet
@@ -1371,6 +1374,8 @@ static void settingsWindow(App& a) {
   ImGui::Checkbox(L("Instrument hints (whistle fingerings)").c_str(), &s.hints);
   ImGui::Checkbox(L("Show all marks").c_str(), &s.allMarks);
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Show every technique mark of the song, also those your instrument doesn't play"));
+  ImGui::Checkbox(L("Show lyrics").c_str(), &s.lyrics);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Show the song's words under the notes"));
   ImGui::SliderFloat(L("Zoom").c_str(), &s.zoom, 6, 16, "%.0f");
   ImGui::Checkbox(L("Light theme").c_str(), &s.light);
   ImGui::SeparatorText(tr("Playback"));

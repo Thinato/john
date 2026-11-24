@@ -7,6 +7,7 @@
   {
    "comment": "Start the tune with the tongue ('tu') for a clean first note.",
    "len": 96,
+   "lyric": "Are",
    "midi": 64,
    "techniques": [
     "tongue"
@@ -16,6 +17,7 @@
   {
    "comment": "The same E again: tongue it so you hear two notes (later you can try a cut instead).",
    "len": 48,
+   "lyric": "you",
    "midi": 64,
    "techniques": [
     "tongue"
@@ -28,11 +30,13 @@
   },
   {
    "len": 96,
+   "lyric": "goin'",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "to",
    "midi": 71,
    "type": "note"
   },
@@ -42,16 +46,21 @@
   },
   {
    "len": 72,
+   "lyric": "Scar",
+   "lyric_hyphen": true,
    "midi": 66,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "bor",
+   "lyric_hyphen": true,
    "midi": 67,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "ough",
    "midi": 66,
    "type": "note"
   },
@@ -61,6 +70,7 @@
   },
   {
    "len": 144,
+   "lyric": "Fair?",
    "midi": 64,
    "tie": true,
    "type": "note"
@@ -80,11 +90,14 @@
   },
   {
    "len": 48,
+   "lyric": "Pars",
+   "lyric_hyphen": true,
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "ley,",
    "midi": 74,
    "type": "note"
   },
@@ -94,11 +107,14 @@
   },
   {
    "len": 96,
+   "lyric": "sage,",
    "midi": 76,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "rose",
+   "lyric_hyphen": true,
    "midi": 74,
    "type": "note"
   },
@@ -108,16 +124,20 @@
   },
   {
    "len": 48,
+   "lyric": "ma",
+   "lyric_hyphen": true,
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "ry",
    "midi": 73,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "and",
    "midi": 69,
    "type": "note"
   },
@@ -128,6 +148,7 @@
   {
    "comment": "Slide up into the long B from A: lift the middle finger slowly instead of all at once.",
    "len": 144,
+   "lyric": "thyme,",
    "midi": 71,
    "techniques": [
     "slide"
@@ -150,6 +171,8 @@
   },
   {
    "len": 48,
+   "lyric": "Re",
+   "lyric_hyphen": true,
    "midi": 76,
    "type": "note"
   },
@@ -159,11 +182,14 @@
   },
   {
    "len": 96,
+   "lyric": "mem",
+   "lyric_hyphen": true,
    "midi": 76,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "ber",
    "midi": 76,
    "type": "note"
   },
@@ -173,11 +199,13 @@
   },
   {
    "len": 96,
+   "lyric": "me",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "to",
    "midi": 71,
    "type": "note"
   },
@@ -187,16 +215,19 @@
   },
   {
    "len": 48,
+   "lyric": "one",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "who",
    "midi": 69,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "lives",
    "midi": 67,
    "type": "note"
   },
@@ -206,11 +237,13 @@
   },
   {
    "len": 48,
+   "lyric": "there,",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 96,
+   "lyric_held": true,
    "midi": 62,
    "tie": true,
    "type": "note"
@@ -234,11 +267,13 @@
   },
   {
    "len": 96,
+   "lyric": "She",
    "midi": 64,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "once",
    "midi": 71,
    "type": "note"
   },
@@ -248,11 +283,13 @@
   },
   {
    "len": 96,
+   "lyric": "was",
    "midi": 69,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "a",
    "midi": 67,
    "type": "note"
   },
@@ -262,16 +299,19 @@
   },
   {
    "len": 48,
+   "lyric": "true",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "love",
    "midi": 64,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "of",
    "midi": 62,
    "type": "note"
   },
@@ -282,6 +322,7 @@
   {
    "comment": "The last long E: a gentle breath vibrato makes it sing.",
    "len": 144,
+   "lyric": "mine.",
    "midi": 64,
    "techniques": [
     "vibrato"

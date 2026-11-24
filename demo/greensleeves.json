@@ -3,6 +3,8 @@
   {
    "comment": "Pickup: the tune starts on beat 3.",
    "len": 48,
+   "lyric": "A",
+   "lyric_hyphen": true,
    "midi": 69,
    "type": "note"
   },
@@ -12,11 +14,13 @@
   },
   {
    "len": 96,
+   "lyric": "las,",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "my",
    "midi": 74,
    "type": "note"
   },
@@ -27,6 +31,7 @@
   {
    "comment": "Slide up into E from D on the same string.",
    "len": 72,
+   "lyric": "love",
    "midi": 76,
    "techniques": [
     "slide"
@@ -35,11 +40,13 @@
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 77,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "you",
    "midi": 76,
    "type": "note"
   },
@@ -49,11 +56,13 @@
   },
   {
    "len": 96,
+   "lyric": "do",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "me",
    "midi": 71,
    "type": "note"
   },
@@ -63,16 +72,19 @@
   },
   {
    "len": 72,
+   "lyric": "wrong,",
    "midi": 67,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "to",
    "midi": 71,
    "type": "note"
   },
@@ -82,11 +94,13 @@
   },
   {
    "len": 96,
+   "lyric": "cast",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "me",
    "midi": 69,
    "type": "note"
   },
@@ -96,17 +110,21 @@
   },
   {
    "len": 72,
+   "lyric": "off",
    "midi": 69,
    "type": "note"
   },
   {
    "comment": "G sharp: it leans back up to A.",
    "len": 24,
+   "lyric_held": true,
    "midi": 68,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "dis",
+   "lyric_hyphen": true,
    "midi": 69,
    "type": "note"
   },
@@ -116,11 +134,15 @@
   },
   {
    "len": 96,
+   "lyric": "cour",
+   "lyric_hyphen": true,
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "teous",
+   "lyric_hyphen": true,
    "midi": 68,
    "type": "note"
   },
@@ -130,11 +152,13 @@
   },
   {
    "len": 96,
+   "lyric": "ly,",
    "midi": 64,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "For",
    "midi": 69,
    "type": "note"
   },
@@ -144,11 +168,13 @@
   },
   {
    "len": 96,
+   "lyric": "I",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "have",
    "midi": 74,
    "type": "note"
   },
@@ -159,6 +185,7 @@
   {
    "comment": "Slide into E, as in bar 2.",
    "len": 72,
+   "lyric": "loved",
    "midi": 76,
    "techniques": [
     "slide"
@@ -167,11 +194,13 @@
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 77,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "you",
    "midi": 76,
    "type": "note"
   },
@@ -181,11 +210,13 @@
   },
   {
    "len": 96,
+   "lyric": "well",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "and",
    "midi": 71,
    "type": "note"
   },
@@ -195,16 +226,20 @@
   },
   {
    "len": 72,
+   "lyric": "long,",
    "midi": 67,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "de",
+   "lyric_hyphen": true,
    "midi": 71,
    "type": "note"
   },
@@ -214,16 +249,20 @@
   },
   {
    "len": 72,
+   "lyric": "light",
+   "lyric_hyphen": true,
    "midi": 72,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "ing",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "in",
    "midi": 69,
    "type": "note"
   },
@@ -233,17 +272,22 @@
   },
   {
    "len": 72,
+   "lyric": "your",
    "midi": 68,
    "type": "note"
   },
   {
    "comment": "F sharp here, an old modal touch, then G sharp again.",
    "len": 24,
+   "lyric": "com",
+   "lyric_hyphen": true,
    "midi": 66,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "pa",
+   "lyric_hyphen": true,
    "midi": 68,
    "type": "note"
   },
@@ -253,6 +297,7 @@
   },
   {
    "len": 144,
+   "lyric": "ny.",
    "midi": 69,
    "tie": true,
    "type": "note"
@@ -273,6 +318,8 @@
   {
    "comment": "Chorus: it starts high on G.",
    "len": 144,
+   "lyric": "Green",
+   "lyric_hyphen": true,
    "midi": 79,
    "type": "note"
   },
@@ -282,16 +329,19 @@
   },
   {
    "len": 72,
+   "lyric": "sleeves",
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 77,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "was",
    "midi": 76,
    "type": "note"
   },
@@ -301,11 +351,13 @@
   },
   {
    "len": 96,
+   "lyric": "all",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "my",
    "midi": 71,
    "type": "note"
   },
@@ -315,16 +367,20 @@
   },
   {
    "len": 72,
+   "lyric": "joy,",
    "midi": 67,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "Green",
+   "lyric_hyphen": true,
    "midi": 71,
    "type": "note"
   },
@@ -334,11 +390,13 @@
   },
   {
    "len": 96,
+   "lyric": "sleeves",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "was",
    "midi": 69,
    "type": "note"
   },
@@ -348,16 +406,20 @@
   },
   {
    "len": 72,
+   "lyric": "my",
    "midi": 69,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 68,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "de",
+   "lyric_hyphen": true,
    "midi": 69,
    "type": "note"
   },
@@ -367,11 +429,13 @@
   },
   {
    "len": 96,
+   "lyric": "light,",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric_held": true,
    "midi": 68,
    "type": "note"
   },
@@ -381,6 +445,7 @@
   },
   {
    "len": 144,
+   "lyric_held": true,
    "midi": 64,
    "type": "note"
   },
@@ -390,6 +455,8 @@
   },
   {
    "len": 144,
+   "lyric": "Green",
+   "lyric_hyphen": true,
    "midi": 79,
    "type": "note"
   },
@@ -399,16 +466,19 @@
   },
   {
    "len": 72,
+   "lyric": "sleeves",
    "midi": 79,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "was",
    "midi": 77,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "my",
    "midi": 76,
    "type": "note"
   },
@@ -418,11 +488,13 @@
   },
   {
    "len": 96,
+   "lyric": "heart",
    "midi": 74,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "of",
    "midi": 71,
    "type": "note"
   },
@@ -432,16 +504,19 @@
   },
   {
    "len": 72,
+   "lyric": "gold,",
    "midi": 67,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric_held": true,
    "midi": 69,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "and",
    "midi": 71,
    "type": "note"
   },
@@ -451,16 +526,19 @@
   },
   {
    "len": 72,
+   "lyric": "who",
    "midi": 72,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "but",
    "midi": 71,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "my",
    "midi": 69,
    "type": "note"
   },
@@ -470,16 +548,21 @@
   },
   {
    "len": 72,
+   "lyric": "la",
+   "lyric_hyphen": true,
    "midi": 68,
    "type": "note"
   },
   {
    "len": 24,
+   "lyric": "dy",
    "midi": 66,
    "type": "note"
   },
   {
    "len": 48,
+   "lyric": "Green",
+   "lyric_hyphen": true,
    "midi": 68,
    "type": "note"
   },
@@ -489,6 +572,7 @@
   },
   {
    "len": 144,
+   "lyric": "sleeves.",
    "midi": 69,
    "tie": true,
    "type": "note"

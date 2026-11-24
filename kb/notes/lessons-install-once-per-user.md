@@ -9,7 +9,7 @@ tags: [lessons, demo, install, data, songs, web]
 Adding or changing files in `lessons/` (desktop and web) or `demo/` (web starter songs, #20).
 
 ## Rule
-`installSongs(from)` in `src/song.cpp` copies each `<from>/<id>.json` into the user's song folder only if `<id>` is not yet listed in `<folder name>-installed.txt` in the data folder (`lessons-installed.txt`, `demo-installed.txt`). A song the user deleted stays deleted, and editing an already-installed one changes nothing for existing users. Each folder has its own marker, so adding a new bundled folder installs it even for users who already have the lessons.
+`installSongs(from)` in `src/song.cpp` copies each `<from>/<id>.json` into the user's song folder only if `<id>` is not yet listed in `<folder name>-installed.txt` in the data folder (`lessons-installed.txt`, `demo-installed.txt`). A song the user deleted stays deleted, and editing an already-installed one changes nothing for existing users, except lyrics: added later to a bundled song, they reach a user's copy that has the same notes and no lyrics (`backfillLyrics()`, see lyrics-alignment-and-storage). Each folder has its own marker, so adding a new bundled folder installs it even for users who already have the lessons.
 
 ## Why
 Users may delete or change songs; re-copying them on every start would undo that. The marker name comes from the folder name so the lessons keep using the `lessons-installed.txt` that existing users already have.
