@@ -496,6 +496,127 @@ int main() {
     assert(err({{"id", "x"}, {"name", "X"}, {"high", 72}}).find("low is missing") == 0);
   }
 
+  // marks per instrument (#86): my instrument shows the marks it lists, its equivalents (instead), breath always,
+  // custom techniques always; the rest is hidden. The song never changes.
+  {
+    const Instrument wh = *findInstrument("whistle"), vn = *findInstrument("violin"), pn = *findInstrument("piano"),
+                     hm = *findInstrument("harmonica");
+    using V = std::vector<std::string>;
+    const V all = {"cut", "tap", "double_cut", "roll", "short_roll", "cran", "slide", "tongue", "breath", "vibrato"};
+    assert(marks(all, wh).shown == all && marks(all, wh).hidden.empty());
+    assert((marks(all, pn).shown == V{"grace", "turn", "breath"}));  // duplicates merged; breath stays as a phrase mark
+    assert((marks(all, pn).hidden == V{"slide", "tongue", "vibrato"}));
+    assert((marks(all, hm).shown == V{"grace", "shake", "slide", "tongue", "breath", "vibrato"}));
+    assert((marks(all, hm).hidden == V{"double_cut", "cran"}));
+    assert((marks(all, vn).hidden == V{"tongue"}) && marks({"breath"}, vn).shown == V{"breath"});
+    assert((marks({"roll", "bounce"}, pn).shown == V{"turn", "bounce"}));  // not built-in: no profile can list it
+    // the profiles' equivalents: piano cut, tap, double_cut -> grace, rolls and crans -> turn; harmonica cut, tap -> grace, rolls -> shake
+    assert((pn.instead == std::map<std::string, std::string>{{"cut", "grace"}, {"tap", "grace"}, {"double_cut", "grace"},
+                                                           {"roll", "turn"}, {"short_roll", "turn"}, {"cran", "turn"}}));
+    assert((hm.instead == std::map<std::string, std::string>{{"cut", "grace"}, {"tap", "grace"}, {"roll", "shake"}, {"short_roll", "shake"}}));
+    for (const char* t : {"grace", "turn", "shake"}) assert(builtinTechnique(t));
+    // hidden counts over the whole song, which keeps its marks
+    Song tune = importAbc("X:1\nT:m\nM:4/4\nL:1/4\nK:D\n{g}A !tongue!B !slide!c !breath!d|~e2 !cran!d2|\n").song;
+    const Song before = tune;
+    assert(hiddenMarks(tune, wh) == 0 && hiddenMarks(tune, vn) == 1 && hiddenMarks(tune, pn) == 2 && hiddenMarks(tune, hm) == 1);
+    assert(toJson(tune) == toJson(before));
+    // analyze_song offers the candidates as my instrument shows them; the whistle's stay as they were
+    const std::string forPiano = analyze(tune, pn), forWhistle = analyze(tune);
+    assert(forWhistle == analyze(tune, wh) && forWhistle.find(": long roll (long note on the beat)\n") != std::string::npos);
+    assert(forWhistle.find("tongue (phrase start") != std::string::npos && forWhistle.find("doesn't breathe") == std::string::npos);
+    assert(forPiano.find(": turn (the Piano's way to play: long roll (long note on the beat))\n") != std::string::npos);
+    assert(forPiano.find("tongue (phrase start") == std::string::npos && forPiano.find("E5: long roll") == std::string::npos);
+    assert(forPiano.find("(the Piano doesn't breathe: a breath mark shows as a phrase end, a short lift)") != std::string::npos);
+    // instead: the target must be one the instrument lists; saving checks every id against the catalog
+    json flute = {{"id", "fl"}, {"name", "Fl"}, {"low", 62}, {"high", 86}, {"techniques", {"grace", "slide"}}};
+    auto err = [](const json& j) {
+      try { parseInstrument(j); } catch (const std::runtime_error& e) { return std::string(e.what()); }
+      return std::string();
+    };
+    json f = flute;
+    f["instead"] = {{"cut", "grace"}};
+    assert(err(f).empty() && parseInstrument(f).instead.at("cut") == "grace" && toJson(parseInstrument(f))["instead"]["cut"] == "grace");
+    f["instead"] = {{"cut", "turn"}};
+    assert(err(f).find("instead \"cut\": \"turn\" must be one of the instrument's techniques") == 0);
+    f["instead"] = {{"cut", 3}};
+    assert(err(f).find("instead \"cut\" must be a technique id") == 0);
+    f["instead"] = json::array();
+    assert(err(f).find("instead must be an object") == 0);
+    Instrument in = parseInstrument(flute);
+    auto saveErr = [&](const Instrument& x) {
+      try { saveInstrument(x); } catch (const std::runtime_error& e) { return std::string(e.what()); }
+      return std::string();
+    };
+    in.instead = {{"wobble", "grace"}};
+    assert(saveErr(in) == "unknown technique 'wobble' (see list_techniques or define_technique)" && !findInstrument("fl"));
+    in.instead = {{"cut", "grace"}, {"roll", "grace"}};
+    assert(saveErr(in).empty() && findInstrument("fl")->instead == in.instead);
+    assert((marks({"roll", "tap"}, *findInstrument("fl")).shown == V{"grace"}));
+    deleteInstrument("fl");
+    // an instead key the instrument lists itself would never apply: refused
+    f["instead"] = {{"slide", "grace"}};
+    assert(err(f).find("instead \"slide\": the instrument lists slide itself") == 0);
+    // the fallback whistle (no whistle.json) lists what whistle.json lists: every built-in but the equivalents
+    {
+      std::set<std::string> builtins, listed(wh.techniques.begin(), wh.techniques.end());
+      for (auto& t : defaultTechniques()) if (t.id != "grace" && t.id != "turn" && t.id != "shake") builtins.insert(t.id);
+      assert(listed == builtins);
+    }
+    // a user's own technique with a built-in's id (a grace defined before #86) is custom: always shown
+    assert(builtinTechnique("grace") && marks({"grace"}, wh).hidden == V{"grace"});
+    saveCustomTechnique({"grace", "Grace", "g", "my own grace"});
+    assert(!builtinTechnique("grace") && marks({"grace"}, wh).shown == V{"grace"});
+    fs::remove(home / "techniques.json");
+    assert(!builtinTechnique("grace"));  // the cache follows loadTechniques(), as the GUI's poll and each MCP call do
+    loadTechniques();
+    assert(builtinTechnique("grace") && marks({"grace"}, wh).hidden == V{"grace"});
+    // playback follows the player's marks: a whistle tune on the piano plays grace notes and turns, on the harmonica a shake
+    Song o = importAbc("X:1\nT:o\nM:4/4\nL:1/4\nK:D\n{g}A ~B2 !tongue!c|\n").song;
+    auto onPiano = perform(o, 60, 0, false, "", pn).voices, onHarp = perform(o, 60, 0, false, "", hm).voices;
+    assert((onPiano[0].graces == std::vector<std::pair<double, int>>{{0, 2}}));               // grace for the cut
+    assert((onPiano[1].graces == std::vector<std::pair<double, int>>{{0, 2}, {0.07, -2}}));   // turn for the roll
+    assert(onHarp[1].graces.size() > 4 && onHarp[1].graces[0].second == 3);                    // shake for the roll
+    assert(perform(o, 60, 0, false, "", wh).voices[1].graces.size() == 2);                     // the whistle's own roll
+    const int sr = 48000, n = 1024;
+    auto render = [&](const Performance& p) {
+      Synth syn;
+      syn.metronome = false;
+      syn.volume = 1;
+      long long at = 0;
+      std::vector<float> x((size_t)((p.length + 0.5) * sr), 0.f);
+      syn.render(p, at, x.data(), (int)x.size());
+      for (float v : x) assert(std::isfinite(v) && std::abs(v) < 1);
+      return x;
+    };
+    auto pitch = [&](const std::vector<float>& x, double at, int len) {  // written MIDI heard at `at` seconds (octave 0)
+      float hz = detectPitch(x.data() + (int)(at * sr), len, sr, 150, 2000);
+      return hz > 0 ? (int)std::lround(writtenMidiFromFreq(hz, 0)) : -1;
+    };
+    // a piano note with a grace / turn, a harmonica note with a shake: the grace pitch, then the note
+    Song g = importAbc("X:1\nT:g\nM:4/4\nL:1/4\nK:C\n!grace!A4|\n").song, t = g, k = g;
+    t.events[0].techniques = {"turn"};
+    k.events[0].techniques = {"shake"};
+    std::vector<float> xg = render(perform(g, 60, 0, false, "piano", pn)), xt = render(perform(t, 60, 0, false, "piano", pn)),
+                       xk = render(perform(k, 60, 0, false, "harmonica", hm));
+    assert(pitch(xg, 0.008, 1000) == 71 && pitch(xg, 0.3, n) == 69);   // B4 grace, then A4
+    assert(pitch(xt, 0.008, 1000) == 71 && pitch(xt, 0.078, 1000) == 67 && pitch(xt, 0.3, n) == 69);  // above, below, the note
+    assert(pitch(xk, 0.46, 1500) == 72 && pitch(xk, 0.53, 1500) == 69 && pitch(xk, 0.6, 1500) == 72);  // C5 / A4 alternate
+    // on a short note the grace notes shrink to a quarter of what sounds, so the main note is still heard (a sixteenth at
+    // 120 bpm, 125 ms, minus the piano's 12 ms damp)
+    Song sg = importAbc("X:1\nT:s\nM:4/4\nL:1/16\nK:C\n!grace!A !turn!A z2 z12|\n").song;
+    Performance ps = perform(sg, 120, 0, false, "piano", pn);
+    const double heard = 0.125 - 0.012, gl = heard / 4;
+    assert(std::abs(ps.voices[0].graceLen - gl) < 1e-9 && std::abs(ps.voices[1].graceLen - gl) < 1e-9);
+    assert(std::abs(ps.voices[1].graces[1].first - 2 * gl) < 1e-9);
+    std::vector<float> xs = render(ps);
+    auto shortPitch = [&](double at, int len) {
+      float hz = detectPitch(xs.data() + (int)(at * sr), len, sr, 300, 2000);
+      return hz > 0 ? (int)std::lround(writtenMidiFromFreq(hz, 0)) : -1;
+    };
+    assert(shortPitch(0.002, 1000) == 71 && shortPitch(gl + 0.005, 3000) == 69);  // grace, then the note for 3/4
+    assert(shortPitch(0.125 + 2 * gl + 0.002, 1000) == 67 && shortPitch(0.125 + 3 * gl + 0.002, 900) == 69);  // turn: below, the note
+  }
+
   // play in another key (#67): smallest interval, then the octave that fits the instrument; back = the original
   {
     Song s = importAbc("X:1\nT:k\nM:4/4\nL:1/8\nK:D\nDEFG ABcd|\n").song;  // D4..D5 on a D whistle
@@ -1642,7 +1763,7 @@ int main() {
     Settings s;
     s.hints = false; s.zoom = 12; s.light = true; s.tempo = 90; s.countIn = false; s.metronome = false;
     s.volume = 0.3f; s.sound = "piano"; s.gate = 0.02f; s.latencyMs = 120; s.tolerance = 25; s.instrument = "violin"; s.whistle = "C"; s.allSongs = true;
-    s.language = "pt-BR"; s.solfege = true; s.solfegeKeys = false; s.harp = "A";
+    s.language = "pt-BR"; s.solfege = true; s.solfegeKeys = false; s.harp = "A"; s.allMarks = true;
     saveSettings(s);
     assert(loadSettings() == s);
     write(R"({"tempo": 80, "future_setting": 1})");

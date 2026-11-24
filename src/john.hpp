@@ -97,7 +97,8 @@ struct Instrument {
   int octave = 0;          // sounding pitch = written + 12 * octave (whistle +1, guitar -1, others 0)
   std::string key;         // the key low..high are for ("D", "Bb"); "" = no key
   std::map<int, NoteLevel> notes;       // semitones above low -> level; missing in range = easy
-  std::vector<std::string> techniques;  // technique ids it can play (stored for #86)
+  std::vector<std::string> techniques;  // technique ids it can play: the sheet shows only these (marks(), #86)
+  std::map<std::string, std::string> instead;  // a technique it can't play -> the listed one it plays instead (cut -> grace)
   std::string sound = "whistle";        // one of SOUNDS
   bool hints = false;                   // John has fingering charts for it (tin whistle charts, on `key`)
   std::vector<std::string> keys;        // the keys it comes in, lowest instrument first; empty = only `key`
@@ -125,10 +126,18 @@ int parseNote(const std::string& s);              // "D4" -> 62, "C#6" -> 85 (C4
 // A profile from JSON (the file format, plus "id"). Throws std::runtime_error naming the bad field.
 Instrument parseInstrument(const json& j);
 json toJson(const Instrument& in);                // the file format, without the id (the file name is the id)
-void saveInstrument(const Instrument& in);        // dataDir()/instruments/<id>.json, then reloads the catalog
+void saveInstrument(const Instrument& in);        // dataDir()/instruments/<id>.json, then reloads the catalog; throws for
+                                                  // an invalid profile or a technique not in loadTechniques()
 bool deleteInstrument(const std::string& id);     // removes the custom file; false if there was none
 void applyPreset(Instrument& in, bool diatonic);  // chromatic: all easy; diatonic: notes outside the major scale of key
                                                   // (else of the bottom note) hard
+// What the sheet shows of a note's technique marks on `in` (#86). A mark `in` lists stays; one in `in.instead` becomes
+// its equivalent; breath always stays (a phrase mark; "phrase end (lift)" on instruments that don't list it); a
+// technique that isn't built-in (define_technique) stays, since built-in profiles can't list it. Everything else is
+// hidden. Display and playback only: the song keeps its marks. shown has no duplicates; hidden lists the marks dropped.
+struct Marks { std::vector<std::string> shown, hidden; };
+Marks marks(const std::vector<std::string>& techniques, const Instrument& in);
+int hiddenMarks(const Song& s, const Instrument& in);  // marks hidden in the whole song
 
 // ---- viewer language (gettext style: the English text is the key) ----
 // Only the GUI calls setLanguage()/setSolfege(); until then tr() returns its argument and note names are letters,
@@ -238,6 +247,7 @@ struct Voice {                 // one note as played by the backing voice
   double gap = 0;              // silence at the end of the note (breath, staccato, next note tongued/repeated)
   bool tongued = false, vibrato = false;
   std::vector<std::pair<double, int>> graces;  // (seconds after start, semitones from the note) for cuts/taps/rolls
+  double graceLen = 0.035;     // seconds each grace sounds (shorter on short notes with grace notes, turns or shakes)
 };
 struct Performance {
   std::vector<Voice> voices;                    // notes only (rests are gaps)
@@ -251,7 +261,7 @@ struct Performance {
 // player: the instrument the tune is played on (the GUI passes Settings' instrument), default the song's own. The
 // octave always comes from it: a violin-written tune played on a whistle sounds an octave above the written notes.
 // sound: a SOUNDS id to play with, "" = the player's instrument's sound. It changes the timbre and which ornaments/breaths are
-// played, never the pitch.
+// played, never the pitch. The marks played are the player's (marks()): hidden ones are not played, equivalents are.
 Performance perform(const Song& s, double bpm, int fromOrder = 0, bool countIn = true, const std::string& sound = "",
                     const std::optional<Instrument>& player = std::nullopt);
 double soundingFreq(int writtenMidi, int octave);   // octave: Instrument::octave (whistle music sounds an octave up)
@@ -278,6 +288,7 @@ std::string homeDir();                            // $HOME, or %USERPROFILE% on 
 fs::path dataDir();                         // $JOHN_HOME or ~/Documents/John
 std::vector<Technique> loadTechniques();    // defaults merged with dataDir()/techniques.json
 void saveCustomTechnique(const Technique& t);
+bool builtinTechnique(const std::string& id);  // in defaultTechniques()
 // User preferences, saved in dataDir()/settings.json and read by both the GUI and the MCP server.
 // A new setting: one field here, its name in the JSON list in song.cpp, one line in the GUI's Settings window.
 struct Settings {
@@ -299,6 +310,7 @@ struct Settings {
   bool solfege = false;             // note names Do Re Mi instead of C D E
   bool solfegeKeys = true;          // key names Do Re Mi ("Ré maior"); only in a language other than English
   std::string harp = "C";           // my harmonica's key (also for songs switched to or imported as harmonica), one of HARP_KEYS
+  bool allMarks = false;            // the sheet shows every technique mark, not only my instrument's (marks())
   bool operator==(const Settings&) const = default;
 };
 Settings loadSettings();                    // missing keys -> defaults; unreadable file -> all defaults
@@ -339,7 +351,9 @@ std::string graceTechnique(const std::vector<int>& graces, int midi);  // grace 
 // import_musicxml and the viewer's Import song.
 std::vector<ImportResult> importSongs(const std::string& data, const Song& like, bool overwrite = false);
 std::string listing(const Song& s);          // compact text table of every event, for the agent
-std::string analyze(const Song& s);          // deterministic technique candidates + range report
+// Deterministic technique candidates + range report (on the song's instrument). The candidates are for `player`
+// (default the song's instrument): marks it lists as they are, equivalents named as such, hidden ones left out (#86).
+std::string analyze(const Song& s, const std::optional<Instrument>& player = std::nullopt);
 
 // ---- audio transcription (transcribe.cpp) ----
 // mp3/wav/flac, interleaved when channels > 1 (mono by default); throws on failure

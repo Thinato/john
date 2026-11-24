@@ -27,6 +27,7 @@
   "34": {"level": "hard", "how": "bend"},
   "35": {"level": "hard", "how": "bend"}
  },
- "techniques": ["slide", "tongue", "breath", "staccato", "accent", "vibrato", "trill"],
+ "techniques": ["slide", "tongue", "breath", "staccato", "accent", "vibrato", "trill", "grace", "shake"],
+ "instead": {"cut": "grace", "tap": "grace", "roll": "shake", "short_roll": "shake"},
  "sound": "harmonica"
 }
