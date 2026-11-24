@@ -6,7 +6,7 @@ tags: [web, emscripten, import, omr, image, pdf, worker, cache, em_js]
 # Web image import: the Worker and the Emscripten bridge
 
 ## Context
-Changing the web Import song window's image/PDF path (#75): `pickFile()`, `omrState()`, `omrCancel()`, `importRead()`, `originalPanel()` in `src/gui_main.cpp`, or `web/omr/omr.js` (main thread) and `web/omr/worker.js` (the reader).
+Changing the web Import song window's image/PDF path (#75): `pickFile()`, `omrState()`, `omrCancel()`, `importRead()`, `originalPanel()` in `src/gui_import.cpp`, or `web/omr/omr.js` (main thread) and `web/omr/worker.js` (the reader).
 
 ## Rule
 `pickFile()` (EM_JS) writes ABC/MusicXML picks to `/picked` as before and hands images and PDFs to `import('./omr/omr.js')` with `FS`. `omr.js` renders pages (pdf.js for PDFs, `createImageBitmap` for images), sends them one at a time to the module Worker `worker.js`, and keeps a plain `state` object (`stage`: idle/open/download/start/read/done/error, page, pages, ratio, loaded, total, error code). C++ reads it every frame as JSON through `omrState()` (malloc'd by `stringToNewUTF8`, so `free()` it). When done, `omr.js` writes `/omr/result.musicxml` and `/omr/original` (uint32 width, height, then RGBA, the first page at most 2048 px) to MEMFS; `abcWindow()` imports the file through `checkFirstLineKey()` and `importText()`, makes a GL texture of the original for the new song ids (this session only), and calls `omrCancel()`, which also resets `state` to idle. Error codes, not messages, cross the bridge, so C++ translates them with `tr()`.

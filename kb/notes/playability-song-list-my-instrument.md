@@ -6,7 +6,7 @@ tags: [playability, song-list, instruments, range, transpose, gui, mcp, settings
 # Playability: songs that fit my instrument
 
 ## Context
-Changing `playability()`, `fits()`, `PLAYABLE_PERCENT` or `rangeCost()` (`src/analyze.cpp`), the song list filter and the "Play in G major" button in `src/gui_main.cpp`, `Settings::instrument`/`whistle`/`harp`/`allSongs`, or `list_songs`/`analyze_song` in `src/mcp_main.cpp` (#84).
+Changing `playability()`, `fits()`, `PLAYABLE_PERCENT` or `rangeCost()` (`src/analyze.cpp`), the song list filter (`songList()`) and the "Play in G major" button (`detailsPanel()`) in `src/gui_panels.cpp`, `Settings::instrument`/`whistle`/`harp`/`allSongs`, or `list_songs`/`analyze_song` in `src/mcp_songs.cpp` (#84).
 
 ## Rule
 A song's `instrument` is only what it was written for ("Written for" in the details panel). The user's instrument is `Settings::instrument` + `whistle` + `harp` (`myInstrument()` in the GUI, `playsOn()` in the MCP server). `playability(song, in)` compares the song's written pitches with `in`'s range. `rangeCost()` reads `in`'s note table (#85), which for a whistle is moved to `in.key`, not `song.whistle`. "Fits" means 0 notes out and `hard() * 10 < notes * PLAYABLE_PERCENT`, so a half-hole counts as one hard note and a cross-fingered C as a fifth. Import song's range hint uses the same constant. If shift 0 fits, the verdict is AsWritten. Otherwise each of the 12 tonics gets its octave from `keyShift()` (shared with `transposeToKey`), and the best is chosen by: fewest out, then fits, then nearest key (an octave shift counts as distance 0), then fewest hard notes.

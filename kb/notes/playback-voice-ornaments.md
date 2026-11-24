@@ -6,7 +6,7 @@ tags: [audio, playback, synth, instruments, ornaments, breath, sound]
 # Which ornaments each playback voice plays
 
 ## Context
-Changing playback in `src/sound.cpp`: `perform(song, bpm, from, countIn, sound)` and `Synth::render`, or the GUI's Sound combo (`App::set.sound` in `src/gui_main.cpp`, "" = my instrument from Settings, shown "(mine)"; a saved setting since #18).
+Changing playback in `src/sound.cpp`: `perform(song, bpm, from, countIn, sound)` and `Synth::render`, or the GUI's Sound combo (`transportBar()` in `src/gui_practice.cpp`, `App::set.sound` in `src/gui.hpp`, "" = my instrument from Settings, shown "(mine)"; a saved setting since #18).
 
 ## Rule
 `perform()` decides per sound (`Performance::sound`, a `SOUNDS` id; an instrument profile names its voice in `sound`) what is played: whistle plays everything; violin plays cuts, taps, rolls, crans, slides and vibrato but no breath gaps; guitar plays finger ornaments (as hammer-ons/pull-offs) and slides, no vibrato or breaths; electric guitar adds vibrato; harmonica plays breaths, slides (bends) and vibrato but no finger ornaments; piano plays none of them (staccato and tonguing gaps still apply to every voice). When the player is a singing voice (`Instrument::voice`, #87), breath gaps play whatever the sound. Grace notes, turns and shakes (#86) play on every voice. Before the voice filter, the note's marks go through `marks(e.techniques, player)`: hidden marks aren't played and equivalents are (a whistle tune on my piano plays grace notes and turns; see technique-marks-follow-my-instrument). `Performance::octave` always comes from the player's instrument (`perform`'s `player`: Settings' instrument in the GUI since #90, else the song's), not from the sound.

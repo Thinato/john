@@ -6,7 +6,7 @@ tags: [release, packaging, ci, web, pages, lessons, fonts]
 # Release packages and the Pages deploy
 
 ## Context
-Changing `.github/workflows/release.yml` or `pages.yml`, adding a runtime file the desktop apps need (lessons, fonts, data), or touching `bundled()`/`lessonsDir()` in `src/settings.cpp` or the font loading in `main()` of `src/gui_main.cpp` (#21).
+Changing `.github/workflows/release.yml` or `pages.yml`, adding a runtime file the desktop apps need (lessons, fonts, data), or touching `bundled()`/`lessonsDir()` in `src/settings.cpp` or the font loading (`loadFonts()` in `src/gui_main.cpp`) (#21).
 
 ## Rule
 `JOHN_LESSONS`, `JOHN_I18N`, `JOHN_FONT` and `JOHN_TEXT_FONT` are absolute build-time paths (source tree, build dir). A downloaded app has neither, so `bundled(rel, built)` first looks for `rel` in the running executable's folder (`_NSGetExecutablePath` on macOS, `/proc/self/exe` on Linux, `GetModuleFileNameW` on Windows) and uses the build-time path only when that file is missing. The release zip/tar.gz (`john-macos`, `john-linux`, `john-windows`) is a flat folder: `john`, `john-mcp` (`.exe` on Windows), `lessons/`, `i18n/` (`i18nDir()`), `fonts/` (Bravura.otf, NotoSans-Regular.ttf and their OFL license texts). The macOS build is universal (arm64 + x86_64) with a macOS 11 minimum. Pages publishes `build-web/` with `john.html` copied to `index.html`.
