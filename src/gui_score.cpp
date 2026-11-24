@@ -224,6 +224,7 @@ int Page::drawPaper() {
   for (auto& sl : slots) {
     if (s.events[sl.ev].kind != Kind::Note) continue;
     float top = sysY[sl.sys], h = sysHOf(sl.sys) - stripH;
+    if (sl.ev == a.snapHover) a.snapMouse = {sl.x + sl.w / 2, top + h / 2};  // JOHN_SNAPSHOT_HOVER: main() moves the mouse here
     if (mouse.x >= sl.x && mouse.x < sl.x + sl.w && mouse.y >= top && mouse.y < top + h && ImGui::IsWindowHovered())
       hovered = sl.ev;
     if (sl.ev == a.sel || sl.ev == hovered)

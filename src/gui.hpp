@@ -121,6 +121,10 @@ struct App {
   std::vector<float> rangeHz;        // the take's pitch, one per frame (0 = none)
   std::optional<int> rangeNote[2];   // each take's note, sounding MIDI (sungNote)
   std::string rangeError;
+
+  // ---- JOHN_SNAPSHOT_HOVER (gui_main.cpp): the note to hover, and the mouse position drawPaper() found for it ----
+  int snapHover = -1;
+  ImVec2 snapMouse{-FLT_MAX, -FLT_MAX};
 };
 
 // Drawing with the music and text fonts, sizes in staff spaces: the score and Find my range's staff.
