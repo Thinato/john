@@ -1,0 +1,5 @@
+call tools '"method":"tools/list"'
+expect '"name":"delete_bars"'
+call reel '"method":"tools/call","params":{"name":"import_abc","arguments":{"abc":"X:1\nT:Smoke Reel\nM:4/4\nL:1/8\nK:D\nA2FA A2dB|A4 d4|]"}}'
+call delete '"method":"tools/call","params":{"name":"delete_bars","arguments":{"id":"smoke-reel","first":2}}'
+expect 'Deleted 2 note'
