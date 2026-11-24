@@ -1278,7 +1278,7 @@ int installSongs(const fs::path& from) {
   for (auto& [id, h] : done) after += h.empty() ? id + "\n" : id + "\t" + h + "\n";
   if (after != before) {
     fs::path tmp = marker;
-    tmp += ".tmp";
+    tmp += ".tmp" + std::to_string(std::random_device{}());  // unique per writer: the GUI and the MCP server both install lessons
     { std::ofstream f(tmp); f << after; }
     fs::rename(tmp, marker);
     wrote = true;
