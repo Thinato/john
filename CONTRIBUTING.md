@@ -11,6 +11,8 @@ Work is planned in [GitHub Issues](https://github.com/Thinato/john/issues). `mai
 ## Working on it
 
 - Build and test: see the README. Dev notes and code rules are in [CLAUDE.md](CLAUDE.md). Read them, they apply to everyone.
+- **Where things go:** each area has its own code, header, test file, strings file and doc ([kb/notes/where-things-go.md](kb/notes/where-things-go.md)). Stay in your area's files. The few shared lines (a setting's field, a tool's table entry, a window's call) are listed there: keep those edits to one line.
+- User docs are in `docs/`, one file per area (listed in the README). Document a feature in its area's file, not in the README.
 - Keep the change to what the issue asks. Found something else? Open a new issue instead of growing the PR.
 - If the plan in the issue turns out wrong or unclear, say so in the issue or the PR rather than guessing.
 
@@ -20,11 +22,19 @@ A PR is ready for review when:
 
 - [ ] It says `Closes #<number>` and explains what changed in a few plain sentences.
 - [ ] `scripts/check.sh` passes locally (build, ctest, kb check; `--web` adds the web build), and new logic has a test in `tests/`.
-- [ ] GUI changes were checked with a snapshot (`JOHN_SNAPSHOT`, see CLAUDE.md): say what it shows, and attach the image if you can.
-- [ ] README / CLAUDE.md / the MCP agent instructions are updated if behaviour changed.
+- [ ] GUI changes were checked with a snapshot (`scripts/snap.sh`, see CLAUDE.md): say what it shows, and attach the image if you can.
+- [ ] The user doc for the area (`docs/<area>.md`), CLAUDE.md and the MCP agent instructions are updated if behaviour changed. The README only changes for install, build or a new doc.
 - [ ] Anything non-obvious you learned about the codebase is written down as a note in `kb/notes/` (see `kb/README.md`).
 - [ ] No copyrighted recordings or sheets, no personal paths, names or emails, no secrets.
 - [ ] Anything someone has to hear, play or see to judge (sounds, mic, layout) is labelled `needs-human-check`.
+
+## Working in parallel
+
+Several people or agents work at once, each in their own branch (agents: their own git worktree). To keep that conflict-free:
+
+- Before starting, check which files your issue will touch against the open PRs. Two issues in the same area wait for each other; issues in different areas run side by side.
+- `scripts/worktree-setup.sh` configures a new worktree with the shared download cache (and ccache when installed), so it builds in seconds. `scripts/worktree-clean.sh` lists worktrees whose PR is merged (`--yes` removes them).
+- PRs list the files they touch, so the next round can be planned around them.
 
 ## Review and merge
 
