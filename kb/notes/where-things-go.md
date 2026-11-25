@@ -49,4 +49,12 @@ Every PR used to append to the same `test_core.cpp`, `pt-BR.json`, `john.hpp` an
 - A new core function goes in its area's `.cpp` and header. A new area gets its own pair, added to `john.hpp` and the `john_core` sources in `CMakeLists.txt`.
 - A new viewer window: a `fooWindow(App&)` in the `gui_*.cpp` of its subject, declared in `gui.hpp`, called once from the frame loop in `main()`; its state is a block of `App` fields. A new subject gets its own `gui_<area>.cpp`, added to the `john` sources in `CMakeLists.txt`. A helper two GUI files need is declared in `gui.hpp` and defined once, never copied.
 - A setting's UI is one line in `settingsWindow()` (`gui_settings.cpp`), next to its field (settings-add-a-setting).
-- A new MCP tool: a handler named after the tool (`static std::string get_song(const json& a)`) and one `tool("name", "description", schema, handler)` entry in its area's table (`songTools()`, ...) in `mcp_<area>.cpp`. `tools/list` shows the areas in the order `tools()` in `mcp_main.cpp` joins them, and each table in its order. A new area: `mcp_<area>.cpp`, its `...Tools()` in `mcp.hpp` and `tools()`, and the `john-mcp` sources. Tool replies stay English and nothing else may reach stdout.
+- A new MCP tool: a handler named after the tool (`static std::string get_song(const json& a)`) and one `tool("name", "description", schema, handler)` entry in its area's table (`songTools()`, ...) in `mcp_<area>.cpp`. `tools/list` shows the areas in the order `tools()` in `mcp_main.cpp` joins them, and each table in its order. A new area: `mcp_<area>.cpp`, its `...Tools()` in `mcp.hpp` and `tools()`, and the `john-mcp` sources. Tool replies stay English and nothing else may reach stdout. Its smoke checks are a new `tests/mcp/<area>/<tool>.sh` (mcp-smoke-per-tool-checks).
+- User docs: the feature's `docs/<area>.md`. The README only changes for install, build or a new doc.
+
+## The shared lines that remain
+Two branches still touch the same line only here; keep these edits to one line so a conflict is trivial:
+- a new setting: its field in `Settings` (`settings.hpp`) and its name in the JSON list in `settings.cpp`;
+- a new MCP tool: its `tool(...)` entry in the area's table (a new area: `tools()` in `mcp_main.cpp`);
+- a new viewer window: its call in the frame loop in `gui_main.cpp`;
+- a new source file of an existing area target: one line in `CMakeLists.txt` (tests and smoke scenarios are globbed: none).

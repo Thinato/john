@@ -4,6 +4,10 @@ Closes #
 
 <!-- A few plain sentences: what it does for the user, and anything a reviewer should look at closely. -->
 
+## Files touched
+
+<!-- The areas and files this PR changes (see kb/notes/where-things-go.md), so parallel work can be planned around it. -->
+
 ## How it was checked
 
 <!-- Tests added or run, snapshots for GUI changes, what still needs someone to listen or play. -->
